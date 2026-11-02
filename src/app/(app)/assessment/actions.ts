@@ -6,7 +6,8 @@ import type { AcaoState } from "@/lib/acao/tipos";
 import { getSessao } from "@/lib/auth/session";
 import { calcularSelf, RespostaInvalida } from "@/lib/assessment/motor";
 import type { Respostas } from "@/lib/assessment/tipos";
-import { faltasParaConcluir, modelo, normalizarRascunho, pacote } from "@/lib/assessment/self";
+import type { EmpresaSelf } from "@/lib/assessment/questionario";
+import { faltasParaConcluir, modelo, normalizarEmpresa, normalizarRascunho, pacote } from "@/lib/assessment/self";
 import { log, newTraceId } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 import { gravarConclusaoSelf } from "@/lib/supabase/servidor";
@@ -39,8 +40,11 @@ export interface SalvarResultado {
   salvoEm?: string;
 }
 
-/** Autosave do questionário. Grava só `respostas` (único campo que o cliente pode alterar). */
-export async function salvarRespostas(id: string, entrada: unknown): Promise<SalvarResultado> {
+/**
+ * Autosave do questionário. Grava só `respostas` e `empresa`, as únicas
+ * colunas que o cliente pode alterar (e só enquanto é rascunho).
+ */
+export async function salvarRascunho(id: string, entrada: { respostas?: unknown; empresa?: unknown }): Promise<SalvarResultado> {
   if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
   const supabase = await createClient();
   const { data: linha } = await supabase
@@ -51,12 +55,14 @@ export async function salvarRespostas(id: string, entrada: unknown): Promise<Sal
   if (!linha) return { ok: false, erro: "Assessment não encontrado." };
   if (linha.status !== "rascunho") return { ok: false, erro: "Este assessment já foi concluído." };
 
-  const norm = normalizarRascunho(entrada, linha.setor);
+  const norm = normalizarRascunho(entrada?.respostas ?? {}, linha.setor);
   if (!norm.ok) return { ok: false, erro: norm.erro };
+  const emp = normalizarEmpresa(entrada?.empresa ?? {});
+  if (!emp.ok) return { ok: false, erro: emp.erro };
 
   const { data, error } = await supabase
     .from("assessments")
-    .update({ respostas: norm.respostas })
+    .update({ respostas: norm.respostas, empresa: emp.empresa })
     .eq("id", id)
     .eq("status", "rascunho")
     .select("atualizado_em")
@@ -85,9 +91,16 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("user_id, org_id, setor, status, respostas")
+    .select("user_id, org_id, setor, status, respostas, empresa")
     .eq("id", id)
-    .maybeSingle<{ user_id: string; org_id: string | null; setor: string; status: string; respostas: Respostas }>();
+    .maybeSingle<{
+      user_id: string;
+      org_id: string | null;
+      setor: string;
+      status: string;
+      respostas: Respostas;
+      empresa: EmpresaSelf;
+    }>();
   // RLS deixa empresa e admin LEREM; concluir é só do dono.
   if (!linha || linha.user_id !== userId) return { message: "Assessment não encontrado." };
   if (linha.status !== "rascunho") redirect(`/assessment/${id}/resultado`);
@@ -101,7 +114,7 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
     return { message: "Seu acesso ao Self assessment não está liberado." };
   }
 
-  const faltas = faltasParaConcluir(linha.respostas);
+  const faltas = faltasParaConcluir(linha.respostas, linha.empresa ?? {});
   if (faltas.length > 0) return { message: `Faltam respostas: ${faltas.join(" ")}` };
 
   let resultado;

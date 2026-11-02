@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { areasParaPergunta6 } from "@/lib/assessment/motor";
 import { ajustarPessoasQ6, areasQ6, pendencias, type RespostasSelf } from "@/lib/assessment/questionario";
-import { faltasParaConcluir, modelo, montarQuestionario, normalizarRascunho, pacote } from "@/lib/assessment/self";
+import { faltasParaConcluir, modelo, montarQuestionario, normalizarEmpresa, normalizarRascunho, pacote } from "@/lib/assessment/self";
 import casos from "../fixtures/assessment/casos.json";
 import respostasPiloto from "../fixtures/assessment/respostas_piloto_self.json";
 
@@ -89,8 +89,24 @@ describe("rascunho", () => {
 });
 
 describe("conclusão", () => {
-  it("piloto completo não tem pendências", () => {
-    expect(faltasParaConcluir(piloto as RespostasSelf)).toEqual([]);
+  const empresa = {
+    nome: "Rede Piloto Alfa",
+    cnpj: "11222333000181",
+    cidade: "São Paulo",
+    uf: "SP",
+    contato_nome: "Ana",
+    contato_cargo: "Diretora",
+    contato_email: "ana@rede.com.br",
+  };
+
+  it("piloto completo, com empresa cadastrada, não tem pendências", () => {
+    expect(faltasParaConcluir(piloto as RespostasSelf, empresa)).toEqual([]);
+  });
+
+  it("exige cadastro da empresa com CNPJ válido e e-mail", () => {
+    const f = faltasParaConcluir(piloto as RespostasSelf, { ...empresa, cnpj: "11222333000180", contato_email: "ana" });
+    expect(f).toEqual(["CNPJ válido", "E-mail do contato principal"]);
+    expect(faltasParaConcluir(piloto as RespostasSelf, {})).toHaveLength(5);
   });
 
   it("aponta o que falta e em qual etapa", () => {
@@ -98,5 +114,18 @@ describe("conclusão", () => {
     expect(p.map((x) => x.passo)).toContain("perfil");
     expect(p.find((x) => x.texto === "Faturamento anual")?.passo).toBe("perfil");
     expect(p.some((x) => x.passo === "pessoas")).toBe(true);
+  });
+});
+
+describe("cadastro da empresa", () => {
+  it("guarda só dígitos de CNPJ e telefone e descarta campos extras", () => {
+    const n = normalizarEmpresa({ nome: " Rede X ", cnpj: "11.222.333/0001-81", contato_telefone: "(11) 99999-0000", papel: "admin" });
+    expect(n.ok && n.empresa).toEqual({ nome: "Rede X", cnpj: "11222333000181", contato_telefone: "11999990000" });
+  });
+
+  it("recusa UF inexistente e textos longos", () => {
+    expect(normalizarEmpresa({ uf: "XX" }).ok).toBe(false);
+    expect(normalizarEmpresa({ nome: "x".repeat(201) }).ok).toBe(false);
+    expect(normalizarEmpresa({ cnpj: "1".repeat(15) }).ok).toBe(false);
   });
 });

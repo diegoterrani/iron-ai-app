@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { exigirContaAtiva } from "@/lib/auth/session";
+import type { EmpresaSelf } from "@/lib/assessment/questionario";
 import { ROTULO_DIMENSAO, nomeOrigem } from "@/lib/assessment/self";
 import type { ResultadoSelf } from "@/lib/assessment/tipos";
 import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
+import { formatarCnpj } from "@/lib/validation/cnpj";
 import { BotaoImprimir } from "./imprimir";
 
 export const metadata: Metadata = { title: "Resultado do Self assessment" };
@@ -30,7 +32,11 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
 
   const supabase = await createClient();
   // RLS: dono, quem tem assessment.ver na empresa ou super-admin com MFA.
-  const { data: linha } = await supabase.from("assessments").select("id, status").eq("id", id).maybeSingle();
+  const { data: linha } = await supabase
+    .from("assessments")
+    .select("id, status, empresa")
+    .eq("id", id)
+    .maybeSingle<{ id: string; status: string; empresa: EmpresaSelf | null }>();
   if (!linha) notFound();
   if (linha.status !== "concluido") redirect(`/assessment/${id}`);
   const { data: res } = await supabase
@@ -42,6 +48,7 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
     .maybeSingle<{ resultado: ResultadoSelf; criado_em: string }>();
   if (!res) notFound();
   const r = res.resultado;
+  const emp: EmpresaSelf = linha.empresa ?? {};
   const cons = r.retorno.conservador;
   const base = r.retorno.base;
   const destrava = r.o_que_destrava[0];
@@ -52,8 +59,23 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
       <p className="eyebrow">
         <Link href="/assessment">Self assessment</Link> / resultado
       </p>
-      <h1 className="title">Resultado</h1>
-      <p className="field-hint">Food service · calculado em {dataHora.format(new Date(res.criado_em))}</p>
+      <h1 className="title">{emp.nome ? `Resultado: ${emp.nome}` : "Resultado"}</h1>
+      <p className="field-hint">
+        {[
+          emp.cnpj ? `CNPJ ${formatarCnpj(emp.cnpj)}` : null,
+          emp.cidade && emp.uf ? `${emp.cidade}/${emp.uf}` : null,
+          "Food service",
+          `calculado em ${dataHora.format(new Date(res.criado_em))}`,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      {emp.contato_nome && (
+        <p className="field-hint">
+          Contato principal: {emp.contato_nome}
+          {emp.contato_cargo ? `, ${emp.contato_cargo}` : ""}
+        </p>
+      )}
 
       <div className="resultado-numeros">
         <div>

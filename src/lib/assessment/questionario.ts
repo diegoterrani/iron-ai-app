@@ -3,6 +3,7 @@
  * Só tipos e funções puras: pode ser importado por componentes de cliente
  * sem levar o motor nem os JSON do modelo para o navegador.
  */
+import { cnpjValido } from "@/lib/validation/cnpj";
 import { ordenarAreasQ6 } from "./areas";
 
 export interface Orientacao {
@@ -73,8 +74,28 @@ export const OPCOES_OBJETIVO = [
 ];
 export const Q7_MAX = 500;
 
+/** Cadastro da empresa avaliada e do contato principal (fora do cálculo). */
+export interface EmpresaSelf {
+  nome?: string;
+  cnpj?: string;
+  cidade?: string;
+  uf?: string;
+  contato_nome?: string;
+  contato_cargo?: string;
+  contato_email?: string;
+  contato_telefone?: string;
+}
+
+export const UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+  "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+] as const;
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const PASSOS = [
-  { id: "perfil", titulo: "Perfil da empresa" },
+  { id: "empresa", titulo: "Empresa" },
+  { id: "perfil", titulo: "Porte" },
   { id: "setor", titulo: "Operação" },
   { id: "esforco", titulo: "Onde está o esforço" },
   { id: "pessoas", titulo: "Pessoas por área" },
@@ -106,9 +127,14 @@ export function ajustarPessoasQ6(q: Questionario, r: RespostasSelf): RespostasSe
   return { ...r, pessoas_q6: novo };
 }
 
-/** Passos ainda incompletos, para a revisão final. Espelha o schema de conclusão. */
-export function pendencias(q: Questionario, r: RespostasSelf): { passo: PassoId; texto: string }[] {
+/** Passos ainda incompletos, para a revisão final. O servidor usa a mesma regra ao concluir. */
+export function pendencias(q: Questionario, r: RespostasSelf, e: EmpresaSelf = {}): { passo: PassoId; texto: string }[] {
   const p: { passo: PassoId; texto: string }[] = [];
+  if (!e.nome?.trim()) p.push({ passo: "empresa", texto: "Nome da empresa" });
+  if (!e.cnpj || !cnpjValido(e.cnpj)) p.push({ passo: "empresa", texto: "CNPJ válido" });
+  if (!e.cidade?.trim() || !e.uf) p.push({ passo: "empresa", texto: "Cidade e UF" });
+  if (!e.contato_nome?.trim() || !e.contato_cargo?.trim()) p.push({ passo: "empresa", texto: "Nome e cargo do contato principal" });
+  if (!e.contato_email || !EMAIL.test(e.contato_email)) p.push({ passo: "empresa", texto: "E-mail do contato principal" });
   if ((r.q2_valor === undefined || r.q2_valor === null) && !r.q2) p.push({ passo: "perfil", texto: "Faturamento anual" });
   if (!r.q3) p.push({ passo: "perfil", texto: "Número de pessoas" });
   const s = r.setoriais ?? {};

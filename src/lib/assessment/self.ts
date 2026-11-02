@@ -9,6 +9,8 @@ import {
   Q7_MAX,
   areasQ6,
   pendencias,
+  UFS,
+  type EmpresaSelf,
   type Orientacao,
   type Questionario,
   type RespostasSelf,
@@ -157,8 +159,38 @@ export function normalizarRascunho(
 }
 
 /** Pronto para concluir? Mesma regra que a tela mostra na revisão. */
-export function faltasParaConcluir(r: RespostasSelf): string[] {
-  return pendencias(q, r).map((p) => p.texto);
+export function faltasParaConcluir(r: RespostasSelf, e: EmpresaSelf): string[] {
+  return pendencias(q, r, e).map((p) => p.texto);
+}
+
+// ------------------------------------------------------------- cadastro da empresa
+
+const textoCurto = (max: number) => z.string().trim().max(max, `Use até ${max} caracteres.`).optional();
+
+/** Rascunho do cadastro: tudo opcional; a completude (CNPJ válido, e-mail) é checada ao concluir. */
+export const empresaSchema = z.object({
+  nome: textoCurto(200),
+  cnpj: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .pipe(z.string().max(14, "CNPJ com dígitos demais."))
+    .optional(),
+  cidade: textoCurto(100),
+  uf: z.enum(UFS, { error: "UF inválida." }).optional(),
+  contato_nome: textoCurto(120),
+  contato_cargo: textoCurto(120),
+  contato_email: z.string().trim().toLowerCase().max(254, "E-mail longo demais.").optional(),
+  contato_telefone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .pipe(z.string().max(13, "Telefone com dígitos demais."))
+    .optional(),
+});
+
+export function normalizarEmpresa(entrada: unknown): { ok: true; empresa: EmpresaSelf } | { ok: false; erro: string } {
+  const r = empresaSchema.safeParse(entrada ?? {});
+  if (!r.success) return { ok: false, erro: r.error.issues[0]?.message ?? "Cadastro inválido." };
+  return { ok: true, empresa: limpar(r.data) as EmpresaSelf };
 }
 
 // ------------------------------------------------------------- rótulos do resultado

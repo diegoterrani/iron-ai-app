@@ -5,20 +5,24 @@ import type { AcaoState } from "@/lib/acao/tipos";
 import {
   PASSOS,
   Q7_MAX,
+  UFS,
   ajustarPessoasQ6,
   areasQ6,
   pendencias,
+  type EmpresaSelf,
   type Orientacao,
   type PassoId,
   type Questionario,
   type RespostasSelf,
 } from "@/lib/assessment/questionario";
-import { concluirSelf, salvarRespostas } from "../actions";
+import { formatarCnpj } from "@/lib/validation/cnpj";
+import { concluirSelf, salvarRascunho } from "../actions";
 
 interface Props {
   assessmentId: string;
   questionario: Questionario;
   inicial: RespostasSelf;
+  inicialEmpresa: EmpresaSelf;
 }
 
 type Salvamento = { estado: "ocioso" | "pendente" | "salvando" | "salvo" | "erro"; texto?: string };
@@ -39,12 +43,13 @@ function lerInteiro(texto: string): number | undefined {
 
 const reais = new Intl.NumberFormat("pt-BR");
 
-export function QuestionarioSelf({ assessmentId, questionario: q, inicial }: Props) {
+export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inicialEmpresa }: Props) {
   const [r, setR] = useState<RespostasSelf>(inicial);
+  const [emp, setEmp] = useState<EmpresaSelf>(inicialEmpresa);
   const [passo, setPasso] = useState(0);
   const [usarFaixa, setUsarFaixa] = useState(Boolean(inicial.q2) && !inicial.q2_valor);
   const [salv, setSalv] = useState<Salvamento>({ estado: "ocioso" });
-  const ultimo = useRef<RespostasSelf>(inicial);
+  const ultimo = useRef<{ respostas: RespostasSelf; empresa: EmpresaSelf }>({ respostas: inicial, empresa: inicialEmpresa });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
 
@@ -53,7 +58,7 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial }: Pro
     timer.current = null;
     const enviar = ultimo.current;
     setSalv({ estado: "salvando" });
-    const res = await salvarRespostas(assessmentId, enviar);
+    const res = await salvarRascunho(assessmentId, enviar);
     if (res.ok) {
       setSalv({ estado: "salvo", texto: res.salvoEm ? `Salvo às ${hora.format(new Date(res.salvoEm))}` : "Salvo" });
     } else {
@@ -62,20 +67,33 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial }: Pro
     return res.ok;
   }, [assessmentId]);
 
+  const agendar = useCallback(() => {
+    setSalv({ estado: "pendente" });
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void salvar(), ESPERA_AUTOSAVE_MS);
+  }, [salvar]);
+
   /** Atualiza a resposta e agenda o salvamento automático. */
   const atualizar = useCallback(
     (f: (atual: RespostasSelf) => RespostasSelf) => {
       setR((atual) => {
         const novo = ajustarPessoasQ6(q, f(atual));
-        ultimo.current = novo;
+        ultimo.current = { ...ultimo.current, respostas: novo };
         return novo;
       });
-      setSalv({ estado: "pendente" });
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => void salvar(), ESPERA_AUTOSAVE_MS);
+      agendar();
     },
-    [q, salvar],
+    [q, agendar],
   );
+
+  const setEmpresa = (campo: keyof EmpresaSelf, valor: string) => {
+    setEmp((atual) => {
+      const novo = { ...atual, [campo]: valor };
+      ultimo.current = { ...ultimo.current, empresa: novo };
+      return novo;
+    });
+    agendar();
+  };
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -112,7 +130,7 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial }: Pro
     atualizar((a) => ({ ...a, [campo]: { ...a[campo], [chave]: valor } }));
 
   const idPasso: PassoId = PASSOS[passo].id;
-  const faltas = pendencias(q, r);
+  const faltas = pendencias(q, r, emp);
   const ultimoPasso = passo === PASSOS.length - 1;
   const nomeArea = (id: string) => q.areasQ5.find((a) => a.id === id)?.nome ?? id;
   const areas6 = areasQ6(q, r.grade_q5);
@@ -151,6 +169,65 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial }: Pro
         <h2 id="titulo-passo" ref={titulo} tabIndex={-1}>
           {passo + 1}. {PASSOS[passo].titulo}
         </h2>
+
+        {idPasso === "empresa" && (
+          <>
+            <p className="field-hint">
+              Dados da empresa avaliada e de quem a IRON AI procura para falar do resultado. Ficam no seu assessment e
+              não entram no cálculo.
+            </p>
+            <div className="campos-lado">
+              <CampoTexto id="emp-nome" rotulo="Nome da empresa" valor={emp.nome} aoMudar={(v) => setEmpresa("nome", v)} max={200} autoComplete="organization" />
+              <CampoTexto
+                id="emp-cnpj"
+                rotulo="CNPJ"
+                valor={emp.cnpj ? formatarCnpj(emp.cnpj) : ""}
+                aoMudar={(v) => setEmpresa("cnpj", v.replace(/\D/g, "").slice(0, 14))}
+                max={18}
+                inputMode="numeric"
+                placeholder="00.000.000/0000-00"
+              />
+              <CampoTexto id="emp-cidade" rotulo="Cidade da sede" valor={emp.cidade} aoMudar={(v) => setEmpresa("cidade", v)} max={100} autoComplete="address-level2" />
+              <div className="field">
+                <label htmlFor="emp-uf">UF</label>
+                <select id="emp-uf" value={emp.uf ?? ""} onChange={(e) => setEmpresa("uf", e.target.value)}>
+                  <option value="" disabled>
+                    Escolha…
+                  </option>
+                  {UFS.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <p className="pergunta-titulo">Contato principal</p>
+            <div className="campos-lado">
+              <CampoTexto id="emp-contato" rotulo="Nome" valor={emp.contato_nome} aoMudar={(v) => setEmpresa("contato_nome", v)} max={120} autoComplete="name" />
+              <CampoTexto id="emp-cargo" rotulo="Cargo" valor={emp.contato_cargo} aoMudar={(v) => setEmpresa("contato_cargo", v)} max={120} autoComplete="organization-title" />
+              <CampoTexto
+                id="emp-email"
+                rotulo="E-mail corporativo"
+                valor={emp.contato_email}
+                aoMudar={(v) => setEmpresa("contato_email", v)}
+                max={254}
+                type="email"
+                autoComplete="email"
+              />
+              <CampoTexto
+                id="emp-telefone"
+                rotulo="Telefone (opcional)"
+                valor={emp.contato_telefone}
+                aoMudar={(v) => setEmpresa("contato_telefone", v.replace(/\D/g, "").slice(0, 13))}
+                max={20}
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="DDD + número"
+              />
+            </div>
+          </>
+        )}
 
         {idPasso === "perfil" && (
           <>
@@ -486,5 +563,35 @@ function Ajuda({ orientacao: o }: { orientacao: Orientacao }) {
         )}
       </dl>
     </details>
+  );
+}
+
+interface CampoTextoProps {
+  id: string;
+  rotulo: string;
+  valor: string | undefined;
+  aoMudar: (v: string) => void;
+  max: number;
+  type?: string;
+  inputMode?: "numeric" | "tel" | "email" | "text";
+  autoComplete?: string;
+  placeholder?: string;
+}
+
+function CampoTexto({ id, rotulo, valor, aoMudar, max, type = "text", inputMode, autoComplete, placeholder }: CampoTextoProps) {
+  return (
+    <div className="field">
+      <label htmlFor={id}>{rotulo}</label>
+      <input
+        id={id}
+        type={type}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        maxLength={max}
+        value={valor ?? ""}
+        onChange={(e) => aoMudar(e.target.value)}
+      />
+    </div>
   );
 }
