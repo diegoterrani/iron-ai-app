@@ -80,7 +80,8 @@ do $$ begin
 end $$;
 
 -- Ana salva respostas, mas não mexe em status, setor ou dono.
-update public.assessments set respostas = '{"setor":"food_service","q3":"101 a 500"}'
+update public.assessments set respostas = '{"setor":"food_service","q3":"101 a 500"}',
+  empresa = '{"nome":"Rede X","cnpj":"11222333000181"}'
 where id = (select valor::uuid from ctx where chave = 'id');
 do $$
 declare v_id text := (select valor from ctx where chave = 'id');
@@ -95,6 +96,9 @@ begin
   perform pg_temp.falha(format($q$update public.assessments set respostas = '[1,2]' where id = %L$q$, v_id), 'respostas não objeto');
   perform pg_temp.falha(format($q$update public.assessments set respostas = jsonb_build_object('q7', repeat('x', 70000)) where id = %L$q$, v_id),
     'respostas acima de 64 KB');
+  perform pg_temp.falha(format($q$update public.assessments set empresa = '"texto"' where id = %L$q$, v_id), 'empresa não objeto');
+  perform pg_temp.falha(format($q$update public.assessments set empresa = jsonb_build_object('nome', repeat('x', 5000)) where id = %L$q$, v_id),
+    'empresa acima de 4 KB');
   perform pg_temp.falha(format($q$insert into public.assessment_resultados (assessment_id, motor_versao, modelo_versao, pacote_versao, hash_respostas, resultado) values (%L, '0', '0', '0', '0123456789abcdef', '{}')$q$, v_id),
     'cliente gravou resultado');
   perform pg_temp.falha(format($q$select public.concluir_self(%L, auth.uid(), '0123456789abcdef', '{}', '0', '0', '0', '{}')$q$, v_id),
@@ -160,6 +164,9 @@ begin
   update public.assessments set respostas = '{}';
   get diagnostics n = row_count;
   if n <> 0 then raise exception 'FALHA: editou assessment concluído'; end if;
+  update public.assessments set empresa = '{}';
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FALHA: editou empresa de assessment concluído'; end if;
 end $$;
 
 select pg_temp.como('70000000-0000-0000-0000-000000000003');
@@ -178,7 +185,8 @@ do $$
 declare d jsonb := public.meus_dados();
 begin
   if d #>> '{assessments,0,resultados,0,resultado,score,valor}' <> '0.35'
-     or d #>> '{assessments,0,respostas,q3}' <> '101 a 500' then
+     or d #>> '{assessments,0,respostas,q3}' <> '101 a 500'
+     or d #>> '{assessments,0,empresa,nome}' <> 'Rede X' then
     raise exception 'FALHA: exportação sem respostas ou resultado: %', d -> 'assessments';
   end if;
   if d #>> '{acessos_a_produtos,0,produto}' <> 'self_assessment' then
