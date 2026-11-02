@@ -19,6 +19,10 @@ versões do motor, do modelo e do pacote, mais o hash das respostas.
 
 ## Histórico
 
+- 0.3.0 (02/11/2026): escolha múltipla, a pedido do Terrani. Pergunta 5 (cada
+  área) e pergunta 8 usam a média das opções marcadas (planilhas + sistema = 2,5);
+  pergunta 9 usa o estágio mais avançado; pergunta 12 continua fora do cálculo.
+  Resposta em texto (formato antigo, uma opção) dá o mesmo resultado de antes.
 - 0.2.1 (02/11/2026): com receita em faixa "até 4,8 mi", o cenário conservador
   usa receita 0 e a margem dava divisão por zero. Agora `delta_margem_pp` vem
   `null` nesse caso. O limite inferior dessa faixa deve ser revisto no modelo.

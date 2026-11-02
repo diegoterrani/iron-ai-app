@@ -14,13 +14,14 @@
  */
 import { createHash } from "node:crypto";
 import { RespostaInvalida } from "./erros";
-import { ordenarAreasQ6 } from "./areas";
+import { listaMarcadas, ordenarAreasQ6, soma } from "./areas";
 import { calcularFormula } from "./formula";
 import type { Modelo, Pacote, Respostas, ResultadoSelf } from "./tipos";
 
 export { RespostaInvalida } from "./erros";
+export { soma } from "./areas";
 
-export const MOTOR_VERSAO = "0.2.1";
+export const MOTOR_VERSAO = "0.3.0";
 /** O otimista nunca é mostrado ao cliente. */
 type Cenario = "conservador" | "base";
 const DIMENSOES = ["estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas"] as const;
@@ -28,22 +29,6 @@ type Dimensao = (typeof DIMENSOES)[number];
 type Notas = Record<Dimensao, number>;
 
 // ---------------------------------------------------------------- utilidades
-
-/**
- * Soma igual ao `sum()` do CPython 3.12+ (soma compensada de Neumaier), para
- * que TypeScript e Python cheguem ao mesmo número até a última casa.
- */
-export function soma(valores: Iterable<number>): number {
-  let f = 0;
-  let c = 0;
-  for (const x of valores) {
-    const t = f + x;
-    if (Math.abs(f) >= Math.abs(x)) c += f - t + x;
-    else c += x - t + f;
-    f = t;
-  }
-  return c !== 0 && Number.isFinite(c) ? f + c : f;
-}
 
 /** Busca a opção na tabela; chave fora da lista (ou herdada do protótipo) é recusada. */
 function opcao<T>(tabela: Readonly<Record<string, T>>, chave: unknown, pergunta: string): T {
@@ -53,6 +38,27 @@ function opcao<T>(tabela: Readonly<Record<string, T>>, chave: unknown, pergunta:
     );
   }
   return tabela[chave];
+}
+
+/**
+ * 0.3.0: perguntas de escolha múltipla. Aceita uma opção (texto, formato até
+ * 0.2.1) ou uma lista; repetições contam uma vez só, na ordem em que aparecem.
+ */
+function marcadas(tabela: Readonly<Record<string, number>>, valor: unknown, pergunta: string): number[] {
+  const lista = typeof valor === "string" || Array.isArray(valor) ? listaMarcadas(valor) : [];
+  if (lista.length === 0) throw new RespostaInvalida(`${pergunta}: marque pelo menos uma opção`);
+  return lista.map((v) => opcao(tabela, v, pergunta));
+}
+
+/** Combinação de ferramentas (ex.: planilhas + sistema): a nota é a média das marcadas. */
+function mediaMarcadasMotor(tabela: Readonly<Record<string, number>>, valor: unknown, pergunta: string): number {
+  const notas = marcadas(tabela, valor, pergunta);
+  return soma(notas) / notas.length;
+}
+
+/** Uso de IA: vale o estágio mais avançado que a empresa já alcançou. */
+function maiorMarcada(tabela: Readonly<Record<string, number>>, valor: unknown, pergunta: string): number {
+  return Math.max(...marcadas(tabela, valor, pergunta));
 }
 
 /** Conservador usa o limite inferior; base usa o ponto médio (regra do doc). */
@@ -116,7 +122,7 @@ function notasDimensoes(r: Respostas, pacote: Pacote, modelo: Modelo) {
   const s = modelo.self;
   const grade = r.grade_q5 ?? {};
   const areasNota: Record<string, number> = {};
-  for (const [a, v] of Object.entries(grade)) areasNota[a] = opcao(s.nota_q5, v, `pergunta 5 (${a})`);
+  for (const [a, v] of Object.entries(grade)) areasNota[a] = mediaMarcadasMotor(s.nota_q5, v, `pergunta 5 (${a})`);
   const faltando = [...modelo.areas_operacionais, "11_ti_seguranca"].filter((a) => !Object.hasOwn(areasNota, a));
   if (faltando.length > 0) throw new RespostaInvalida(`pergunta 5 sem resposta para: [${faltando.sort().map((a) => `'${a}'`).join(", ")}]`);
 
@@ -126,14 +132,14 @@ function notasDimensoes(r: Respostas, pacote: Pacote, modelo: Modelo) {
     opcao(s.cobertura_fonte, Object.hasOwn(dadosD, f) ? dadosD[f] : "não sei", `pergunta D (${f})`),
   );
   const cobertura = soma(cob) / itens.length;
-  const notaQ8 = opcao(s.nota_q8, r.q8, "pergunta 8");
+  const notaQ8 = mediaMarcadasMotor(s.nota_q8, r.q8, "pergunta 8");
   const notas: Notas = {
     estrategia: opcao(s.nota_q11, r.q11, "pergunta 11"),
     dados: (notaQ8 + 1 + 3 * cobertura) / 2,
     processos: soma(modelo.areas_operacionais.map((a) => areasNota[a])) / modelo.areas_operacionais.length,
     tecnologia: areasNota["11_ti_seguranca"],
     governanca: opcao(s.nota_q10, r.q10, "pergunta 10"),
-    pessoas: opcao(s.nota_q9, r.q9, "pergunta 9"),
+    pessoas: maiorMarcada(s.nota_q9, r.q9, "pergunta 9"),
   };
   areasNota["01_estrategia"] = notas.estrategia;
   areasNota["02_dados"] = notas.dados;

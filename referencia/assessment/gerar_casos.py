@@ -28,6 +28,16 @@ SAIDA = RAIZ / "tests/fixtures/assessment/casos.json"
 def sortear(rng: random.Random, pacote: dict, modelo: dict) -> dict:
     s = modelo["self"]
     escolha = lambda tabela: rng.choice(list(tabela))  # noqa: E731
+
+    def varias(tabela) -> str | list[str]:
+        """Escolha múltipla (motor 0.3.0): às vezes texto (formato antigo), às vezes lista."""
+        sorteio = rng.random()
+        if sorteio < 0.3:
+            return escolha(tabela)
+        if sorteio < 0.6:
+            return [escolha(tabela)]
+        return rng.sample(list(tabela), rng.randint(2, len(tabela)))
+
     areas = modelo["areas_operacionais"] + ["11_ti_seguranca"]
     r: dict = {"setor": pacote["pacote"], "q3": escolha(s["faixas_pessoas_total"]), "q4": "prefiro não dizer"}
     if rng.random() < 0.8:
@@ -40,21 +50,26 @@ def sortear(rng: random.Random, pacote: dict, modelo: dict) -> dict:
         "ticket_pessoa": escolha(s["faixas_ticket"]),
         "fila_pico": rng.choice(["quase nunca", "só em datas especiais", "toda semana", "quase todo dia"]),
     }
-    r["grade_q5"] = {a: escolha(s["nota_q5"]) for a in areas}
+    r["grade_q5"] = {a: varias(s["nota_q5"]) for a in areas}
     escolhidas = rng.sample(areas, rng.randint(1, s["areas_no_calculo"]))
     r["pessoas_q6"] = {a: escolha(s["faixas_pessoas_area"]) for a in escolhidas}
     r["q7"] = "Tarefa repetitiva descrita pelo cliente."
-    r["q8"] = escolha(s["nota_q8"])
+    r["q8"] = varias(s["nota_q8"])
     r["dados_D"] = {f: escolha(s["cobertura_fonte"]) for f in pacote["pergunta_dados_D"]["itens"] if rng.random() < 0.9}
-    for q in ("q9", "q10", "q11"):
+    r["q9"] = varias(s["nota_q9"])
+    for q in ("q10", "q11"):
         r[q] = escolha(s[f"nota_{q}"])
-    r["q12"] = rng.choice(["reduzir custo", "crescer sem contratar", "melhorar qualidade/atendimento", "ainda explorando"])
+    r["q12"] = varias(["reduzir custo", "crescer sem contratar", "melhorar qualidade/atendimento", "ainda explorando"])
     # Alguns casos inválidos de propósito: o TypeScript precisa recusar igual.
     sorteio = rng.random()
     if sorteio < 0.03:
         r["q8"] = "fax"
     elif sorteio < 0.05:
         del r["grade_q5"]["06_operacoes"]
+    elif sorteio < 0.07:
+        r["q9"] = []
+    elif sorteio < 0.09:
+        r["grade_q5"]["07_comercial"] = ["planilhas", "fax"]
     return r
 
 

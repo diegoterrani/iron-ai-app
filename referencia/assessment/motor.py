@@ -29,7 +29,7 @@ import operator
 import sys
 from pathlib import Path
 
-MOTOR_VERSAO = "0.2.1"
+MOTOR_VERSAO = "0.3.0"
 CENARIOS = ("conservador", "base")  # o otimista nunca é mostrado ao cliente
 DIMENSOES = ("estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas")
 
@@ -66,6 +66,26 @@ def _opcao(tabela: dict, chave: str, pergunta: str):
     if chave not in tabela:
         raise RespostaInvalida(f"{pergunta}: '{chave}' não é uma opção válida ({', '.join(tabela)})")
     return tabela[chave]
+
+
+def _marcadas(tabela: dict, valor, pergunta: str) -> list:
+    """0.3.0: perguntas de escolha múltipla. Aceita uma opção (texto, formato até 0.2.1) ou
+    uma lista; repetições contam uma vez só, na ordem em que aparecem."""
+    lista = [valor] if isinstance(valor, str) else valor
+    if not isinstance(lista, list) or not lista:
+        raise RespostaInvalida(f"{pergunta}: marque pelo menos uma opção")
+    return [_opcao(tabela, v, pergunta) for v in dict.fromkeys(lista)]
+
+
+def _media_marcadas(tabela: dict, valor, pergunta: str) -> float:
+    """Combinação de ferramentas (ex.: planilhas + sistema): a nota é a média das marcadas."""
+    notas = _marcadas(tabela, valor, pergunta)
+    return sum(notas) / len(notas)
+
+
+def _maior_marcada(tabela: dict, valor, pergunta: str) -> float:
+    """Uso de IA: vale o estágio mais avançado que a empresa já alcançou."""
+    return max(_marcadas(tabela, valor, pergunta))
 
 
 def _faixa(faixa: list[float], cenario: str) -> float:
@@ -107,7 +127,7 @@ def nivel(score: float, niveis: list) -> str:
 # ---------------------------------------------------------------- score
 def notas_dimensoes(r: dict, pacote: dict, modelo: dict) -> tuple[dict, dict, float]:
     s = modelo["self"]
-    areas_nota = {a: _opcao(s["nota_q5"], v, f"pergunta 5 ({a})") for a, v in r["grade_q5"].items()}
+    areas_nota = {a: _media_marcadas(s["nota_q5"], v, f"pergunta 5 ({a})") for a, v in r["grade_q5"].items()}
     faltando = set(modelo["areas_operacionais"]) | {"11_ti_seguranca"}
     faltando -= set(areas_nota)
     if faltando:
@@ -116,14 +136,14 @@ def notas_dimensoes(r: dict, pacote: dict, modelo: dict) -> tuple[dict, dict, fl
     itens = pacote["pergunta_dados_D"]["itens"]
     cob = [_opcao(s["cobertura_fonte"], r["dados_D"].get(f, "não sei"), f"pergunta D ({f})") for f in itens]
     cobertura = sum(cob) / len(itens)
-    nota_q8 = _opcao(s["nota_q8"], r["q8"], "pergunta 8")
+    nota_q8 = _media_marcadas(s["nota_q8"], r.get("q8"), "pergunta 8")
     notas = {
         "estrategia": _opcao(s["nota_q11"], r["q11"], "pergunta 11"),
         "dados": (nota_q8 + 1 + 3 * cobertura) / 2,
         "processos": sum(areas_nota[a] for a in modelo["areas_operacionais"]) / len(modelo["areas_operacionais"]),
         "tecnologia": areas_nota["11_ti_seguranca"],
         "governanca": _opcao(s["nota_q10"], r["q10"], "pergunta 10"),
-        "pessoas": _opcao(s["nota_q9"], r["q9"], "pergunta 9"),
+        "pessoas": _maior_marcada(s["nota_q9"], r.get("q9"), "pergunta 9"),
     }
     areas_nota.update({"01_estrategia": notas["estrategia"], "02_dados": notas["dados"], "03_pessoas": notas["pessoas"]})
     return notas, areas_nota, cobertura

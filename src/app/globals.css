@@ -693,6 +693,17 @@ a {
   cursor: pointer;
 }
 
+.opcoes-coluna {
+  flex-direction: column;
+}
+
+.pergunta-area {
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 4px;
+  padding: 0;
+}
+
 .opcao:has(input:checked) {
   border-color: var(--ink);
   background: var(--surface-2);
