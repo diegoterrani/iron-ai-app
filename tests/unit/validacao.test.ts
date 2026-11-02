@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cadastroSchema, entrarSchema, fieldErrors, redefinirSchema } from "@/lib/validation/auth";
+import { cadastroSchema, codigoValido, entrarSchema, fieldErrors, redefinirSchema } from "@/lib/validation/auth";
 
 const valido = {
   nome: "Diego Terrani",
@@ -50,4 +50,9 @@ describe("redefinirSchema", () => {
     const r = redefinirSchema.safeParse({ senha: "senha nova bem longa", confirmacao: "outra coisa qualquer" });
     expect(fieldErrors(r.error!).confirmacao).toMatch(/não conferem/);
   });
+});
+
+describe("codigoValido (TOTP)", () => {
+  it.each(["123456", " 654321 "])("aceita %j", (c) => expect(codigoValido(c)).toBe(true));
+  it.each(["12345", "1234567", "12a456", "", null, 123456])("recusa %j", (c) => expect(codigoValido(c)).toBe(false));
 });

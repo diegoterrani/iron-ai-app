@@ -1,6 +1,7 @@
 import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { precisaSegundoFator } from "@/lib/auth/mfa";
 import { createClient } from "@/lib/supabase/server";
 
 export type StatusConta = "pendente" | "ativo" | "suspenso";
@@ -16,19 +17,28 @@ export interface Perfil {
  * `getUser()` confirma a sessão no servidor do Supabase (não confia no cookie).
  * O perfil vem pelo RLS: cada usuário só lê o próprio.
  */
-export const getSessao = cache(async (): Promise<{ perfil: Perfil | null } | null> => {
-  const supabase = await createClient();
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
+export const getSessao = cache(
+  async (): Promise<{ perfil: Perfil | null; precisaMfa: boolean } | null> => {
+    const supabase = await createClient();
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return null;
 
-  const { data } = await supabase.from("profiles").select("id, nome, status").eq("id", auth.user.id).maybeSingle();
-  return { perfil: (data as Perfil | null) ?? null };
-});
+    const [{ data }, precisaMfa] = await Promise.all([
+      supabase.from("profiles").select("id, nome, status").eq("id", auth.user.id).maybeSingle(),
+      precisaSegundoFator(supabase),
+    ]);
+    return { perfil: (data as Perfil | null) ?? null, precisaMfa };
+  },
+);
 
-/** Exige login; devolve o perfil (pode estar pendente). */
+/**
+ * Exige login completo: quem tem app autenticador precisa ter digitado o
+ * código nesta sessão (aal2). Devolve o perfil (pode estar pendente).
+ */
 export async function exigirLogin(): Promise<Perfil | null> {
   const sessao = await getSessao();
   if (!sessao) redirect("/entrar");
+  if (sessao.precisaMfa) redirect("/verificar-mfa");
   return sessao.perfil;
 }
 

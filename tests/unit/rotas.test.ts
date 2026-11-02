@@ -25,3 +25,10 @@ describe("maskEmail", () => {
     expect(maskEmail("lixo")).toBe("***");
   });
 });
+
+describe("rotas de MFA", () => {
+  it("verificar-mfa e conta exigem login", () => {
+    expect(isPublicPath("/verificar-mfa")).toBe(false);
+    expect(isPublicPath("/conta/seguranca")).toBe(false);
+  });
+});

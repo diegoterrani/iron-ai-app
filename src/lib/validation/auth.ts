@@ -55,3 +55,8 @@ export function fieldErrors(error: z.ZodError): Record<string, string> {
   }
   return out;
 }
+
+/** Código TOTP do app autenticador: exatamente 6 dígitos. */
+export function codigoValido(input: unknown): input is string {
+  return typeof input === "string" && /^\d{6}$/.test(input.trim());
+}

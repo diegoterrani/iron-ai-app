@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { precisaSegundoFator } from "@/lib/auth/mfa";
 import { clientIp } from "@/lib/auth/request";
 import { ConfigError, publicEnv, serverEnv } from "@/lib/env";
 import { log, maskEmail, newTraceId } from "@/lib/log";
@@ -67,6 +68,10 @@ export async function entrar(_prev: FormState, form: FormData): Promise<FormStat
     }
     log("info", "auth.login_ok", { email: maskEmail(parsed.data.email) });
     destino = safeNextPath(form.get("next"));
+    // Quem tem app autenticador digita o código antes de entrar.
+    if (await precisaSegundoFator(supabase)) {
+      destino = `/verificar-mfa?next=${encodeURIComponent(destino)}`;
+    }
   } catch (err) {
     return failure("auth.login_error", err);
   }

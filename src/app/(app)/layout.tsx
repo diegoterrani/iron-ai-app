@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { connection } from "next/server";
 import { SairButton } from "@/components/sair-button";
 import { exigirContaAtiva } from "@/lib/auth/session";
@@ -13,6 +14,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <img src="/logo-lockup.svg" alt="IRON AI" width={147} height={44} />
         <div className="app-user">
           <span>{perfil.nome}</span>
+          <Link href="/conta/seguranca">Segurança</Link>
           <SairButton />
         </div>
       </header>
