@@ -1,0 +1,45 @@
+{
+  "modelo": "comum",
+  "versao": "0.4.0",
+  "origem": "Doc IRON AI — Frameworks de Assessment v0.4 (02/11/2026)",
+  "pesos_dimensoes": {"estrategia": 0.25, "dados": 0.25, "processos": 0.15, "tecnologia": 0.15, "governanca": 0.10, "pessoas": 0.10},
+  "travas": [
+    {"dimensoes": ["estrategia", "dados"], "nota_max": 1, "teto": 0.40},
+    {"dimensoes": ["estrategia", "dados"], "nota_max": 2, "teto": 0.60}
+  ],
+  "fator_R": {"minimo": 0.30, "amplitude": 0.60},
+  "niveis": [[0.75, "Avançado"], [0.50, "Estruturado"], [0.25, "Exploratório"], [0.0, "Inicial"]],
+  "nota_max_self": 4,
+  "nota_max_self_motivo": "No Self a resposta é declarada; nota 5 exige evidência e só é dada no Deep dive.",
+  "areas": {
+    "01_estrategia": "Estratégia", "02_dados": "Dados", "03_pessoas": "Pessoas",
+    "04_financas": "Finanças", "05_compras": "Compras", "06_operacoes": "Operações",
+    "07_comercial": "Comercial", "08_atendimento": "Atendimento", "09_rh": "RH",
+    "10_juridico": "Jurídico", "11_ti_seguranca": "TI e segurança"
+  },
+  "areas_operacionais": ["04_financas", "05_compras", "06_operacoes", "07_comercial", "08_atendimento", "09_rh", "10_juridico"],
+  "e_a_benchmark": {
+    "08_atendimento": {"conservador": 0.14, "base": 0.30, "otimista": 0.45},
+    "11_ti_seguranca": {"conservador": 0.20, "base": 0.30, "otimista": 0.45},
+    "07_comercial": {"conservador": 0.03, "base": 0.05, "otimista": 0.10},
+    "04_financas": {"conservador": 0.05, "base": 0.10, "otimista": 0.15},
+    "05_compras": {"conservador": 0.05, "base": 0.10, "otimista": 0.15},
+    "06_operacoes": {"conservador": 0.05, "base": 0.10, "otimista": 0.15},
+    "09_rh": {"conservador": 0.05, "base": 0.10, "otimista": 0.15},
+    "10_juridico": {"conservador": 0.05, "base": 0.10, "otimista": 0.15}
+  },
+  "self": {
+    "faixas_receita": {"até 4,8 mi": [0, 4.8e6], "4,8 a 30 mi": [4.8e6, 30e6], "30 a 300 mi": [30e6, 300e6], "acima de 300 mi": [300e6, 600e6]},
+    "faixas_pessoas_total": {"até 20": [1, 20], "21 a 100": [21, 100], "101 a 500": [101, 500], "501 a 2.000": [501, 2000], "acima de 2.000": [2001, 4000]},
+    "faixas_pessoas_area": {"1 a 5": [1, 5], "6 a 20": [6, 20], "21 a 50": [21, 50], "51 a 150": [51, 150], "151 a 500": [151, 500], "acima de 500": [501, 1000]},
+    "faixas_ticket": {"até 40": [20, 40], "40 a 80": [40, 80], "80 a 150": [80, 150], "acima de 150": [150, 250]},
+    "nota_q5": {"manual ou papel": 1, "planilhas": 2, "sistema": 3, "sistema com automação ou IA": 4},
+    "nota_q8": {"papel": 1, "planilhas": 2, "sistemas isolados": 3, "ERP/CRM integrados": 4},
+    "nota_q9": {"não usa": 1, "uso individual": 2, "pilotos": 3, "em produção": 4},
+    "nota_q10": {"não": 1, "informal": 2, "formal": 3, "formal e auditada": 4},
+    "nota_q11": {"ninguém definido": 1, "gestor de área": 2, "diretoria": 3, "CEO/conselho com orçamento": 4},
+    "cobertura_fonte": {"tem": 1.0, "parcial": 0.5, "não tem": 0.0, "não sei": 0.0},
+    "areas_no_calculo": 3,
+    "receita_por_pessoa_plausivel": [40000, 2000000]
+  }
+}

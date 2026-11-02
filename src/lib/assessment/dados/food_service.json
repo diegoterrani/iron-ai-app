@@ -1,0 +1,613 @@
+{
+  "pacote": "food_service",
+  "versao": "0.1.1",
+  "data": "2026-11-02",
+  "status": "rascunho para o piloto",
+  "segmentos": {
+    "restaurantes": {
+      "status": "completo nesta versão",
+      "abrange": "restaurantes, bares, redes de alimentação, dark kitchens"
+    },
+    "hotelaria": {
+      "status": "a construir",
+      "abrange": "hotéis e pousadas",
+      "alavancas_previstas": [
+        "revenue management",
+        "reputação em OTAs",
+        "pré-check-in na FNRH Digital",
+        "energia",
+        "governança (housekeeping)",
+        "A&B"
+      ]
+    }
+  },
+  "convencoes": {
+    "origem_valores": "Todo valor marcado 'hipotese_iron' é ponto de partida a calibrar no piloto e nos primeiros clientes. Nenhum foi medido ainda.",
+    "receita_pela_margem": "Alavancas de receita multiplicam pela margem de contribuição (mc), nunca pela receita bruta.",
+    "sem_pessoal_em_L": "Nenhuma alavanca L_k pode ser economia de pessoal. Escala de pessoal entra em e_a da área Operações."
+  },
+  "parametros_padrao": {
+    "C_custo_anual_por_pessoa": {
+      "valor": 39500,
+      "unidade": "R$/ano",
+      "origem": "FGV EESP 2024: salário médio do setor R$ 1.644,35/mês × 13,33 (13º e 1/3 de férias) × 1,8 (encargos e benefícios, hipotese_iron)",
+      "uso": "Self assessment; o Deep dive usa a folha real"
+    },
+    "cmv_pct": {
+      "valor": 0.32,
+      "origem": "hipotese_iron; nenhuma fonte pública encontrada para o Brasil",
+      "uso": "Self, quando o cliente não informa"
+    },
+    "dias_pico_por_ano": {
+      "valor": 104,
+      "origem": "sexta e sábado à noite, 52 semanas",
+      "uso": "Alavanca de giro"
+    },
+    "mc": {
+      "valor": 0.55,
+      "origem": "hipotese_iron: 1 − CMV (32%) − impostos sobre venda (≈8%) − outros custos variáveis (≈5%)",
+      "uso": "Self; o Deep dive calcula com o DRE"
+    }
+  },
+  "areas": {
+    "nomes_operacoes": [
+      "Salão",
+      "Cozinha",
+      "Delivery e expedição"
+    ],
+    "distribuicao_tipica_pessoas": {
+      "origem": "hipotese_iron para rede com lojas e escritório central",
+      "06_operacoes": 0.78,
+      "08_atendimento": 0.08,
+      "05_compras": 0.02,
+      "04_financas": 0.03,
+      "09_rh": 0.02,
+      "07_comercial": 0.02,
+      "11_ti_seguranca": 0.01,
+      "10_juridico": 0.005,
+      "outros": 0.035
+    },
+    "ordem_na_pergunta_5": [
+      "06_operacoes",
+      "05_compras",
+      "08_atendimento",
+      "04_financas",
+      "09_rh",
+      "07_comercial",
+      "11_ti_seguranca",
+      "10_juridico"
+    ],
+    "e_a_ajustado": {
+      "06_operacoes": {
+        "conservador": 0.01,
+        "base": 0.03,
+        "otimista": 0.05,
+        "origem": "hipotese_iron",
+        "motivo": "Trabalho físico de salão e cozinha não é automatizável por IA. O ganho vem de escala ajustada à demanda e de menos retrabalho, não de substituir tarefas."
+      },
+      "08_atendimento": {
+        "conservador": 0.14,
+        "base": 0.3,
+        "otimista": 0.45,
+        "origem": "benchmark comum (McKinsey 2023, NBER w31161)",
+        "observacao": "Vale para SAC, reservas e pedidos remotos. Caixa e recepção presencial ficam em Operações."
+      }
+    }
+  },
+  "perguntas_self": {
+    "S1": {
+      "texto": "Quantas unidades a empresa tem e quantos lugares somam no salão?",
+      "tipo": "dois numeros",
+      "campos": [
+        "unidades",
+        "lugares_total"
+      ],
+      "alimenta": [
+        "L_giro",
+        "L_noshow"
+      ],
+      "orientacao": {
+        "por_que": "Lugares definem a capacidade de venda no salão; é a base para calcular giro e mesas vazias.",
+        "como_responder": "Some os lugares de todas as unidades. Conte só lugares de cliente, não de balcão de funcionários.",
+        "exemplo": "Uma loja de shopping de porte médio costuma ter entre 100 e 160 lugares.",
+        "se_nao_souber": "Informe o número de mesas; o agente estima 4 lugares por mesa e marca o valor como estimado."
+      }
+    },
+    "S2": {
+      "texto": "Qual o ticket médio por pessoa no salão?",
+      "tipo": "faixa em R$",
+      "opcoes": [
+        "até 40",
+        "40 a 80",
+        "80 a 150",
+        "acima de 150"
+      ],
+      "campos": [
+        "ticket_pessoa"
+      ],
+      "alimenta": [
+        "L_giro",
+        "L_noshow"
+      ],
+      "orientacao": {
+        "por_que": "Cada mesa a mais no pico vale o ticket vezes o número de pessoas.",
+        "como_responder": "Divida a venda do salão pelo número de clientes atendidos. Não inclua delivery.",
+        "exemplo": "Casual dining em capital costuma ficar entre R$ 80 e R$ 150 por pessoa.",
+        "se_nao_souber": "Escolha a faixa mais provável; o Deep dive mede pelo PDV."
+      }
+    },
+    "S3": {
+      "texto": "No horário de pico, com que frequência há fila de espera por mesa?",
+      "tipo": "escolha",
+      "opcoes": [
+        "quase nunca",
+        "só em datas especiais",
+        "toda semana",
+        "quase todo dia"
+      ],
+      "campos": [
+        "fila_pico"
+      ],
+      "alimenta": [
+        "L_giro"
+      ],
+      "regra": "L_giro só é calculada com 'toda semana' ou 'quase todo dia'. Sem fila, giro maior não vira venda.",
+      "orientacao": {
+        "por_que": "Atender mais rápido só gera receita se há cliente esperando mesa.",
+        "como_responder": "Pense nas noites de sexta e sábado dos últimos três meses.",
+        "exemplo": "Fila de 20 minutos no sábado à noite é sinal de capacidade esgotada no pico.",
+        "se_nao_souber": "Escolha 'só em datas especiais'; o agente não conta a alavanca de giro."
+      }
+    }
+  },
+  "pergunta_dados_D": {
+    "texto": "Quais destas informações vocês registram hoje, de forma regular?",
+    "opcao_extra": "não sei",
+    "regra": "Item não marcado vira lacuna no mapa de dados; 'não sei' vira item a verificar, não lacuna confirmada.",
+    "itens": [
+      "F01",
+      "F02",
+      "F03",
+      "F04",
+      "F05",
+      "F06",
+      "F07",
+      "F08",
+      "F09",
+      "F10",
+      "F11"
+    ]
+  },
+  "catalogo_fontes": {
+    "F01": {
+      "nome": "Vendas por mesa, dia e horário",
+      "sistema_tipico": "PDV",
+      "revela": "Pico, mix, ticket por turno, desempenho por loja",
+      "se_faltar": "Configurar exportação do PDV; não precisa de IA"
+    },
+    "F02": {
+      "nome": "Abertura e fechamento de mesa",
+      "sistema_tipico": "PDV com módulo de mesa",
+      "revela": "Tempo de mesa e giro por turno",
+      "se_faltar": "Criar fonte: visão computacional nas câmeras do salão cruzada com o PDV, ou ativar o módulo de mesa",
+      "criar_fonte": true,
+      "lgpd": "imagem"
+    },
+    "F03": {
+      "nome": "Reservas e comparecimento",
+      "sistema_tipico": "Sistema de reservas",
+      "revela": "No-show, antecedência, perfil de reserva",
+      "se_faltar": "Criar fonte: agente de reservas por WhatsApp que registra e confirma",
+      "criar_fonte": true
+    },
+    "F04": {
+      "nome": "Compras por insumo, fornecedor e preço",
+      "sistema_tipico": "ERP",
+      "revela": "Variação de preço, dependência de fornecedor, CMV por loja",
+      "se_faltar": "Criar fonte: leitura automática de notas fiscais eletrônicas (XML)",
+      "criar_fonte": true
+    },
+    "F05": {
+      "nome": "Inventário periódico",
+      "sistema_tipico": "ERP ou planilha",
+      "revela": "Consumo real, perdas, capital parado",
+      "se_faltar": "Rotina de contagem com app; não precisa de IA"
+    },
+    "F06": {
+      "nome": "Registro de desperdício",
+      "sistema_tipico": "Planilha ou app",
+      "revela": "Perda por produto, turno e causa",
+      "se_faltar": "Criar fonte: balança com câmera no descarte que classifica o item",
+      "criar_fonte": true
+    },
+    "F07": {
+      "nome": "Ficha técnica dos pratos",
+      "sistema_tipico": "ERP ou planilha",
+      "revela": "Consumo teórico; comparado ao real mostra desvio",
+      "se_faltar": "Criar fonte: agente que monta fichas a partir das receitas e das compras",
+      "criar_fonte": true
+    },
+    "F08": {
+      "nome": "Escala por turno",
+      "sistema_tipico": "Planilha ou sistema de ponto",
+      "revela": "Pessoas por turno contra demanda",
+      "se_faltar": "Exportar do ponto eletrônico; não precisa de IA"
+    },
+    "F09": {
+      "nome": "Avaliações online",
+      "sistema_tipico": "Plataformas de avaliação e de delivery",
+      "revela": "Queixas por tema, loja e dia",
+      "se_faltar": "Criar fonte: coleta e classificação automática de avaliações por tema",
+      "criar_fonte": true
+    },
+    "F10": {
+      "nome": "Delivery por canal",
+      "sistema_tipico": "Marketplaces e site próprio",
+      "revela": "Participação, comissões, recorrência",
+      "se_faltar": "Exportar relatórios dos marketplaces; não precisa de IA"
+    },
+    "F11": {
+      "nome": "DRE por unidade",
+      "sistema_tipico": "Controladoria",
+      "revela": "Margem por loja, CMV e pessoal sobre receita",
+      "se_faltar": "Montar com a controladoria; base para todo o resto"
+    }
+  },
+  "alavancas": {
+    "L_cmv": {
+      "nome": "Compras, ficha técnica e desperdício",
+      "linha_dre": "custo_produtos",
+      "tipo": "custo",
+      "formula": "receita_salao_delivery * cmv_pct * reducao_cmv",
+      "reducao_cmv": {
+        "conservador": 0.01,
+        "base": 0.02,
+        "otimista": 0.04,
+        "origem": "hipotese_iron"
+      },
+      "no_self": true,
+      "insumos_self": [
+        "receita (pergunta 2)",
+        "cmv_pct padrão"
+      ],
+      "insumos_deep": [
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F11"
+      ],
+      "nota": "Uma alavanca só para CMV evita contar duas vezes o mesmo real economizado em compra e em desperdício. O Deep dive abre em componentes, com soma limitada à reducao_cmv medida."
+    },
+    "L_giro": {
+      "nome": "Giro de mesas no pico",
+      "linha_dre": "receita_bruta",
+      "tipo": "receita",
+      "formula": "lugares_total * ocupacao_pico * dias_pico_por_ano * ganho_giro * ticket_pessoa * mc",
+      "ganho_giro": {
+        "conservador": 0.03,
+        "base": 0.06,
+        "otimista": 0.1,
+        "origem": "hipotese_iron: fração a mais de lugares vendidos por noite de pico"
+      },
+      "condicao": {
+        "campo": "fila_pico",
+        "em": [
+          "toda semana",
+          "quase todo dia"
+        ]
+      },
+      "no_self": true,
+      "insumos_deep": [
+        "F01",
+        "F02",
+        "F08",
+        "F09"
+      ],
+      "nota": "Depende de dado de tempo de mesa; sem F02 vira iniciativa Criar fonte.",
+      "ocupacao_pico": {
+        "valor": 0.9,
+        "origem": "hipotese_iron; o Deep dive mede pelo PDV"
+      }
+    },
+    "L_noshow": {
+      "nome": "Confirmação de reservas e reocupação",
+      "linha_dre": "receita_bruta",
+      "tipo": "receita",
+      "formula": "reservas_ano * pessoas_por_reserva * (noshow_atual - noshow_meta) * fator_reocupacao_perdida * ticket_pessoa * mc",
+      "fator_reocupacao_perdida": {
+        "valor": 0.5,
+        "origem": "hipotese_iron: metade das mesas de no-show não seria ocupada por cliente sem reserva"
+      },
+      "no_self": false,
+      "insumos_deep": [
+        "F03"
+      ]
+    },
+    "L_delivery": {
+      "nome": "Canal próprio de delivery",
+      "linha_dre": "deducoes",
+      "tipo": "custo",
+      "formula": "receita_marketplace * migracao_canal_proprio * (comissao_marketplace - custo_canal_proprio)",
+      "migracao_canal_proprio": {
+        "conservador": 0.05,
+        "base": 0.1,
+        "otimista": 0.2,
+        "origem": "hipotese_iron"
+      },
+      "no_self": false,
+      "insumos_deep": [
+        "F10",
+        "F11"
+      ]
+    },
+    "L_cardapio": {
+      "nome": "Engenharia de cardápio e preço",
+      "linha_dre": "receita_bruta",
+      "tipo": "receita",
+      "formula": "receita_salao_delivery * ganho_margem_mix",
+      "ganho_margem_mix": {
+        "conservador": 0.003,
+        "base": 0.008,
+        "otimista": 0.015,
+        "origem": "hipotese_iron: ganho de margem por mix e preço, já líquido de CMV"
+      },
+      "no_self": false,
+      "insumos_deep": [
+        "F01",
+        "F07",
+        "F11"
+      ],
+      "nota": "Já é ganho de margem, então não multiplica por mc.",
+      "ja_e_margem": true
+    },
+    "L_estoque": {
+      "nome": "Capital parado em estoque",
+      "linha_dre": "outras_despesas",
+      "tipo": "custo",
+      "formula": "estoque_medio * reducao_estoque * custo_capital_anual",
+      "reducao_estoque": {
+        "conservador": 0.1,
+        "base": 0.2,
+        "otimista": 0.3,
+        "origem": "hipotese_iron"
+      },
+      "no_self": false,
+      "insumos_deep": [
+        "F05"
+      ]
+    }
+  },
+  "self_alavancas_max": 2,
+  "self_ordem_alavancas": [
+    "L_cmv",
+    "L_giro"
+  ],
+  "casos_de_uso": [
+    {
+      "id": "U01",
+      "nome": "Alerta de preço de insumo e sugestão de substituição",
+      "area": "05_compras",
+      "alavanca": "L_cmv"
+    },
+    {
+      "id": "U02",
+      "nome": "Consumo real contra ficha técnica por loja",
+      "area": "05_compras",
+      "alavanca": "L_cmv",
+      "depende_de": [
+        "F07"
+      ]
+    },
+    {
+      "id": "U03",
+      "nome": "Previsão de demanda por loja e turno para produção e compras",
+      "area": "06_operacoes",
+      "alavanca": "L_cmv"
+    },
+    {
+      "id": "U04",
+      "nome": "Escala de pessoal pela demanda prevista",
+      "area": "06_operacoes",
+      "alavanca": "e_a",
+      "depende_de": [
+        "F01",
+        "F08"
+      ]
+    },
+    {
+      "id": "U05",
+      "nome": "Medição de tempo de mesa por câmera",
+      "area": "06_operacoes",
+      "alavanca": "L_giro",
+      "criar_fonte": "F02",
+      "lgpd": "imagem"
+    },
+    {
+      "id": "U06",
+      "nome": "Mapa de calor do salão e simulação de layout",
+      "area": "06_operacoes",
+      "alavanca": "L_giro",
+      "lgpd": "imagem"
+    },
+    {
+      "id": "U07",
+      "nome": "Agente de reservas e confirmação por WhatsApp",
+      "area": "08_atendimento",
+      "alavanca": "L_noshow"
+    },
+    {
+      "id": "U08",
+      "nome": "Classificação de avaliações por tema e loja",
+      "area": "08_atendimento",
+      "alavanca": "L_giro",
+      "criar_fonte": "F09"
+    },
+    {
+      "id": "U09",
+      "nome": "CRM e campanhas para o canal próprio de delivery",
+      "area": "07_comercial",
+      "alavanca": "L_delivery"
+    },
+    {
+      "id": "U10",
+      "nome": "Engenharia de cardápio com margem por prato",
+      "area": "07_comercial",
+      "alavanca": "L_cardapio"
+    },
+    {
+      "id": "U11",
+      "nome": "Conciliação de vendas, marketplaces e cartões",
+      "area": "04_financas",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U12",
+      "nome": "DRE por loja automático com alertas de desvio",
+      "area": "04_financas",
+      "alavanca": "e_a"
+    }
+  ],
+  "kpis": [
+    "CMV sobre receita",
+    "desperdício sobre compras",
+    "custo de pessoal sobre receita",
+    "tempo médio de mesa no pico",
+    "giro de mesas no pico",
+    "no-show",
+    "participação do canal próprio no delivery",
+    "nota média das avaliações",
+    "margem por loja"
+  ],
+  "correlacoes_padrao": [
+    "Preço de insumo × CMV por loja e mês",
+    "CMV por loja × existência de inventário e ficha técnica",
+    "Tempo de mesa × dia, turno e pessoas escaladas",
+    "Pessoas escaladas × demanda por turno e porte da loja",
+    "Avaliações por tema × dia da semana e loja",
+    "No-show × confirmação e antecedência da reserva",
+    "Delivery por canal × comissão e recorrência do cliente"
+  ],
+  "roteiros_deep_dive": {
+    "diretoria": {
+      "quem": "CEO e diretoria",
+      "perguntas": [
+        "Quais três números do DRE mais incomodam hoje?",
+        "Em que lojas a venda não vira lucro, e por quê, na sua leitura?",
+        "Que decisões são tomadas no feeling e deveriam ter dado?",
+        "Quem seria o dono de um projeto de IA e com que orçamento?",
+        "O que não pode dar errado (marca, segurança de alimento, equipe)?"
+      ],
+      "pedir": [
+        "F11"
+      ]
+    },
+    "operacoes": {
+      "quem": "Diretor de operações, gerentes de loja, chefs",
+      "perguntas": [
+        "Como a escala é montada e quem decide mudanças?",
+        "Onde o salão trava no pico: cozinha, garçom, caixa, limpeza de mesa?",
+        "Como a produção do dia é planejada?",
+        "O que acontece com a sobra?",
+        "Quais queixas de cliente chegam ao gerente?"
+      ],
+      "pedir": [
+        "F01",
+        "F02",
+        "F06",
+        "F08"
+      ],
+      "observar": "Uma noite de pico em loja grande e uma em loja pequena, cronometrando 20 mesas."
+    },
+    "compras": {
+      "quem": "Compras e estoque",
+      "perguntas": [
+        "Como se decide quanto comprar e de quem?",
+        "Como uma alta de preço é percebida e tratada?",
+        "Existe ficha técnica atualizada e quem a mantém?",
+        "Como e quando se faz inventário?"
+      ],
+      "pedir": [
+        "F04",
+        "F05",
+        "F07"
+      ]
+    },
+    "financas": {
+      "quem": "Diretoria financeira e controladoria",
+      "perguntas": [
+        "Quanto tempo leva fechar o DRE por loja?",
+        "Como se concilia marketplace e cartão?",
+        "Quais rateios entram no resultado de cada loja?"
+      ],
+      "pedir": [
+        "F11"
+      ]
+    },
+    "comercial": {
+      "quem": "Comercial, marketing e delivery",
+      "perguntas": [
+        "Quanto do delivery é marketplace e quanto custa?",
+        "Há base de clientes própria e como é usada?",
+        "Como o preço do cardápio é revisado?"
+      ],
+      "pedir": [
+        "F09",
+        "F10"
+      ]
+    },
+    "atendimento": {
+      "quem": "SAC e reservas",
+      "perguntas": [
+        "Como as reservas chegam e são confirmadas?",
+        "Quanto do volume é repetitivo (horário, cardápio, status de pedido)?",
+        "Quanto tempo leva responder uma reclamação?"
+      ],
+      "pedir": [
+        "F03",
+        "F09"
+      ]
+    },
+    "rh": {
+      "quem": "RH",
+      "perguntas": [
+        "Qual a rotatividade por função e loja?",
+        "Quanto custa e quanto leva contratar e treinar um garçom?",
+        "Como horas extras são controladas?"
+      ],
+      "pedir": [
+        "F08"
+      ]
+    },
+    "ti_dados": {
+      "quem": "TI e dados",
+      "perguntas": [
+        "Quais sistemas existem e quais têm API ou exportação?",
+        "Onde estão as câmeras e quem acessa as imagens?",
+        "Existe política de uso de IA e de dados?"
+      ],
+      "pedir": [
+        "inventário de sistemas",
+        "mapa de câmeras"
+      ]
+    }
+  },
+  "regulacao_riscos": [
+    "Boas práticas de manipulação de alimentos (ANVISA RDC 216/2004 e normas locais): nenhuma solução pode afrouxar controle sanitário.",
+    "LGPD em imagens de clientes e funcionários: soluções com câmera exigem revisão IRON Security, RIPD, base legal, aviso no salão e decisão final humana.",
+    "Escala e jornada: CLT e convenção coletiva local limitam mudanças de escala; RH e jurídico validam antes do board.",
+    "Gorjeta (Lei 13.419/2017): mudança na escala do salão pode alterar a divisão da gorjeta; tratar com a equipe."
+  ],
+  "variaveis_cliente": {
+    "receita_salao_delivery": "Receita bruta (Self: limite inferior da faixa da pergunta 2)",
+    "reservas_ano": "Reservas no ano (Deep dive, F03)",
+    "pessoas_por_reserva": "Média de pessoas por reserva (F03)",
+    "noshow_atual": "Taxa de no-show medida (F03)",
+    "noshow_meta": "Taxa de no-show com confirmação (medida no piloto da solução)",
+    "receita_marketplace": "Receita de delivery via marketplaces (F10)",
+    "comissao_marketplace": "Comissão média paga (F10)",
+    "custo_canal_proprio": "Custo do canal próprio sobre a venda: plataforma, pagamento, entrega (Deep dive)",
+    "estoque_medio": "Valor médio em estoque (F05)",
+    "custo_capital_anual": "Custo de capital da empresa ao ano (finanças)"
+  }
+}
