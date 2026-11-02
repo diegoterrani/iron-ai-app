@@ -22,6 +22,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           {gestor && <Link href="/empresa">Minha empresa</Link>}
           {admin && <Link href="/admin">Backoffice</Link>}
           <Link href="/conta/seguranca">Segurança</Link>
+          <Link href="/meus-dados">Meus dados</Link>
           <SairButton />
         </div>
       </header>

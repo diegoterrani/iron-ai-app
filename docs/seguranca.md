@@ -84,6 +84,18 @@ Nenhuma dependência nova na fase 3.
 
 Todos os testes de convite foram validados por mutação (remover cada trava faz o teste falhar).
 
+### LGPD (fase 3c)
+
+| Direito / risco | Controle | Teste |
+| --- | --- | --- |
+| Acesso aos dados (art. 18, II) | `/meus-dados/exportar` devolve JSON de `meus_dados()`, que só lê `auth.uid()`; `no-store` | `lgpd_test.sql` (não vaza dados de terceiros) |
+| Eliminação (art. 18, VI) | Titular pede em `/meus-dados`; super-admin conclui em `/admin/lgpd` (prazo de 15 dias sinalizado) | `lgpd_test.sql` |
+| Admin apagar conta sem pedido | `admin_autorizar_exclusao` exige pedido pendente do titular; super-admin e a própria conta são recusados | `lgpd_test.sql` (validado por mutação) |
+| Pedido marcado como feito sem apagar | `admin_concluir_exclusao` confere que a conta não existe mais no Auth | `lgpd_test.sql` |
+| Rastro | Pedido sem FK sobrevive à exclusão; `audit_log` mantido (art. 16, I) | `lgpd_test.sql` |
+
+Vale para conta pendente ou suspensa também (`/meus-dados` exige só login).
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
