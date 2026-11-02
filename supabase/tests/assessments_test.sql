@@ -167,6 +167,25 @@ do $$ begin
   if exists (select 1 from public.assessment_resultados) then raise exception 'FALHA: Beto viu resultado da Ana'; end if;
 end $$;
 
+-- ===== Exportação LGPD inclui os assessments do titular, e só os dele
+do $$ begin
+  if jsonb_array_length(public.meus_dados() -> 'assessments') <> 0 then
+    raise exception 'FALHA: Beto exportou assessment de outra pessoa';
+  end if;
+end $$;
+select pg_temp.como('70000000-0000-0000-0000-000000000002');
+do $$
+declare d jsonb := public.meus_dados();
+begin
+  if d #>> '{assessments,0,resultados,0,resultado,score,valor}' <> '0.35'
+     or d #>> '{assessments,0,respostas,q3}' <> '101 a 500' then
+    raise exception 'FALHA: exportação sem respostas ou resultado: %', d -> 'assessments';
+  end if;
+  if d #>> '{acessos_a_produtos,0,produto}' <> 'self_assessment' then
+    raise exception 'FALHA: exportação sem acesso a produtos';
+  end if;
+end $$;
+
 select pg_temp.como('70000000-0000-0000-0000-000000000001', 'aal2');
 select public.admin_revogar_direito('70000000-0000-0000-0000-000000000002', 'self_assessment');
 select pg_temp.como('70000000-0000-0000-0000-000000000002');
