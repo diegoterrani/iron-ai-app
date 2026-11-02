@@ -36,8 +36,8 @@ jobs:
       - name: Lint, tipos e testes unitários
         run: npm run check
 
-      - name: Build de produção
-        run: npm run build
+      - name: Build com variáveis fictícias de teste (.env.test)
+        run: npm run build:test
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
@@ -54,3 +54,27 @@ jobs:
           name: playwright-traces
           path: test-results/
           retention-days: 7
+
+  banco:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: iron_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Migrações + testes de RLS
+        run: supabase/tests/run.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/iron_test

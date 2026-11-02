@@ -108,3 +108,178 @@ a {
 .panel-text {
   margin: 0;
 }
+
+/* ---------- Autenticação ---------- */
+
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-5) 16px;
+}
+
+.auth-brand {
+  margin-bottom: var(--space-4);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: var(--space-4);
+}
+
+.auth-title {
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.auth-lead {
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+}
+
+.auth-links {
+  margin: var(--space-3) 0 0;
+  font-size: 14px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field input {
+  height: var(--control-height);
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  padding: 0 var(--space-2);
+  font: inherit;
+  background: var(--paper);
+  color: var(--text);
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-hint {
+  font-size: 13px;
+  color: var(--subtle);
+  margin: 0;
+}
+
+.field-error {
+  font-size: 13px;
+  color: var(--danger);
+  margin: 0;
+}
+
+.check {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+  font-size: 14px;
+}
+
+.check input {
+  margin-top: 6px;
+}
+
+.btn {
+  height: var(--control-height);
+  border: 1px solid var(--cta-bg);
+  border-radius: 0;
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0 var(--space-3);
+  cursor: pointer;
+  width: 100%;
+}
+
+.btn:hover {
+  background: var(--cta-hover);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--faint);
+}
+
+.btn-secondary:hover {
+  background: var(--surface);
+}
+
+.providers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.divider {
+  text-align: center;
+  font-size: 13px;
+  color: var(--subtle);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.notice {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+}
+
+.notice-error {
+  border-color: var(--danger);
+  color: var(--danger);
+  background: #fff1f2;
+}
+
+/* ---------- Área logada ---------- */
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+.app-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-user .btn {
+  width: auto;
+}

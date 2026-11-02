@@ -29,6 +29,29 @@ console".
 - **Novas origens externas** (Supabase, Turnstile, Stripe) entram em `buildCsp`
   explicitamente, na fase em que forem usadas, nunca por curinga.
 
+## Autenticação (fase 1)
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Enumeração de contas | Mesma mensagem para e-mail inexistente e senha errada; cadastro e recuperação sempre respondem igual | revisão de `actions.ts` |
+| Robôs / força bruta | Turnstile validado no servidor (hostname conferido, falha fechado) + rate limit do Cloudflare (fase 8) | `tests/unit/turnstile.test.ts` |
+| Open redirect | `safeNextPath` só aceita caminho interno | `tests/unit/redirect.test.ts`, e2e |
+| Sessão forjada | Proxy usa `getClaims()` (verifica assinatura); páginas usam `getUser()` | e2e de redirecionamento |
+| Auto-aprovação | Usuário não tem privilégio na coluna `status`; RLS só deixa ler o próprio perfil | `supabase/tests/perfis_test.sql` |
+| Rota nova esquecida aberta | Lista de rotas públicas (permissão); o resto exige login | `tests/unit/rotas.test.ts` |
+| Vazamento em log | E-mail mascarado, nunca senha/token; erro com código de rastreio | `src/lib/log.ts` |
+| Página estática sem nonce | `connection()` no layout raiz: toda página é dinâmica | e2e "404 também sai com nonce" |
+
+Pendente de verificação no preview: o widget do Turnstile sob a CSP (o
+sandbox de desenvolvimento não alcança challenges.cloudflare.com).
+
+### Dependências adicionadas na fase 1
+
+| Pacote | Por quê |
+| --- | --- |
+| `@supabase/ssr`, `@supabase/supabase-js` | Cliente oficial; sessão em cookie HttpOnly (não em localStorage, alvo de XSS) |
+| `zod` | Validação de toda entrada antes de tocar o Supabase (OWASP A03) |
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta

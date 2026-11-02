@@ -42,6 +42,8 @@ export function buildCsp({ nonce, isDev }: CspOptions): string {
     "img-src": ["'self'", "blob:", "data:"],
     "font-src": ["'self'"],
     "connect-src": ["'self'"],
+    // Turnstile (anti-robô) roda num iframe da Cloudflare.
+    "frame-src": ["https://challenges.cloudflare.com"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
