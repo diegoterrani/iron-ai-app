@@ -4,9 +4,17 @@ import { notFound } from "next/navigation";
 import { resumoAuditoria, type LinhaAuditoria } from "@/lib/admin/auditoria";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
-import { PAPEIS_GLOBAIS, ROTULO_PAPEL, ROTULO_STATUS, idValido, type Status } from "@/lib/validation/admin";
+import { PAPEIS_GLOBAIS, PRODUTOS, ROTULO_PAPEL, ROTULO_PRODUTO, ROTULO_STATUS, idValido, type Status } from "@/lib/validation/admin";
 import { AcaoForm } from "@/components/acao-form";
-import { atribuirStaff, concederPapel, definirStatus, desvincularEmpresa, revogarPapel } from "../../actions";
+import {
+  atribuirStaff,
+  concederDireito,
+  concederPapel,
+  definirStatus,
+  desvincularEmpresa,
+  revogarDireito,
+  revogarPapel,
+} from "../../actions";
 import { formatarDataHora } from "../../formato";
 
 export const metadata: Metadata = { title: "Usuário" };
@@ -46,7 +54,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   if (!idValido(id)) notFound();
 
   const supabase = await createClient();
-  const [fichaRes, papeisRes, vinculosRes, staffRes, empresasRes, auditoriaRes] = await Promise.all([
+  const [fichaRes, papeisRes, vinculosRes, staffRes, empresasRes, auditoriaRes, direitosRes] = await Promise.all([
     supabase.rpc("admin_obter_usuario", { p_user: id }).maybeSingle<Ficha>(),
     supabase.from("user_roles").select("role, concedido_em").eq("user_id", id),
     supabase.from("memberships").select("org_id, role, organizations(id, nome)").eq("user_id", id),
@@ -58,6 +66,11 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
       .eq("alvo", id)
       .order("criado_em", { ascending: false })
       .limit(20),
+    supabase
+      .from("direitos")
+      .select("produto, origem, concedido_em")
+      .eq("user_id", id)
+      .is("revogado_em", null),
   ]);
 
   const ficha = fichaRes.data;
@@ -69,6 +82,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   const atribuicoes = (staffRes.data ?? []) as unknown as { org_id: string; organizations: Empresa | null }[];
   const empresas = (empresasRes.data ?? []) as Empresa[];
   const auditoria = (auditoriaRes.data ?? []) as LinhaAuditoria[];
+  const direitos = (direitosRes.data ?? []) as { produto: string; origem: string; concedido_em: string }[];
   const ehStaff = papeis.some((p) => p === "equipe_iron" || p === "parceiro");
   const naoAtribuidas = empresas.filter((e) => !atribuicoes.some((a) => a.org_id === e.id));
 
@@ -163,6 +177,42 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
           </AcaoForm>
         )}
         <p className="field-hint">Super-admin só é concedido por comando no banco. Equipe IRON precisa ativar MFA no próximo acesso.</p>
+      </section>
+
+      <section className="secao" aria-labelledby="sec-produtos">
+        <h2 id="sec-produtos">Produtos liberados</h2>
+        <ul className="lista">
+          {PRODUTOS.map((p) => {
+            const ativo = direitos.find((d) => d.produto === p);
+            return (
+              <li key={p}>
+                <span>
+                  {ROTULO_PRODUTO[p]} ·{" "}
+                  {ativo
+                    ? `liberado em ${formatarDataHora(ativo.concedido_em)}${ativo.origem === "stripe" ? " (pagamento)" : ""}`
+                    : "não liberado"}
+                </span>
+                {ativo ? (
+                  <AcaoForm
+                    action={revogarDireito}
+                    campos={{ userId: ficha.id, produto: p }}
+                    rotulo="Revogar"
+                    rotuloEnviando="Revogando…"
+                    variante="secundario"
+                  />
+                ) : (
+                  <AcaoForm
+                    action={concederDireito}
+                    campos={{ userId: ficha.id, produto: p }}
+                    rotulo="Liberar"
+                    rotuloEnviando="Liberando…"
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <p className="field-hint">Enquanto o pagamento não está no ar, a liberação é manual. A pessoa precisa estar com a conta ativa para usar.</p>
       </section>
 
       <section className="secao" aria-labelledby="sec-empresas">

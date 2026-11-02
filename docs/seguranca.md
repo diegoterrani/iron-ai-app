@@ -99,6 +99,22 @@ Todos os testes de convite foram validados por mutação (remover cada trava faz
 
 Vale para conta pendente ou suspensa também (`/meus-dados` exige só login).
 
+## Self assessment (fase 7a)
+
+O motor é determinístico (sem LLM), roda no servidor e tem a mesma saída do motor de referência em Python (`referencia/assessment/`, 200 casos-ouro).
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Usar sem ter comprado | `iniciar_self` exige `tem_direito` (conta ativa + direito ativo, consultado a cada chamada) | `assessments_test.sql` |
+| Cliente forjar resultado ou status | Cliente só tem `update (respostas)` em rascunho próprio; resultado só via `concluir_self`, executável apenas por `service_role` | `assessments_test.sql` |
+| Resultado de respostas trocadas no meio | `concluir_self` exige que as respostas gravadas sejam idênticas às calculadas (validado por mutação) | `assessments_test.sql` |
+| Alterar resultado depois | Trigger bloqueia update em `assessment_resultados`; recalcular gera outra linha | `assessments_test.sql` |
+| Respostas (dado estratégico) no log | Auditoria própria grava só id, setor, empresa e status | `assessments_test.sql` |
+| Ver assessment de outra pessoa | RLS: dono, quem tem `assessment.ver` na empresa ou super-admin com MFA | `assessments_test.sql` |
+| Abuso de tamanho | `respostas` precisa ser objeto JSON de até 64 KB | `assessments_test.sql` |
+| Liberação manual sem rastro | `admin_conceder_direito`/`admin_revogar_direito` exigem super-admin com MFA e entram no histórico da ficha | `assessments_test.sql`, `admin.test.ts` |
+| Exclusão LGPD | Assessments e resultados apagam em cascata com a conta | `assessments_test.sql` |
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta

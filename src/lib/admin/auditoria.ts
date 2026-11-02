@@ -1,4 +1,4 @@
-import { ROTULO_PAPEL, ROTULO_STATUS, type Status } from "@/lib/validation/admin";
+import { ROTULO_PAPEL, ROTULO_PRODUTO, ROTULO_STATUS, type Status } from "@/lib/validation/admin";
 
 export interface LinhaAuditoria {
   id: number;
@@ -15,6 +15,16 @@ const ACAO: Record<string, string> = { insert: "criou", update: "alterou", delet
 function texto(valor: unknown): string {
   return typeof valor === "string" || typeof valor === "number" ? String(valor) : "";
 }
+
+function produto(valor: unknown): string {
+  const t = texto(valor);
+  return ROTULO_PRODUTO[t as keyof typeof ROTULO_PRODUTO] ?? t;
+}
+
+const ETAPA_ASSESSMENT: Record<string, string> = {
+  assessment_iniciado: "Self assessment iniciado",
+  assessment_concluido: "Self assessment concluído",
+};
 
 function papel(valor: unknown): string {
   const t = texto(valor);
@@ -50,6 +60,12 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
         return `Assentos: ${texto(antes.assentos)} → ${texto(depois.assentos)}`;
       }
       return `Empresa ${ACAO[linha.acao] ?? linha.acao}: ${texto(atual.nome)}`;
+    case "direitos":
+      if (linha.acao === "update" && depois.revogado_em) return `Acesso revogado: ${produto(atual.produto)}`;
+      return linha.acao === "delete" ? `Acesso removido: ${produto(atual.produto)}` : `Acesso liberado: ${produto(atual.produto)}`;
+    case "assessments":
+      // Auditoria própria: só etapa e setor, nunca as respostas.
+      return ETAPA_ASSESSMENT[linha.acao] ?? "Self assessment atualizado";
     default:
       return `${ACAO[linha.acao] ?? linha.acao} em ${linha.tabela}`;
   }

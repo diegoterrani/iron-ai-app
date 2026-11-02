@@ -4,6 +4,7 @@ import {
   cnpjValido,
   conviteIdSchema,
   conviteSchema,
+  direitoSchema,
   empresaSchema,
   exclusaoSchema,
   lerFiltroUsuarios,
@@ -141,5 +142,26 @@ describe("resumoAuditoria", () => {
   });
   it("tolera dados nulos", () => {
     expect(resumoAuditoria({ acao: "insert", tabela: "staff_assignments", dados: null })).toBe("Atribuído a uma empresa");
+  });
+});
+
+describe("liberação de produtos", () => {
+  it("aceita só produtos conhecidos", () => {
+    expect(direitoSchema.safeParse({ userId: ID, produto: "self_assessment" }).success).toBe(true);
+    expect(direitoSchema.safeParse({ userId: ID, produto: "deep_dive" }).success).toBe(false);
+    expect(direitoSchema.safeParse({ userId: "x", produto: "self_assessment" }).success).toBe(false);
+  });
+  it("resume liberação, revogação e etapas do assessment sem expor respostas", () => {
+    expect(resumoAuditoria({ acao: "insert", tabela: "direitos", dados: { depois: { produto: "self_assessment" } } })).toBe(
+      "Acesso liberado: Self assessment",
+    );
+    expect(
+      resumoAuditoria({
+        acao: "update",
+        tabela: "direitos",
+        dados: { antes: { produto: "self_assessment", revogado_em: null }, depois: { produto: "self_assessment", revogado_em: "2026-11-02" } },
+      }),
+    ).toBe("Acesso revogado: Self assessment");
+    expect(resumoAuditoria({ acao: "assessment_concluido", tabela: "assessments", dados: null })).toBe("Self assessment concluído");
   });
 });
