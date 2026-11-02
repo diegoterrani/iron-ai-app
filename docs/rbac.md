@@ -40,7 +40,7 @@ e a aplicação manda a pessoa para `/configurar-mfa`.
 Depois que o Terrani se cadastrar e confirmar o e-mail, no SQL Editor do Supabase:
 
 ```sql
--- Alvo: projeto iron-ai-app (sa-east-1). Troque o e-mail.
+-- Alvo: projeto iron-ai-app (us-east-1). Troque o e-mail.
 update public.profiles set status = 'ativo'
 where id = (select id from auth.users where email = 'SEU_EMAIL');
 

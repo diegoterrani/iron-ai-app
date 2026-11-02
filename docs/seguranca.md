@@ -19,8 +19,11 @@ console".
 
 ## Decisões
 
-- **Funções na região gru1 (São Paulo)** (`vercel.json`): ficam ao lado do Supabase
-  sa-east-1 (menos latência) e o processamento de dados pessoais fica no Brasil.
+- **Funções na região iad1 (Washington)** (`vercel.json`): ficam ao lado do Supabase
+  us-east-1, onde o Terrani decidiu manter o banco (02/11/2026). Cada página faz
+  várias consultas; com funções em São Paulo, cada uma pagaria ~120 ms de ida e volta.
+  Dados pessoais ficam nos EUA: a Política de Privacidade precisa citar a
+  transferência internacional (LGPD, art. 33).
 
 - **Cache Components / PPR desligados.** A casca estática pré-renderizada no
   build sai sem nonce e a CSP bloqueia os scripts. Área logada é por usuário,
