@@ -7,6 +7,7 @@ import {
   Q7_MAX,
   UFS,
   ajustarPessoasQ6,
+  alternarOpcao,
   areasQ6,
   pendencias,
   type EmpresaSelf,
@@ -126,8 +127,20 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
   const set = <K extends keyof RespostasSelf>(campo: K, valor: RespostasSelf[K]) => atualizar((a) => ({ ...a, [campo]: valor }));
   const setSetorial = (campo: keyof NonNullable<RespostasSelf["setoriais"]>, valor: string | number | undefined) =>
     atualizar((a) => ({ ...a, setoriais: { ...a.setoriais, [campo]: valor } }));
-  const setMapa = (campo: "grade_q5" | "pessoas_q6" | "dados_D", chave: string, valor: string) =>
+  const setMapa = (campo: "pessoas_q6" | "dados_D", chave: string, valor: string) =>
     atualizar((a) => ({ ...a, [campo]: { ...a[campo], [chave]: valor } }));
+  /** Marca ou desmarca um nível de uma área na pergunta 5 (escolha múltipla). */
+  const marcarQ5 = (area: string, opcao: string, marcar: boolean) =>
+    atualizar((a) => {
+      const grade = { ...a.grade_q5, [area]: alternarOpcao(q.opcoes.nivelQ5, a.grade_q5?.[area], opcao, marcar) };
+      if (grade[area].length === 0) delete grade[area];
+      return { ...a, grade_q5: grade };
+    });
+  const marcar = (campo: "q8" | "q9" | "q12", opcoes: string[]) => (opcao: string, marcado: boolean) =>
+    atualizar((a) => {
+      const lista = alternarOpcao(opcoes, a[campo], opcao, marcado);
+      return { ...a, [campo]: lista.length > 0 ? lista : undefined };
+    });
 
   const idPasso: PassoId = PASSOS[passo].id;
   const faltas = pendencias(q, r, emp);
@@ -332,22 +345,21 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
         {idPasso === "esforco" && (
           <>
             <p className="pergunta-titulo">Como cada área faz o trabalho do dia a dia hoje?</p>
-            <p className="field-hint">As áreas que mais pesam no setor vêm primeiro.</p>
+            <p className="field-hint">
+              Marque todas as formas que a área usa (por exemplo, planilhas e sistema). As áreas que mais pesam no setor vêm
+              primeiro.
+            </p>
             <div className="grade">
               {q.areasQ5.map((a) => (
-                <div className="field" key={a.id}>
-                  <label htmlFor={`q5-${a.id}`}>{a.nome}</label>
-                  <select id={`q5-${a.id}`} value={r.grade_q5?.[a.id] ?? ""} onChange={(e) => setMapa("grade_q5", a.id, e.target.value)}>
-                    <option value="" disabled>
-                      Escolha…
-                    </option>
-                    {q.opcoes.nivelQ5.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <EscolhaMultipla
+                  key={a.id}
+                  nome={`q5-${a.id}`}
+                  legenda={a.nome}
+                  opcoes={q.opcoes.nivelQ5}
+                  valor={r.grade_q5?.[a.id]}
+                  aoMudar={(o, m) => marcarQ5(a.id, o, m)}
+                  compacta
+                />
               ))}
             </div>
           </>
@@ -406,7 +418,13 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
 
         {idPasso === "dados" && (
           <>
-            <Escolha nome="q8" legenda="Onde ficam os dados do dia a dia?" opcoes={q.opcoes.q8} valor={r.q8} aoMudar={(v) => set("q8", v)} />
+            <EscolhaMultipla
+              nome="q8"
+              legenda="Onde ficam os dados do dia a dia?"
+              opcoes={q.opcoes.q8}
+              valor={r.q8}
+              aoMudar={marcar("q8", q.opcoes.q8)}
+            />
             <p className="pergunta-titulo">{q.dados.texto}</p>
             <p className="field-hint">Marque só o que é registrado de forma regular. Se não souber, escolha “não sei”.</p>
             <div className="grade">
@@ -431,7 +449,13 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
 
         {idPasso === "prontidao" && (
           <>
-            <Escolha nome="q9" legenda="Como a empresa usa IA hoje?" opcoes={q.opcoes.q9} valor={r.q9} aoMudar={(v) => set("q9", v)} />
+            <EscolhaMultipla
+              nome="q9"
+              legenda="Como a empresa usa IA hoje?"
+              opcoes={q.opcoes.q9}
+              valor={r.q9}
+              aoMudar={marcar("q9", q.opcoes.q9)}
+            />
             <Escolha
               nome="q10"
               legenda="Existe política de uso de IA e de proteção de dados?"
@@ -446,7 +470,13 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
               valor={r.q11}
               aoMudar={(v) => set("q11", v)}
             />
-            <Escolha nome="q12" legenda="Qual o principal objetivo?" opcoes={q.opcoes.q12} valor={r.q12} aoMudar={(v) => set("q12", v)} />
+            <EscolhaMultipla
+              nome="q12"
+              legenda="Quais são os objetivos principais?"
+              opcoes={q.opcoes.q12}
+              valor={r.q12}
+              aoMudar={marcar("q12", q.opcoes.q12)}
+            />
           </>
         )}
       </section>
@@ -526,6 +556,35 @@ function Escolha({ nome, legenda, opcoes, valor, aoMudar, rotulo = (o) => o, aju
         ))}
       </div>
       {ajuda && <Ajuda orientacao={ajuda} />}
+    </fieldset>
+  );
+}
+
+interface EscolhaMultiplaProps {
+  nome: string;
+  legenda: string;
+  opcoes: string[];
+  valor: string[] | undefined;
+  aoMudar: (opcao: string, marcada: boolean) => void;
+  /** Versão em coluna, para a grade de áreas. */
+  compacta?: boolean;
+}
+
+/** Pergunta de escolha múltipla: fieldset + caixas de seleção. */
+function EscolhaMultipla({ nome, legenda, opcoes, valor, aoMudar, compacta }: EscolhaMultiplaProps) {
+  const marcadas = new Set(valor ?? []);
+  return (
+    <fieldset className="pergunta">
+      <legend className={compacta ? "pergunta-area" : "pergunta-titulo"}>{legenda}</legend>
+      {!compacta && <p className="field-hint">Marque todas que se aplicam.</p>}
+      <div className={compacta ? "opcoes opcoes-coluna" : "opcoes"}>
+        {opcoes.map((o) => (
+          <label key={o} className="opcao">
+            <input type="checkbox" name={nome} value={o} checked={marcadas.has(o)} onChange={(e) => aoMudar(o, e.target.checked)} />
+            <span>{o}</span>
+          </label>
+        ))}
+      </div>
     </fieldset>
   );
 }

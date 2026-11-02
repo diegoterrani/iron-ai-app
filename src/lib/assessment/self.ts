@@ -8,11 +8,13 @@ import {
   OPCOES_OBJETIVO,
   Q7_MAX,
   areasQ6,
+  paraEscolhaMultipla,
   pendencias,
   UFS,
   type EmpresaSelf,
   type Orientacao,
   type Questionario,
+  type RespostasGravadas,
   type RespostasSelf,
 } from "./questionario";
 import type { Modelo, Pacote } from "./tipos";
@@ -83,6 +85,23 @@ export function montarQuestionario(): Questionario {
 
 const q = montarQuestionario();
 const enumDe = (valores: string[], msg: string) => z.enum(valores as [string, ...string[]], { error: msg });
+/**
+ * Escolha múltipla: aceita texto (rascunho antigo) ou lista; grava a lista
+ * sem repetição e na ordem das opções, para o hash não depender da ordem em
+ * que a pessoa clicou. Lista vazia vira "sem resposta".
+ */
+const multipla = (valores: string[], msg: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? [v] : v),
+    z
+      .array(enumDe(valores, msg), { error: msg })
+      .max(valores.length, msg)
+      .transform((l) => {
+        const marcadas = new Set(l);
+        const ordenada = valores.filter((o) => marcadas.has(o));
+        return ordenada.length > 0 ? ordenada : undefined;
+      }),
+  );
 const areasQ5Ids = q.areasQ5.map((a) => a.id) as [string, ...string[]];
 const itensD = q.dados.itens.map((i) => i.id) as [string, ...string[]];
 
@@ -109,15 +128,15 @@ export const rascunhoSchema = z.object({
       fila_pico: enumDe(q.opcoes.fila, "Resposta inválida.").optional(),
     })
     .optional(),
-  grade_q5: z.partialRecord(z.enum(areasQ5Ids), enumDe(q.opcoes.nivelQ5, "Resposta inválida.")).optional(),
+  grade_q5: z.partialRecord(z.enum(areasQ5Ids), multipla(q.opcoes.nivelQ5, "Resposta inválida.")).optional(),
   pessoas_q6: z.partialRecord(z.enum(areasQ5Ids), enumDe(q.opcoes.pessoasArea, "Faixa inválida.")).optional(),
   q7: z.string().trim().max(Q7_MAX, `Use até ${Q7_MAX} caracteres.`).optional(),
-  q8: enumDe(q.opcoes.q8, "Resposta inválida.").optional(),
+  q8: multipla(q.opcoes.q8, "Resposta inválida.").optional(),
   dados_D: z.partialRecord(z.enum(itensD), enumDe(q.opcoes.cobertura, "Resposta inválida.")).optional(),
-  q9: enumDe(q.opcoes.q9, "Resposta inválida.").optional(),
+  q9: multipla(q.opcoes.q9, "Resposta inválida.").optional(),
   q10: enumDe(q.opcoes.q10, "Resposta inválida.").optional(),
   q11: enumDe(q.opcoes.q11, "Resposta inválida.").optional(),
-  q12: enumDe(q.opcoes.q12, "Resposta inválida.").optional(),
+  q12: multipla(q.opcoes.q12, "Resposta inválida.").optional(),
 });
 
 /** Remove opcionais vazios para gravar um JSON enxuto e estável (o hash depende dele). */
@@ -159,8 +178,8 @@ export function normalizarRascunho(
 }
 
 /** Pronto para concluir? Mesma regra que a tela mostra na revisão. */
-export function faltasParaConcluir(r: RespostasSelf, e: EmpresaSelf): string[] {
-  return pendencias(q, r, e).map((p) => p.texto);
+export function faltasParaConcluir(r: RespostasGravadas, e: EmpresaSelf): string[] {
+  return pendencias(q, paraEscolhaMultipla(r), e).map((p) => p.texto);
 }
 
 // ------------------------------------------------------------- cadastro da empresa

@@ -4,7 +4,7 @@
  * sem levar o motor nem os JSON do modelo para o navegador.
  */
 import { cnpjValido } from "@/lib/validation/cnpj";
-import { ordenarAreasQ6 } from "./areas";
+import { mediaMarcadas, ordenarAreasQ6 } from "./areas";
 
 export interface Orientacao {
   por_que?: string;
@@ -45,7 +45,10 @@ export interface Questionario {
   dados: { texto: string; itens: { id: string; nome: string }[] };
 }
 
-/** Respostas como ficam gravadas (mesma forma que o motor recebe). */
+/**
+ * Respostas na forma atual (motor 0.3.0): perguntas de escolha múltipla são
+ * listas, na ordem das opções. É a forma gravada e a que o motor recebe.
+ */
 export interface RespostasSelf {
   setor?: string;
   q2_valor?: number | null;
@@ -53,16 +56,55 @@ export interface RespostasSelf {
   q3?: string;
   q4?: string;
   setoriais?: { unidades?: number; lugares_total?: number; ticket_pessoa?: string; fila_pico?: string };
-  grade_q5?: Record<string, string>;
+  grade_q5?: Record<string, string[]>;
   pessoas_q6?: Record<string, string>;
   q7?: string;
-  q8?: string;
+  q8?: string[];
   dados_D?: Record<string, string>;
-  q9?: string;
+  q9?: string[];
   q10?: string;
   q11?: string;
-  q12?: string;
+  q12?: string[];
 }
+
+/** Rascunhos gravados antes da escolha múltipla têm texto onde hoje há lista. */
+type Multipla = string | string[] | undefined;
+export type RespostasGravadas = Omit<RespostasSelf, "grade_q5" | "q8" | "q9" | "q12"> & {
+  grade_q5?: Record<string, Multipla>;
+  q8?: Multipla;
+  q9?: Multipla;
+  q12?: Multipla;
+};
+
+const comoLista = (v: Multipla): string[] | undefined => (v === undefined ? undefined : typeof v === "string" ? [v] : v);
+
+/** Converte um rascunho antigo (uma opção por pergunta) para a forma atual. */
+export function paraEscolhaMultipla(r: RespostasGravadas): RespostasSelf {
+  const { grade_q5, q8, q9, q12, ...resto } = r;
+  const novo: RespostasSelf = { ...resto };
+  if (grade_q5) {
+    const grade: Record<string, string[]> = {};
+    for (const [a, v] of Object.entries(grade_q5)) {
+      const l = comoLista(v);
+      if (l) grade[a] = l;
+    }
+    novo.grade_q5 = grade;
+  }
+  if (q8 !== undefined) novo.q8 = comoLista(q8);
+  if (q9 !== undefined) novo.q9 = comoLista(q9);
+  if (q12 !== undefined) novo.q12 = comoLista(q12);
+  return novo;
+}
+
+/** Marca ou desmarca uma opção, mantendo a ordem da lista de opções. */
+export function alternarOpcao(opcoes: readonly string[], atual: string[] | undefined, opcao: string, marcar: boolean): string[] {
+  const marcadas = new Set(atual ?? []);
+  if (marcar) marcadas.add(opcao);
+  else marcadas.delete(opcao);
+  return opcoes.filter((o) => marcadas.has(o));
+}
+
+const marcou = (v: string[] | undefined) => Boolean(v && v.length > 0);
 
 /** Opções fixas das perguntas que não alimentam o cálculo. */
 export const OPCOES_MARGEM = ["negativa", "até 5%", "5 a 10%", "10 a 20%", "acima de 20%", "prefiro não dizer"];
@@ -108,12 +150,13 @@ export type PassoId = (typeof PASSOS)[number]["id"];
  * Áreas da pergunta 6 a partir da grade da pergunta 5. Enquanto a grade
  * estiver incompleta, devolve lista vazia (a pergunta 6 espera a 5).
  */
-export function areasQ6(q: Questionario, grade: Record<string, string> | undefined): string[] {
+export function areasQ6(q: Questionario, grade: Record<string, string[]> | undefined): string[] {
   const notas: Record<string, number> = {};
   for (const a of q.q6.candidatas) {
-    const v = grade?.[a];
-    if (v === undefined || !Object.hasOwn(q.q6.notaQ5, v)) return [];
-    notas[a] = q.q6.notaQ5[v];
+    // Mesma conta do motor: média das opções marcadas na área.
+    const nota = mediaMarcadas(q.q6.notaQ5, grade?.[a]);
+    if (nota === null) return [];
+    notas[a] = nota;
   }
   return ordenarAreasQ6(q.q6.candidatas, q.q6.pesos, notas, q.q6.quantidade);
 }
@@ -141,16 +184,16 @@ export function pendencias(q: Questionario, r: RespostasSelf, e: EmpresaSelf = {
   if (s.unidades === undefined || s.lugares_total === undefined) p.push({ passo: "setor", texto: "Unidades e lugares" });
   if (!s.ticket_pessoa) p.push({ passo: "setor", texto: "Ticket médio" });
   if (!s.fila_pico) p.push({ passo: "setor", texto: "Fila no pico" });
-  const faltaQ5 = q.areasQ5.filter((a) => !r.grade_q5?.[a.id]);
+  const faltaQ5 = q.areasQ5.filter((a) => !marcou(r.grade_q5?.[a.id]));
   if (faltaQ5.length) p.push({ passo: "esforco", texto: `Como cada área trabalha (${faltaQ5.length} sem resposta)` });
   const q6 = areasQ6(q, r.grade_q5);
   if (q6.length === 0 || q6.some((a) => !r.pessoas_q6?.[a])) p.push({ passo: "pessoas", texto: "Pessoas por área" });
-  if (!r.q8) p.push({ passo: "dados", texto: "Onde ficam os dados" });
+  if (!marcou(r.q8)) p.push({ passo: "dados", texto: "Onde ficam os dados" });
   const faltaD = q.dados.itens.filter((i) => !r.dados_D?.[i.id]);
   if (faltaD.length) p.push({ passo: "dados", texto: `Informações registradas (${faltaD.length} sem resposta)` });
-  if (!r.q9) p.push({ passo: "prontidao", texto: "Uso de IA hoje" });
+  if (!marcou(r.q9)) p.push({ passo: "prontidao", texto: "Uso de IA hoje" });
   if (!r.q10) p.push({ passo: "prontidao", texto: "Política de IA e dados" });
   if (!r.q11) p.push({ passo: "prontidao", texto: "Patrocínio e orçamento" });
-  if (!r.q12) p.push({ passo: "prontidao", texto: "Objetivo principal" });
+  if (!marcou(r.q12)) p.push({ passo: "prontidao", texto: "Objetivos principais" });
   return p;
 }
