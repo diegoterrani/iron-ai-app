@@ -565,3 +565,14 @@ a {
   font-size: 15px;
   margin: var(--space-3) 0 var(--space-1);
 }
+
+/* ---------- Meus dados ---------- */
+
+.auth-card-largo {
+  max-width: 640px;
+}
+
+.subtitulo {
+  font-size: 18px;
+  margin: var(--space-4) 0 var(--space-1);
+}

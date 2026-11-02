@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { executar } from "@/lib/acao/executar";
 import type { AcaoState } from "@/lib/acao/tipos";
 import { podeUsarBackoffice } from "@/lib/auth/admin";
+import { log } from "@/lib/log";
+import { createAdminAuth } from "@/lib/supabase/admin";
 import {
   assentosSchema,
+  exclusaoSchema,
   desvinculoSchema,
   empresaSchema,
   papelSchema,
@@ -122,6 +125,36 @@ export async function atribuirStaff(_prev: AcaoState, form: FormData): Promise<A
     form,
     (rpc, d) => rpc("admin_atribuir_staff", { p_user: d.userId, p_org: d.orgId, p_atribuir: d.atribuir }),
     "Atribuição atualizada.",
+    ADMIN,
+  );
+  return estado;
+}
+
+/**
+ * LGPD: conclui um pedido de exclusão feito pelo próprio titular.
+ * 1. o banco autoriza (pedido pendente, não é super-admin nem a própria conta);
+ * 2. a chave secreta apaga a conta no Auth (cascata apaga perfil e vínculos);
+ * 3. o banco confere que a conta sumiu e marca o pedido como concluído.
+ */
+export async function concluirExclusao(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.lgpd_exclusao",
+    exclusaoSchema,
+    form,
+    async (rpc, d, trace) => {
+      const autorizacao = await rpc("admin_autorizar_exclusao", { p_solicitacao: d.solicitacaoId });
+      if (autorizacao.error || typeof autorizacao.data !== "string") {
+        return autorizacao.error ? autorizacao : { data: null, error: { code: "P0002", message: "pedido não encontrado" } };
+      }
+      const { error } = await createAdminAuth().deleteUser(autorizacao.data);
+      // Conta já apagada antes (nova tentativa): segue para concluir.
+      if (error && error.code !== "user_not_found") {
+        log("error", "admin.lgpd_exclusao_auth_falhou", { trace, code: error.code });
+        return { data: null, error: { code: "P0002", message: "a conta não foi apagada no login; tente de novo" } };
+      }
+      return rpc("admin_concluir_exclusao", { p_solicitacao: d.solicitacaoId });
+    },
+    "Conta excluída e pedido concluído.",
     ADMIN,
   );
   return estado;

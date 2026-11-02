@@ -5,6 +5,7 @@ import {
   conviteIdSchema,
   conviteSchema,
   empresaSchema,
+  exclusaoSchema,
   lerFiltroUsuarios,
   lerPagina,
   mensagemErroBanco,
@@ -75,6 +76,13 @@ describe("convites", () => {
   it("id do convite precisa ser UUID", () => {
     expect(conviteIdSchema.safeParse({ conviteId: "1; drop table convites" }).success).toBe(false);
     expect(conviteIdSchema.safeParse({ conviteId: ID }).success).toBe(true);
+  });
+});
+
+describe("LGPD", () => {
+  it("pedido de exclusão só aceita UUID", () => {
+    expect(exclusaoSchema.safeParse({ solicitacaoId: ID }).success).toBe(true);
+    expect(exclusaoSchema.safeParse({ solicitacaoId: "*" }).success).toBe(false);
   });
 });
 

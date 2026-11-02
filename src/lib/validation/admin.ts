@@ -82,6 +82,8 @@ export const conviteSchema = z.object({
 
 export const conviteIdSchema = z.object({ conviteId: id });
 
+export const exclusaoSchema = z.object({ solicitacaoId: id });
+
 export const desvinculoSchema = z.object({ orgId: id, userId: id });
 
 export const staffSchema = z.object({
