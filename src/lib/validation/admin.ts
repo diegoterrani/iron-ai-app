@@ -75,6 +75,13 @@ export const vinculoSchema = z.object({
   papel: z.enum(PAPEIS_EMPRESA, { error: "Papel inválido." }),
 });
 
+export const conviteSchema = z.object({
+  orgId: id,
+  email: z.string().trim().toLowerCase().max(254).pipe(z.email({ error: "E-mail inválido." })),
+});
+
+export const conviteIdSchema = z.object({ conviteId: id });
+
 export const desvinculoSchema = z.object({ orgId: id, userId: id });
 
 export const staffSchema = z.object({

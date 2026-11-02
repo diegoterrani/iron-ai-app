@@ -546,3 +546,22 @@ a {
   justify-content: center;
   text-decoration: none;
 }
+
+/* ---------- Convites ---------- */
+
+.convites {
+  border: 1px solid var(--accent);
+  background: #fff;
+  padding: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.convites h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-1);
+}
+
+.secao h3 {
+  font-size: 15px;
+  margin: var(--space-3) 0 var(--space-1);
+}

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { resumoAuditoria } from "@/lib/admin/auditoria";
 import {
   cnpjValido,
+  conviteIdSchema,
+  conviteSchema,
   empresaSchema,
   lerFiltroUsuarios,
   lerPagina,
@@ -61,6 +63,18 @@ describe("travas de entrada do backoffice", () => {
     expect(staffSchema.parse({ orgId: ID, userId: ID, atribuir: "1" }).atribuir).toBe(true);
     expect(staffSchema.parse({ orgId: ID, userId: ID, atribuir: "0" }).atribuir).toBe(false);
     expect(staffSchema.safeParse({ orgId: ID, userId: ID, atribuir: "true" }).success).toBe(false);
+  });
+});
+
+describe("convites", () => {
+  it("normaliza o e-mail e exige empresa válida", () => {
+    expect(conviteSchema.parse({ orgId: ID, email: " Ana@Empresa.COM " }).email).toBe("ana@empresa.com");
+    expect(conviteSchema.safeParse({ orgId: "x", email: "ana@empresa.com" }).success).toBe(false);
+    expect(conviteSchema.safeParse({ orgId: ID, email: "ana" }).success).toBe(false);
+  });
+  it("id do convite precisa ser UUID", () => {
+    expect(conviteIdSchema.safeParse({ conviteId: "1; drop table convites" }).success).toBe(false);
+    expect(conviteIdSchema.safeParse({ conviteId: ID }).success).toBe(true);
   });
 });
 

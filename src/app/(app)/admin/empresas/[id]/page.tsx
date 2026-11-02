@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
 import { PAPEIS_EMPRESA, ROTULO_PAPEL, idValido } from "@/lib/validation/admin";
-import { AcaoForm } from "../../acao-form";
+import { AcaoForm } from "@/components/acao-form";
 import { atribuirStaff, definirAssentos, desvincularEmpresa, vincularEmpresa } from "../../actions";
 import { formatarCnpj, formatarDataHora } from "../../formato";
 

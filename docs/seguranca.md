@@ -70,6 +70,20 @@ sandbox de desenvolvimento não alcança challenges.cloudflare.com).
 
 Nenhuma dependência nova na fase 3.
 
+### Convites do Master (fase 3b)
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Master convidar em outra empresa | `empresa_convidar` exige `tem_permissao('empresa.membros', empresa)` | `convites_test.sql` |
+| Passar do número de assentos | Membros + convites pendentes contam; `for update` na empresa evita corrida | `convites_test.sql` |
+| Aceitar convite alheio | `aceitar_convite` compara com o e-mail **confirmado** da conta (tabela `auth.users`, não o token) | `convites_test.sql` |
+| Conta suspensa se reativar por convite | Aceite recusado para conta suspensa | `convites_test.sql` |
+| Descobrir quem tem conta | Mesma resposta ao Master com ou sem conta; quem já tem conta não recebe e-mail novo e aceita dentro do app | revisão de `empresa/actions.ts` |
+| Disparo de e-mail em massa | 50 convites por empresa a cada 24 h; convite vale 7 dias | `convites_test.sql` |
+| Chave secreta exposta ou mal usada | Só em `src/lib/supabase/admin.ts` (`server-only`), só para `inviteUserByEmail`, só depois do banco autorizar | revisão |
+
+Todos os testes de convite foram validados por mutação (remover cada trava faz o teste falhar).
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
-import { AcaoForm } from "../acao-form";
+import { AcaoForm } from "@/components/acao-form";
 import { criarEmpresa } from "../actions";
 import { formatarCnpj, formatarDataHora } from "../formato";
 

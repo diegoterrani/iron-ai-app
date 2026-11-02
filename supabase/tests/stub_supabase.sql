@@ -23,7 +23,8 @@ create table if not exists auth.users (
   raw_user_meta_data jsonb,
   raw_app_meta_data jsonb,
   created_at timestamptz default now(),
-  last_sign_in_at timestamptz
+  last_sign_in_at timestamptz,
+  email_confirmed_at timestamptz
 );
 
 alter table auth.users owner to migrador;
