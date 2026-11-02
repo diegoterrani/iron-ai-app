@@ -9,7 +9,7 @@ no repositório**: são colados direto no painel do Supabase ou da Vercel.
 | --- | --- |
 | Organização | iron@iron-security.com's Org (Pro) |
 | Nome | `iron-ai-app` |
-| Região | South America (São Paulo), `sa-east-1` |
+| Região | East US (N. Virginia), `us-east-1` (projeto `wdvlafvamvslwclnkyjp`, decisão do Terrani em 02/11/2026) |
 | Senha do banco | gerada pelo painel, guardada só com o Terrani |
 
 Validação: o projeto aparece como "Healthy" no painel.
