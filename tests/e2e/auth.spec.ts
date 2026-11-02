@@ -79,3 +79,12 @@ for (const path of ["/admin", "/admin/usuarios", "/admin/empresas", "/admin/audi
     expect(url.searchParams.get("next")).toBe(path);
   });
 }
+
+test("página inicial leva para entrar e criar conta", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("main").getByRole("link", { name: "Criar conta" }).click();
+  await expect(page).toHaveURL(/\/cadastro$/);
+  await page.goto("/");
+  await page.locator(".home-ctas").getByRole("link", { name: "Entrar" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Entrar");
+});
