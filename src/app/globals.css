@@ -267,6 +267,8 @@ a {
 
 .app-header {
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -276,6 +278,7 @@ a {
 
 .app-user {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
@@ -778,4 +781,60 @@ a {
   letter-spacing: -0.03em;
   font-weight: 600;
   margin: var(--space-1) 0;
+}
+
+.lista-resultado {
+  margin: 0;
+  padding-left: 1.4em;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.lista-resultado li > * {
+  display: block;
+}
+
+.barras {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.barras li {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr 3em;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.barras svg {
+  width: 100%;
+  height: 10px;
+}
+
+.barra-fundo {
+  fill: var(--surface-2);
+}
+
+.barra-valor {
+  fill: var(--accent);
+}
+
+.selo-ia {
+  margin-left: var(--space-1);
+}
+
+@media print {
+  .app-header,
+  .nao-imprimir {
+    display: none;
+  }
+
+  .resultado .secao {
+    break-inside: avoid;
+  }
 }

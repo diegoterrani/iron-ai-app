@@ -160,3 +160,21 @@ export function normalizarRascunho(
 export function faltasParaConcluir(r: RespostasSelf): string[] {
   return pendencias(q, r).map((p) => p.texto);
 }
+
+// ------------------------------------------------------------- rótulos do resultado
+
+export const ROTULO_DIMENSAO: Record<string, string> = {
+  estrategia: "Estratégia",
+  dados: "Dados",
+  processos: "Processos",
+  tecnologia: "Tecnologia",
+  governanca: "Governança",
+  pessoas: "Pessoas e cultura",
+};
+
+/** Nome legível de uma área (06_operacoes) ou alavanca (L_cmv) do resultado. */
+export function nomeOrigem(origem: string): string {
+  if (Object.hasOwn(modelo.areas, origem)) return modelo.areas[origem];
+  if (Object.hasOwn(pacote.alavancas, origem)) return pacote.alavancas[origem].nome;
+  return origem;
+}
