@@ -19,8 +19,10 @@ create table public.profiles (
 
 comment on table public.profiles is 'Perfil do usuário; status controlado só pelo super-admin.';
 
+-- RLS ligado (sem FORCE): o dono da tabela, usado só pelas funções
+-- security definer revisadas, passa; anon/authenticated ficam sob as políticas.
+-- FORCE quebraria o gatilho de cadastro (provado em supabase/tests).
 alter table public.profiles enable row level security;
-alter table public.profiles force row level security;
 
 -- Privilégios mínimos: anon não vê nada; authenticated lê e edita 2 colunas.
 revoke all on public.profiles from anon, authenticated;

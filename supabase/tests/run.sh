@@ -6,6 +6,8 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$DIR/tests/stub_supabase.sql"
+# Migrações e testes rodam como "migrador" (sem superuser), como no Supabase.
+export PGOPTIONS="-c role=migrador"
 for m in "$DIR"/migrations/*.sql; do
   echo "migração: $(basename "$m")"
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$m"
