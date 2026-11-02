@@ -50,3 +50,15 @@ select id, 'super_admin' from auth.users where email = 'SEU_EMAIL';
 
 Validação: `select * from public.audit_log order by id desc limit 2;` mostra a
 concessão. No próximo acesso, o app pede para ativar o app autenticador.
+
+## Backoffice (fase 3)
+
+Telas em `/admin` (só super-admin com MFA): visão geral, usuários (filtro por
+status e busca), ficha do usuário (aprovar, suspender, reativar, papéis,
+empresas, empresas atendidas, histórico), empresas (criar, assentos, vincular
+por e-mail, remover) e auditoria.
+
+Funções de leitura adicionadas em `20261102190000_backoffice.sql`:
+`admin_listar_usuarios`, `admin_obter_usuario`, `admin_buscar_usuario_por_email`,
+`admin_contadores` e a operação `admin_desvincular_empresa`. Todas chamam
+`exigir_super_admin()` antes de qualquer coisa.
