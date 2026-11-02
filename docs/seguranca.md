@@ -19,6 +19,9 @@ console".
 
 ## Decisões
 
+- **Funções na região gru1 (São Paulo)** (`vercel.json`): ficam ao lado do Supabase
+  sa-east-1 (menos latência) e o processamento de dados pessoais fica no Brasil.
+
 - **Cache Components / PPR desligados.** A casca estática pré-renderizada no
   build sai sem nonce e a CSP bloqueia os scripts. Área logada é por usuário,
   então o ganho seria pequeno.
