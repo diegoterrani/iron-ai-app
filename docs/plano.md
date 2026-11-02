@@ -1,0 +1,15 @@
+# Plano da área logada
+
+Documento vivo: https://claude.ai/artifact/JWeWqg4mZgZH6xABQBax7w
+
+| Fase | Entrega | Status |
+| --- | --- | --- |
+| 0 | Fundação: repositório, base Next.js, cabeçalhos de segurança, CI, domínio | Em andamento |
+| 1 | Login: senha, Google, Entra ID, MFA, Turnstile, conta pendente | A fazer |
+| 2 | RBAC: papéis, permissões, empresas, auditoria (RLS) | A fazer |
+| 3 | Backoffice do super-admin (/admin) | A fazer |
+| 4 | Pagamentos (Stripe) e direitos de compra | A fazer |
+| 5 | Cursos, treinamentos, materiais, blog | A fazer |
+| 6 | Fórum com agente moderador | A fazer |
+| 7 | Assessments Self e Deep dive (motor Python) | A fazer |
+| 8 | Endurecimento, LGPD e go-live | A fazer |

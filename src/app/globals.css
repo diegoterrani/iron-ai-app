@@ -1,0 +1,110 @@
+/*
+ * Tokens do design system IRON AI (copiados de iron-ai-site/tokens.css).
+ * Creme/argila, cantos retos, sem sombras.
+ */
+:root {
+  --ink: #141413;
+  --paper: #faf9f5;
+  --surface: #f0efe6;
+  --surface-2: #e8e6dc;
+  --line: #e7e6e1;
+  --hairline: #1f1e1d26;
+  --text: #141413;
+  --muted: #3d3d3a;
+  --subtle: #6b6a65;
+  --faint: #8f8d86;
+  --accent: #c6613f;
+  --accent-text: #a5502f;
+  --link: #a5502f;
+  --focus: #c6613f;
+  --danger: #b42330;
+  --clay: #d97757;
+  --cta-bg: #141413;
+  --cta-hover: #3d3d3a;
+  --cta-text: #faf9f5;
+
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 22px;
+  --space-4: 32px;
+  --space-5: 44px;
+  --space-6: 60px;
+  --control-height: 48px;
+  --page-max: 1240px;
+  --radius: 0;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--text);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.75;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--link);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.shell {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--space-4) 16px;
+}
+
+.eyebrow {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.title {
+  font-size: clamp(36px, 6vw, 61px);
+  line-height: 1.06;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.lead {
+  font-size: 17px;
+  max-width: 60ch;
+  color: var(--muted);
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.hero-eyebrow {
+  margin-top: var(--space-6);
+}
+
+.panel-text {
+  margin: 0;
+}
