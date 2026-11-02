@@ -70,3 +70,12 @@ test("404 também sai com nonce na CSP", async ({ request }) => {
   expect(res.status()).toBe(404);
   expect(res.headers()["content-security-policy"]).toContain("'nonce-");
 });
+
+for (const path of ["/admin", "/admin/usuarios", "/admin/empresas", "/admin/auditoria", "/admin/usuarios/qualquer"]) {
+  test(`${path} exige login (backoffice)`, async ({ page }) => {
+    await page.goto(path);
+    const url = new URL(page.url());
+    expect(url.pathname).toBe("/entrar");
+    expect(url.searchParams.get("next")).toBe(path);
+  });
+}

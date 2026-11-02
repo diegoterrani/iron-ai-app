@@ -56,6 +56,20 @@ sandbox de desenvolvimento não alcança challenges.cloudflare.com).
 | `@supabase/ssr`, `@supabase/supabase-js` | Cliente oficial; sessão em cookie HttpOnly (não em localStorage, alvo de XSS) |
 | `zod` | Validação de toda entrada antes de tocar o Supabase (OWASP A03) |
 
+## Backoffice (fase 3)
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Não-admin abrir /admin | Layout pergunta ao banco (`tem_permissao('admin.backoffice')`, exige aal2); quem não pode recebe 404 | e2e de redirecionamento |
+| Ação forjada (chamar a server action direto) | Cada action valida com zod e chama uma função `admin_*`, que confere super-admin + MFA por dentro | `supabase/tests/rbac_test.sql`, `backoffice_test.sql` |
+| Vazamento de e-mails | E-mail só sai por funções `security definer` restritas a super-admin com MFA; página com teto de 100 linhas | `backoffice_test.sql` |
+| Injeção na busca | Parâmetro passado como argumento (sem SQL montado); curingas do LIKE escapados | `backoffice_test.sql` (busca por `%` e `_`) |
+| Detalhe do schema na tela | `mensagemErroBanco` só mostra mensagens das nossas funções; o resto vira genérico com código de rastreio | `tests/unit/admin.test.ts` |
+| Admin se promover ou se suspender | Recusado no banco; a tela nem mostra os botões na própria ficha | `rbac_test.sql` |
+| Ação sem rastro | Gatilhos gravam toda mudança no `audit_log` (só inserção); tela de auditoria lê com RLS | `rbac_test.sql`, `backoffice_test.sql` |
+
+Nenhuma dependência nova na fase 3.
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
