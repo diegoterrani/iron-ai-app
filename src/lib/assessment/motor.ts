@@ -14,6 +14,7 @@
  */
 import { createHash } from "node:crypto";
 import { RespostaInvalida } from "./erros";
+import { ordenarAreasQ6 } from "./areas";
 import { calcularFormula } from "./formula";
 import type { Modelo, Pacote, Respostas, ResultadoSelf } from "./tipos";
 
@@ -169,17 +170,23 @@ function eA(area: string, pacote: Pacote, modelo: Modelo): Record<string, number
  * Potencial = participação típica de pessoas × e_a base × espaço para evoluir (5 − nota).
  */
 export function areasParaPergunta6(areasNota: Record<string, number>, pacote: Pacote, modelo: Modelo): string[] {
+  return ordenarAreasQ6(candidatasQ6(modelo), pesosQ6(pacote, modelo), areasNota, modelo.self.areas_no_calculo);
+}
+
+/** Áreas que podem entrar na pergunta 6: operacionais e TI. */
+export function candidatasQ6(modelo: Modelo): string[] {
+  return [...modelo.areas_operacionais, "11_ti_seguranca"];
+}
+
+/** Peso de cada candidata: participação típica de pessoas × e_a base. */
+export function pesosQ6(pacote: Pacote, modelo: Modelo): Record<string, number> {
   const dist = pacote.areas.distribuicao_tipica_pessoas;
-  const cand = [...modelo.areas_operacionais, "11_ti_seguranca"];
-  const potencial = (a: string) => {
+  const pesos: Record<string, number> = {};
+  for (const a of candidatasQ6(modelo)) {
     const d = Object.hasOwn(dist, a) && typeof dist[a] === "number" ? (dist[a] as number) : 0;
-    return d * eA(a, pacote, modelo).base * (5 - areasNota[a]);
-  };
-  return cand
-    .map((a) => ({ a, p: potencial(a) }))
-    .sort((x, y) => y.p - x.p)
-    .slice(0, modelo.self.areas_no_calculo)
-    .map((x) => x.a);
+    pesos[a] = d * eA(a, pacote, modelo).base;
+  }
+  return pesos;
 }
 
 function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenario: Cenario) {

@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         </Link>
         <div className="app-user">
           <span>{perfil.nome}</span>
+          <Link href="/assessment">Self assessment</Link>
           {gestor && <Link href="/empresa">Minha empresa</Link>}
           {admin && <Link href="/admin">Backoffice</Link>}
           <Link href="/conta/seguranca">Segurança</Link>

@@ -114,6 +114,10 @@ O motor é determinístico (sem LLM), roda no servidor e tem a mesma saída do m
 | Abuso de tamanho | `respostas` precisa ser objeto JSON de até 64 KB | `assessments_test.sql` |
 | Liberação manual sem rastro | `admin_conceder_direito`/`admin_revogar_direito` exigem super-admin com MFA e entram no histórico da ficha | `assessments_test.sql`, `admin.test.ts` |
 | Exclusão LGPD | Assessments e resultados apagam em cascata com a conta | `assessments_test.sql` |
+| Chave secreta usada para ler/gravar tabelas | `src/lib/supabase/servidor.ts` expõe só `gravarConclusaoSelf`; o cliente nunca sai do arquivo. A action conclui só depois de ler com a sessão do dono e conferir `tem_direito` | `assessment-questionario.test.ts` |
+| Rascunho com campo forjado (setor, status, resultado) | `normalizarRascunho` aceita só as opções do pacote, descarta chaves desconhecidas e grava o setor do assessment | `assessment-questionario.test.ts` |
+| Tela e servidor com áreas diferentes na pergunta 6 | Mesma função (`ordenarAreasQ6`) no motor e na tela, comparada nos 200 casos-ouro | `assessment-questionario.test.ts` |
+| Respostas no log da Vercel | Actions registram só evento, código de rastreio e versão do motor | revisão de código |
 
 ## Dependências e auditoria
 
