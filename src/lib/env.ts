@@ -21,17 +21,46 @@ export function siteUrlValidaParaProducao(siteUrl: string): boolean {
   }
 }
 
+/** Endereço de branch que a Vercel informa nos previews (sem esquema). */
+const BRANCH_URL = /^[a-z0-9-]+\.vercel\.app$/;
+
 const publicSchema = z
   .object({
     NEXT_PUBLIC_SUPABASE_URL: z.url().startsWith("https://"),
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
-    NEXT_PUBLIC_SITE_URL: z.url(),
+    // Opcional só nos previews da Vercel, que usam o endereço da própria branch.
+    NEXT_PUBLIC_SITE_URL: z.url().optional(),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(10),
     VERCEL_ENV: z.string().optional(),
+    // Validado só no preview: em produção não é usado e não pode derrubar o login.
+    VERCEL_BRANCH_URL: z.string().optional(),
   })
-  .refine((env) => env.VERCEL_ENV !== "production" || siteUrlValidaParaProducao(env.NEXT_PUBLIC_SITE_URL), {
-    path: ["NEXT_PUBLIC_SITE_URL"],
-  });
+  .refine(
+    (env) => {
+      if (env.VERCEL_ENV === "production") {
+        return !!env.NEXT_PUBLIC_SITE_URL && siteUrlValidaParaProducao(env.NEXT_PUBLIC_SITE_URL);
+      }
+      if (env.VERCEL_ENV === "preview") return BRANCH_URL.test(env.VERCEL_BRANCH_URL ?? "");
+      return !!env.NEXT_PUBLIC_SITE_URL;
+    },
+    { path: ["NEXT_PUBLIC_SITE_URL"] },
+  );
+
+type PublicEnv = z.infer<typeof publicSchema>;
+
+/**
+ * Endereço público do app, usado nos links de login, confirmação, convite e
+ * troca de senha.
+ * - Produção: NEXT_PUBLIC_SITE_URL (validada acima: https://app.iron-ai.io).
+ * - Preview da Vercel: o endereço da própria branch. Cada branch tem o seu, então
+ *   um valor fixo na variável estaria errado para os outros previews.
+ * - Local e testes: NEXT_PUBLIC_SITE_URL.
+ */
+export function resolverSiteUrl(env: Pick<PublicEnv, "NEXT_PUBLIC_SITE_URL" | "VERCEL_ENV" | "VERCEL_BRANCH_URL">): string {
+  if (env.VERCEL_ENV === "preview" && BRANCH_URL.test(env.VERCEL_BRANCH_URL ?? "")) return `https://${env.VERCEL_BRANCH_URL}`;
+  if (!env.NEXT_PUBLIC_SITE_URL) throw new ConfigError(["NEXT_PUBLIC_SITE_URL"]);
+  return env.NEXT_PUBLIC_SITE_URL.replace(/\/+$/, "");
+}
 
 const serverSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().min(10),
@@ -64,6 +93,7 @@ const adminSchema = z.object({
 });
 
 export const publicEnv = () => parse(publicSchema);
+export const siteUrl = () => resolverSiteUrl(publicEnv());
 export const adminEnv = () => parse(adminSchema);
 export const serverEnv = () => parse(serverSchema);
 

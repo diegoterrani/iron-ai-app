@@ -3,7 +3,7 @@
 import { executar } from "@/lib/acao/executar";
 import type { AcaoState } from "@/lib/acao/tipos";
 import { eGestorDeEmpresa } from "@/lib/auth/empresa";
-import { publicEnv } from "@/lib/env";
+import { siteUrl } from "@/lib/env";
 import { log } from "@/lib/log";
 import { createAdminAuth } from "@/lib/supabase/admin";
 import { conviteIdSchema, conviteSchema, desvinculoSchema } from "@/lib/validation/admin";
@@ -31,9 +31,8 @@ export async function convidarMembro(_prev: AcaoState, form: FormData): Promise<
       // 2. Só então a chave secreta envia o e-mail. Quem já tem conta não
       //    recebe e-mail novo e verá o convite ao entrar; a resposta ao Master
       //    é a mesma nos dois casos (não revela quem tem conta).
-      const { NEXT_PUBLIC_SITE_URL } = publicEnv();
       const { error } = await createAdminAuth().inviteUserByEmail(d.email, {
-        redirectTo: `${NEXT_PUBLIC_SITE_URL}/redefinir-senha`,
+        redirectTo: `${siteUrl()}/redefinir-senha`,
       });
       if (error && !JA_TEM_CONTA.has(error.code ?? "")) {
         log("error", "empresa.convite_email_falhou", { trace, code: error.code });
