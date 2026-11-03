@@ -15,7 +15,8 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: `npx next start -p ${PORT}`,
+        // Carrega .env.test (valores fictícios) também no servidor.
+        command: `sh -c "set -a && . ./.env.test && set +a && npx next start -p ${PORT}"`,
         url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
