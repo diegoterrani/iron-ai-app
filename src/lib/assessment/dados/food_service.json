@@ -1,12 +1,29 @@
 {
   "pacote": "food_service",
-  "versao": "0.1.1",
-  "data": "2026-11-02",
+  "versao": "0.2.0",
+  "data": "2026-11-03",
   "status": "rascunho para o piloto",
   "segmentos": {
     "restaurantes": {
       "status": "completo nesta versão",
-      "abrange": "restaurantes, bares, redes de alimentação, dark kitchens"
+      "abrange": "restaurantes, bares, redes de alimentação, dark kitchens",
+      "no_self": true,
+      "nome": "Restaurantes",
+      "campos_self": [
+        "lugares_total",
+        "ticket_pessoa",
+        "fila_pico"
+      ]
+    },
+    "institucional": {
+      "status": "completo nesta versão",
+      "nome": "Cozinhas institucionais",
+      "abrange": "cozinhas de hospitais, refeitórios de empresas e escolas, contratos de refeição coletiva",
+      "no_self": true,
+      "campos_self": [
+        "refeicoes_dia"
+      ],
+      "nota": "Sem salão, ticket ou fila: no Self entra só pela receita (CMV) e pelas pessoas. Refeições por dia alimentam o Deep dive (previsão de demanda e sobra por dieta)."
     },
     "hotelaria": {
       "status": "a construir",
@@ -277,7 +294,11 @@
         "F07",
         "F11"
       ],
-      "nota": "Uma alavanca só para CMV evita contar duas vezes o mesmo real economizado em compra e em desperdício. O Deep dive abre em componentes, com soma limitada à reducao_cmv medida."
+      "nota": "Uma alavanca só para CMV evita contar duas vezes o mesmo real economizado em compra e em desperdício. O Deep dive abre em componentes, com soma limitada à reducao_cmv medida.",
+      "segmentos": [
+        "restaurantes",
+        "institucional"
+      ]
     },
     "L_giro": {
       "nome": "Giro de mesas no pico",
@@ -308,7 +329,10 @@
       "ocupacao_pico": {
         "valor": 0.9,
         "origem": "hipotese_iron; o Deep dive mede pelo PDV"
-      }
+      },
+      "segmentos": [
+        "restaurantes"
+      ]
     },
     "L_noshow": {
       "nome": "Confirmação de reservas e reocupação",
@@ -609,5 +633,43 @@
     "custo_canal_proprio": "Custo do canal próprio sobre a venda: plataforma, pagamento, entrega (Deep dive)",
     "estoque_medio": "Valor médio em estoque (F05)",
     "custo_capital_anual": "Custo de capital da empresa ao ano (finanças)"
+  },
+  "parametros_por_segmento": {
+    "institucional": {
+      "cmv_pct": {
+        "valor": 0.4,
+        "origem": "hipotese_iron: contratos de refeição coletiva costumam ter insumo maior sobre a receita que o salão; a calibrar no piloto",
+        "uso": "Self, alavanca L_cmv das unidades institucionais"
+      }
+    }
+  },
+  "perguntas_unidades": {
+    "U1": {
+      "texto": "Que tipos de operação a empresa tem, quantas unidades de cada e que parte do faturamento vem de cada tipo?",
+      "campos": [
+        "segmento",
+        "quantidade",
+        "participacao_receita"
+      ],
+      "orientacao": {
+        "por_que": "Restaurante e cozinha de hospital ganham dinheiro de jeitos diferentes; cada tipo é calculado com as suas variáveis.",
+        "como_responder": "Agrupe as unidades do mesmo tipo e dê a participação aproximada de cada tipo no faturamento. A soma precisa dar 100%.",
+        "exemplo": "7 restaurantes com 60% do faturamento e 8 cozinhas de hospital com 40%.",
+        "se_nao_souber": "Use a melhor estimativa; o Deep dive confere pelo DRE."
+      }
+    },
+    "I1": {
+      "texto": "Quantas refeições as cozinhas institucionais servem por dia, somadas?",
+      "segmento": "institucional",
+      "campos": [
+        "refeicoes_dia"
+      ],
+      "orientacao": {
+        "por_que": "O volume diário é a base para prever demanda e medir sobra no Deep dive.",
+        "como_responder": "Some café, almoço, jantar e ceia de todas as cozinhas num dia típico.",
+        "exemplo": "Uma cozinha de hospital de 200 leitos costuma servir entre 800 e 1.200 refeições por dia.",
+        "se_nao_souber": "Informe uma estimativa e diga que é estimada."
+      }
+    }
   }
 }

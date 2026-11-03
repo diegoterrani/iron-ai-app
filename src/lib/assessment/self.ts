@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import pacoteJson from "./dados/food_service.json";
 import modeloJson from "./dados/modelo_comum.json";
-import { candidatasQ6, pesosQ6 } from "./motor";
+import { MAX_UNIDADES, candidatasQ6, pesosQ6 } from "./motor";
 import {
   OPCOES_MARGEM,
   OPCOES_OBJETIVO,
@@ -11,8 +11,11 @@ import {
   paraEscolhaMultipla,
   pendencias,
   UFS,
+  type CampoUnidade,
   type EmpresaSelf,
   type Orientacao,
+  type SegmentoSelf,
+  type UnidadeSelf,
   type Questionario,
   type RespostasGravadas,
   type RespostasSelf,
@@ -36,8 +39,23 @@ interface PerguntaSetorial {
   orientacao?: Orientacao;
 }
 
+const CAMPOS_UNIDADE: readonly CampoUnidade[] = ["lugares_total", "ticket_pessoa", "fila_pico", "refeicoes_dia"];
+
+/** Segmentos do pacote liberados no Self (0.4.0), na ordem do pacote. */
+function segmentosSelf(): SegmentoSelf[] {
+  return Object.entries(pacote.segmentos)
+    .filter(([, v]) => v.no_self === true)
+    .map(([id, v]) => {
+      const campos = (v.campos_self ?? []) as CampoUnidade[];
+      // Pacote com campo que a tela e a validação não conhecem é erro de pacote: falha cedo.
+      for (const c of campos) if (!CAMPOS_UNIDADE.includes(c)) throw new Error(`campo de unidade desconhecido no pacote: ${c}`);
+      return { id, nome: v.nome ?? id, abrange: v.abrange ?? "", campos };
+    });
+}
+
 export function montarQuestionario(): Questionario {
   const s = modelo.self;
+  const pu = (pacote as unknown as { perguntas_unidades: Record<"U1" | "I1", PerguntaSetorial> }).perguntas_unidades;
   const ps = pacote.perguntas_self as Record<string, PerguntaSetorial>;
   const dist = pacote.areas.distribuicao_tipica_pessoas;
   const peso = (a: string) => (typeof dist[a] === "number" ? (dist[a] as number) : 0);
@@ -78,6 +96,12 @@ export function montarQuestionario(): Questionario {
       texto: pacote.pergunta_dados_D.texto,
       itens: pacote.pergunta_dados_D.itens.map((id) => ({ id, nome: pacote.catalogo_fontes[id]?.nome ?? id })),
     },
+    segmentos: segmentosSelf(),
+    unidades: {
+      U1: { texto: pu.U1.texto, orientacao: pu.U1.orientacao ?? {} },
+      I1: { texto: pu.I1.texto, orientacao: pu.I1.orientacao ?? {} },
+    },
+    maxUnidades: MAX_UNIDADES,
   };
 }
 
@@ -105,6 +129,38 @@ const multipla = (valores: string[], msg: string) =>
 const areasQ5Ids = q.areasQ5.map((a) => a.id) as [string, ...string[]];
 const itensD = q.dados.itens.map((i) => i.id) as [string, ...string[]];
 
+const segmentoIds = q.segmentos.map((s) => s.id) as [string, ...string[]];
+const camposDoSegmento = new Map(q.segmentos.map((s) => [s.id, s.campos]));
+
+/**
+ * Um tipo de unidade no rascunho. Campos que não pertencem ao segmento são
+ * descartados (ex.: lugares numa cozinha institucional), para o motor e o
+ * hash verem só o que vale para aquele tipo.
+ */
+const unidadeSchema = z
+  .object({
+    segmento: z.enum(segmentoIds, { error: "Tipo de operação inválido." }),
+    quantidade: z.number().int("Use um número inteiro.").min(1, "Mínimo de 1 unidade.").max(100000).optional(),
+    participacao_receita: z
+      .number({ error: "Participação inválida." })
+      .gt(0, "Use um valor acima de 0%.")
+      .max(100, "Use no máximo 100%.")
+      .optional(),
+    lugares_total: z.number().int().min(0).max(1000000, "Número de lugares alto demais.").optional(),
+    ticket_pessoa: enumDe(q.opcoes.ticket, "Ticket inválido.").optional(),
+    fila_pico: enumDe(q.opcoes.fila, "Resposta inválida.").optional(),
+    refeicoes_dia: z.number().int().min(0).max(10000000, "Número de refeições alto demais.").optional(),
+  })
+  .transform((u) => {
+    const campos = camposDoSegmento.get(u.segmento) ?? [];
+    const out: Record<string, unknown> = { segmento: u.segmento };
+    if (u.quantidade !== undefined) out.quantidade = u.quantidade;
+    // Uma casa decimal basta e evita ruído de ponto flutuante no hash.
+    if (u.participacao_receita !== undefined) out.participacao_receita = Math.round(u.participacao_receita * 10) / 10;
+    for (const c of campos) if (u[c] !== undefined) out[c] = u[c];
+    return out as unknown as UnidadeSelf;
+  });
+
 /**
  * Rascunho: tudo opcional, mas cada valor presente precisa ser válido.
  * Campos desconhecidos são descartados (zod remove chaves extras).
@@ -127,6 +183,11 @@ export const rascunhoSchema = z.object({
       ticket_pessoa: enumDe(q.opcoes.ticket, "Ticket inválido.").optional(),
       fila_pico: enumDe(q.opcoes.fila, "Resposta inválida.").optional(),
     })
+    .optional(),
+  unidades: z
+    .array(unidadeSchema, { error: "Tipos de operação inválidos." })
+    .max(q.maxUnidades, `No máximo ${q.maxUnidades} tipos de operação.`)
+    .refine((l) => new Set(l.map((u) => u.segmento)).size === l.length, "Cada tipo de operação aparece uma vez só.")
     .optional(),
   grade_q5: z.partialRecord(z.enum(areasQ5Ids), multipla(q.opcoes.nivelQ5, "Resposta inválida.")).optional(),
   pessoas_q6: z.partialRecord(z.enum(areasQ5Ids), enumDe(q.opcoes.pessoasArea, "Faixa inválida.")).optional(),
@@ -169,6 +230,9 @@ export function normalizarRascunho(
   // Valor exato e faixa são excludentes: o exato tem precedência.
   if (dados.q2_valor !== undefined && dados.q2_valor !== null) delete dados.q2;
   if (dados.q2_valor === null) delete dados.q2_valor;
+  // 0.4.0: com tipos de unidade, as perguntas S1 a S3 não entram mais no cálculo.
+  if (dados.unidades !== undefined) delete dados.setoriais;
+  if (dados.unidades?.length === 0) delete dados.unidades;
   const areas = areasQ6(q, dados.grade_q5);
   if (dados.pessoas_q6) {
     for (const a of Object.keys(dados.pessoas_q6)) if (!areas.includes(a)) delete dados.pessoas_q6[a];

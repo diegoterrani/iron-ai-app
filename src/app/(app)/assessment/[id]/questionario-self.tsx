@@ -10,11 +10,14 @@ import {
   alternarOpcao,
   areasQ6,
   pendencias,
+  somaFecha,
+  somaParticipacao,
   type EmpresaSelf,
   type Orientacao,
   type PassoId,
   type Questionario,
   type RespostasSelf,
+  type UnidadeSelf,
 } from "@/lib/assessment/questionario";
 import { formatarCnpj } from "@/lib/validation/cnpj";
 import { concluirSelf, salvarRascunho } from "../actions";
@@ -35,6 +38,15 @@ const hora = new Intl.DateTimeFormat("pt-BR", { timeStyle: "short", timeZone: "A
 function lerReais(texto: string): number | null {
   const d = texto.replace(/\D/g, "").slice(0, 13);
   return d === "" ? null : Number(d);
+}
+
+/** Percentual com até uma casa ("37,5" ou "37.5"), limitado a 100. Vazio vira undefined. */
+function lerPercentual(texto: string): number | undefined {
+  const limpo = texto.replace(",", ".").replace(/[^\d.]/g, "");
+  if (limpo === "") return undefined;
+  const n = Number(limpo);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(100, Math.round(n * 10) / 10);
 }
 
 function lerInteiro(texto: string): number | undefined {
@@ -125,8 +137,23 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
   }, {});
 
   const set = <K extends keyof RespostasSelf>(campo: K, valor: RespostasSelf[K]) => atualizar((a) => ({ ...a, [campo]: valor }));
-  const setSetorial = (campo: keyof NonNullable<RespostasSelf["setoriais"]>, valor: string | number | undefined) =>
-    atualizar((a) => ({ ...a, setoriais: { ...a.setoriais, [campo]: valor } }));
+  const unidades = r.unidades ?? [];
+  /** Liga ou desliga um tipo de operação. Com um tipo só, ele fica com 100% do faturamento. */
+  const marcarSegmento = (segmento: string, marcar: boolean) =>
+    atualizar((a) => {
+      let lista = (a.unidades ?? []).filter((u) => u.segmento !== segmento);
+      if (marcar) {
+        const ordem = q.segmentos.map((s) => s.id);
+        lista = [...lista, { segmento }].sort((x, y) => ordem.indexOf(x.segmento) - ordem.indexOf(y.segmento));
+      }
+      if (lista.length === 1 && lista[0].participacao_receita === undefined) lista = [{ ...lista[0], participacao_receita: 100 }];
+      return { ...a, unidades: lista };
+    });
+  const setUnidade = <K extends keyof UnidadeSelf>(segmento: string, campo: K, valor: UnidadeSelf[K]) =>
+    atualizar((a) => ({
+      ...a,
+      unidades: (a.unidades ?? []).map((u) => (u.segmento === segmento ? { ...u, [campo]: valor } : u)),
+    }));
   const setMapa = (campo: "pessoas_q6" | "dados_D", chave: string, valor: string) =>
     atualizar((a) => ({ ...a, [campo]: { ...a[campo], [chave]: valor } }));
   /** Marca ou desmarca um nível de uma área na pergunta 5 (escolha múltipla). */
@@ -298,47 +325,109 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
 
         {idPasso === "setor" && (
           <>
-            <div className="pergunta">
-              <p className="pergunta-titulo">{q.setoriais.S1.texto}</p>
-              <div className="campos-lado">
-                <div className="field">
-                  <label htmlFor="unidades">Unidades</label>
-                  <input
-                    id="unidades"
-                    inputMode="numeric"
-                    value={r.setoriais?.unidades ?? ""}
-                    onChange={(e) => setSetorial("unidades", lerInteiro(e.target.value))}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="lugares_total">Lugares no salão (soma)</label>
-                  <input
-                    id="lugares_total"
-                    inputMode="numeric"
-                    value={r.setoriais?.lugares_total ?? ""}
-                    onChange={(e) => setSetorial("lugares_total", lerInteiro(e.target.value))}
-                  />
-                </div>
+            <fieldset className="pergunta">
+              <legend className="pergunta-titulo">{q.unidades.U1.texto}</legend>
+              <p className="field-hint">Marque todos os tipos que a empresa tem.</p>
+              <div className="opcoes">
+                {q.segmentos.map((s) => (
+                  <label key={s.id} className="opcao">
+                    <input
+                      type="checkbox"
+                      name="segmentos"
+                      value={s.id}
+                      checked={unidades.some((u) => u.segmento === s.id)}
+                      onChange={(e) => marcarSegmento(s.id, e.target.checked)}
+                    />
+                    <span>
+                      {s.nome} <span className="field-hint">({s.abrange})</span>
+                    </span>
+                  </label>
+                ))}
               </div>
-              <Ajuda orientacao={q.setoriais.S1.orientacao} />
-            </div>
-            <Escolha
-              nome="ticket_pessoa"
-              legenda={q.setoriais.S2.texto}
-              opcoes={q.opcoes.ticket}
-              rotulo={(o) => `R$ ${o}`}
-              valor={r.setoriais?.ticket_pessoa}
-              aoMudar={(v) => setSetorial("ticket_pessoa", v)}
-              ajuda={q.setoriais.S2.orientacao}
-            />
-            <Escolha
-              nome="fila_pico"
-              legenda={q.setoriais.S3.texto}
-              opcoes={q.opcoes.fila}
-              valor={r.setoriais?.fila_pico}
-              aoMudar={(v) => setSetorial("fila_pico", v)}
-              ajuda={q.setoriais.S3.orientacao}
-            />
+              <Ajuda orientacao={q.unidades.U1.orientacao} />
+            </fieldset>
+
+            {unidades.map((u) => {
+              const seg = q.segmentos.find((s) => s.id === u.segmento);
+              if (!seg) return null;
+              const id = (campo: string) => `${seg.id}-${campo}`;
+              return (
+                <fieldset key={seg.id} className="pergunta">
+                  <legend className="pergunta-titulo">{seg.nome}</legend>
+                  <div className="campos-lado">
+                    <div className="field">
+                      <label htmlFor={id("quantidade")}>Quantas unidades</label>
+                      <input
+                        id={id("quantidade")}
+                        inputMode="numeric"
+                        value={u.quantidade ?? ""}
+                        onChange={(e) => setUnidade(seg.id, "quantidade", lerInteiro(e.target.value))}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={id("participacao")}>Parte do faturamento (%)</label>
+                      <input
+                        id={id("participacao")}
+                        inputMode="decimal"
+                        value={u.participacao_receita ?? ""}
+                        onChange={(e) => setUnidade(seg.id, "participacao_receita", lerPercentual(e.target.value))}
+                      />
+                    </div>
+                    {seg.campos.includes("lugares_total") && (
+                      <div className="field">
+                        <label htmlFor={id("lugares")}>Lugares no salão (soma)</label>
+                        <input
+                          id={id("lugares")}
+                          inputMode="numeric"
+                          value={u.lugares_total ?? ""}
+                          onChange={(e) => setUnidade(seg.id, "lugares_total", lerInteiro(e.target.value))}
+                        />
+                      </div>
+                    )}
+                    {seg.campos.includes("refeicoes_dia") && (
+                      <div className="field">
+                        <label htmlFor={id("refeicoes")}>Refeições por dia (soma)</label>
+                        <input
+                          id={id("refeicoes")}
+                          inputMode="numeric"
+                          value={u.refeicoes_dia ?? ""}
+                          onChange={(e) => setUnidade(seg.id, "refeicoes_dia", lerInteiro(e.target.value))}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {seg.campos.includes("lugares_total") && <Ajuda orientacao={q.setoriais.S1.orientacao} />}
+                  {seg.campos.includes("refeicoes_dia") && <Ajuda orientacao={q.unidades.I1.orientacao} />}
+                  {seg.campos.includes("ticket_pessoa") && (
+                    <Escolha
+                      nome={id("ticket")}
+                      legenda={q.setoriais.S2.texto}
+                      opcoes={q.opcoes.ticket}
+                      rotulo={(o) => `R$ ${o}`}
+                      valor={u.ticket_pessoa}
+                      aoMudar={(v) => setUnidade(seg.id, "ticket_pessoa", v)}
+                      ajuda={q.setoriais.S2.orientacao}
+                    />
+                  )}
+                  {seg.campos.includes("fila_pico") && (
+                    <Escolha
+                      nome={id("fila")}
+                      legenda={q.setoriais.S3.texto}
+                      opcoes={q.opcoes.fila}
+                      valor={u.fila_pico}
+                      aoMudar={(v) => setUnidade(seg.id, "fila_pico", v)}
+                      ajuda={q.setoriais.S3.orientacao}
+                    />
+                  )}
+                </fieldset>
+              );
+            })}
+
+            {unidades.length > 1 && (
+              <p className={somaFecha(unidades) ? "field-hint" : "field-error"} role="status">
+                Soma da parte do faturamento: {somaParticipacao(unidades).toLocaleString("pt-BR")}% (precisa dar 100%).
+              </p>
+            )}
           </>
         )}
 

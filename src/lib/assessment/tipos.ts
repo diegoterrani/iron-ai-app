@@ -33,12 +33,28 @@ export interface Alavanca {
   linha_dre: string;
   formula: string;
   condicao?: { campo: string; em: string[] };
+  /** 0.4.0: segmentos em que a alavanca roda; ausente = todos. */
+  segmentos?: string[];
   [parametro: string]: unknown;
+}
+
+export interface Segmento {
+  status: string;
+  nome?: string;
+  abrange?: string;
+  /** 0.4.0: pode ser escolhido como tipo de unidade no Self. */
+  no_self?: boolean;
+  /** Variáveis que cada unidade desse segmento informa. */
+  campos_self?: string[];
+  [k: string]: unknown;
 }
 
 export interface Pacote {
   pacote: string;
   versao: string;
+  segmentos: Record<string, Segmento>;
+  /** 0.4.0: parâmetros que mudam por segmento (ex.: CMV da cozinha institucional). */
+  parametros_por_segmento?: Record<string, Record<string, { valor: number; [k: string]: unknown }>>;
   parametros_padrao: Record<string, { valor: number; [k: string]: unknown }> & {
     C_custo_anual_por_pessoa: { valor: number };
   };
@@ -56,6 +72,18 @@ export interface Pacote {
   casos_de_uso?: { id: string; nome: string; area: string; alavanca: string }[];
 }
 
+/** 0.4.0: um tipo de unidade de negócio (todas as unidades daquele tipo somadas). */
+export interface Unidade {
+  segmento: string;
+  quantidade: number;
+  /** Parte do faturamento (pergunta 2) que vem deste tipo, em %. A soma dos tipos dá 100. */
+  participacao_receita: number;
+  lugares_total?: number;
+  ticket_pessoa?: string;
+  fila_pico?: string;
+  refeicoes_dia?: number;
+}
+
 /** Respostas como o questionário envia. A validação de forma (zod) acontece antes do motor. */
 export interface Respostas {
   setor: string;
@@ -64,6 +92,8 @@ export interface Respostas {
   q3: string;
   q4?: string;
   setoriais?: Record<string, unknown>;
+  /** 0.4.0: com a lista, as alavancas rodam por tipo de unidade e `setoriais` não entra no cálculo. */
+  unidades?: Unidade[];
   /** Escolha múltipla desde o motor 0.3.0; texto é o formato antigo (uma opção). */
   grade_q5?: Record<string, string | string[]>;
   pessoas_q6?: Record<string, string>;
@@ -79,7 +109,15 @@ export interface Respostas {
 interface Cenario {
   receita_usada: number;
   pessoas: { area: string; fte: number; e_a: number; valor: number }[];
-  alavancas: { alavanca: string; nome: string; linha_dre: string; valor: number; motivo?: string }[];
+  alavancas: {
+    alavanca: string;
+    nome: string;
+    linha_dre: string;
+    valor: number;
+    motivo?: string;
+    /** 0.4.0, só com `unidades`: valor de cada tipo de unidade. */
+    por_unidade?: { segmento: string; valor: number; motivo?: string }[];
+  }[];
   potencial_bruto: number;
   R: number;
   P: number;

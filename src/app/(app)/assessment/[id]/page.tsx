@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { exigirContaAtiva } from "@/lib/auth/session";
-import { paraEscolhaMultipla, type EmpresaSelf, type RespostasGravadas } from "@/lib/assessment/questionario";
+import { paraEscolhaMultipla, paraUnidades, type EmpresaSelf, type RespostasGravadas } from "@/lib/assessment/questionario";
 import { montarQuestionario } from "@/lib/assessment/self";
 import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
@@ -39,7 +39,7 @@ export default async function ResponderPage({ params }: PageProps<"/assessment/[
       </p>
       <h1 className="title">Responder</h1>
       <p className="field-hint">As respostas são salvas automaticamente. Você pode sair e voltar depois.</p>
-      <QuestionarioSelf assessmentId={id} questionario={montarQuestionario()} inicial={paraEscolhaMultipla(linha.respostas ?? {})} inicialEmpresa={empresa} />
+      <QuestionarioSelf assessmentId={id} questionario={montarQuestionario()} inicial={paraUnidades(paraEscolhaMultipla(linha.respostas ?? {}))} inicialEmpresa={empresa} />
     </main>
   );
 }
