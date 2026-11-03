@@ -13,6 +13,7 @@ import {
   direitoSchema,
   empresaSchema,
   papelSchema,
+  remocaoAssessmentSchema,
   staffSchema,
   statusSchema,
   vinculoSchema,
@@ -80,6 +81,18 @@ export async function revogarDireito(_prev: AcaoState, form: FormData): Promise<
     form,
     (rpc, d) => rpc("admin_revogar_direito", { p_user: d.userId, p_produto: d.produto }),
     "Acesso revogado.",
+    ADMIN,
+  );
+  return estado;
+}
+
+export async function removerAssessment(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.assessment_remover",
+    remocaoAssessmentSchema,
+    form,
+    (rpc, d) => rpc("admin_remover_assessment", { p_assessment: d.assessmentId, p_motivo: d.motivo }),
+    "Assessment removido.",
     ADMIN,
   );
   return estado;

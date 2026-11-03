@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AcaoForm } from "@/components/acao-form";
 import { exigirContaAtiva } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { iniciarSelf } from "./actions";
+import { descartarRascunho, iniciarSelf } from "./actions";
 
 export const metadata: Metadata = { title: "Self assessment" };
 
@@ -70,7 +70,21 @@ export default async function AssessmentPage() {
                 {l.status === "concluido" ? (
                   <Link href={`/assessment/${l.id}/resultado`}>Ver resultado</Link>
                 ) : (
-                  temDireito && <Link href={`/assessment/${l.id}`}>Continuar</Link>
+                  <>
+                    {temDireito && <Link href={`/assessment/${l.id}`}>Continuar</Link>}
+                    <AcaoForm
+                      action={descartarRascunho}
+                      campos={{ assessmentId: l.id }}
+                      rotulo="Descartar rascunho"
+                      rotuloEnviando="Descartando…"
+                      variante="perigo"
+                    >
+                      <label className="check">
+                        <input type="checkbox" name="confirmar" required />
+                        <span>Apagar as respostas deste rascunho (não dá para desfazer)</span>
+                      </label>
+                    </AcaoForm>
+                  </>
                 )}
               </li>
             ))}

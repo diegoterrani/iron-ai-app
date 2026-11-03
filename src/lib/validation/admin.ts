@@ -82,6 +82,22 @@ export const ROTULO_PRODUTO: Record<(typeof PRODUTOS)[number], string> = { self_
 
 export const direitoSchema = z.object({ userId: id, produto: z.enum(PRODUTOS, { error: "Produto inválido." }) });
 
+/** Remoção de assessment pelo super-admin: o motivo vai para a auditoria. */
+export const remocaoAssessmentSchema = z.object({
+  assessmentId: id,
+  motivo: z
+    .string({ error: "Informe o motivo." })
+    .trim()
+    .min(5, "Informe o motivo (mínimo de 5 caracteres).")
+    .max(300, "Máximo de 300 caracteres."),
+});
+
+/** Descarte do próprio rascunho: exige marcar a confirmação. */
+export const descarteRascunhoSchema = z.object({
+  assessmentId: id,
+  confirmar: z.literal("on", { error: "Marque a confirmação para descartar." }),
+});
+
 export const staffSchema = z.object({
   orgId: id,
   userId: id,
