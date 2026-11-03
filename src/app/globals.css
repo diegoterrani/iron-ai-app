@@ -536,6 +536,11 @@ a {
   color: var(--text);
 }
 
+/* o link do logo envolve só a imagem: sem sobra de linha de base */
+.home-brand {
+  display: inline-flex;
+}
+
 .home-ctas {
   display: flex;
   flex-wrap: wrap;

@@ -12,8 +12,11 @@ export default async function Home() {
       <header className="home-header">
         {/* SVG estático: <img> simples evita o atributo style que o next/image
             injeta e que a CSP estrita bloquearia. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-lockup.svg" alt="IRON AI" width={147} height={44} />
+        {/* O logo leva à home do site institucional (fora do app). */}
+        <a href="https://iron-ai.io" className="home-brand" aria-label="IRON AI, página inicial do site">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-lockup.svg" alt="" width={147} height={44} />
+        </a>
         <Link href="/entrar">Entrar</Link>
       </header>
       <p className="eyebrow hero-eyebrow">Área do cliente</p>

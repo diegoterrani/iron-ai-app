@@ -89,6 +89,15 @@ test("página inicial leva para entrar e criar conta", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Entrar");
 });
 
+for (const path of ["/", "/entrar", "/cadastro"]) {
+  test(`${path} tem o logo apontando para a home do site`, async ({ page }) => {
+    await page.goto(path);
+    const logo = page.getByRole("link", { name: "IRON AI, página inicial do site" });
+    await expect(logo).toHaveCount(1);
+    await expect(logo).toHaveAttribute("href", "https://iron-ai.io");
+  });
+}
+
 test("exportação de dados sem login não entrega nada", async ({ request }) => {
   const res = await request.get("/meus-dados/exportar", { maxRedirects: 0 });
   expect([302, 303, 307, 401]).toContain(res.status());
