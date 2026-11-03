@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { precisaSegundoFator } from "@/lib/auth/mfa";
 import { clientIp } from "@/lib/auth/request";
-import { ConfigError, publicEnv, serverEnv } from "@/lib/env";
+import { ConfigError, serverEnv, siteUrl } from "@/lib/env";
 import { log, maskEmail, newTraceId } from "@/lib/log";
 import { safeNextPath } from "@/lib/security/redirect";
 import { verifyTurnstile } from "@/lib/security/turnstile";
@@ -90,7 +90,7 @@ export async function cadastrar(_prev: FormState, form: FormData): Promise<FormS
       email: parsed.data.email,
       password: parsed.data.senha,
       options: {
-        emailRedirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/confirmar`,
+        emailRedirectTo: `${siteUrl()}/auth/confirmar`,
         // Lido pelo gatilho do banco que cria o perfil (status "pendente").
         data: {
           nome: parsed.data.nome,
@@ -133,7 +133,7 @@ export async function entrarComProvedor(form: FormData): Promise<void> {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(next)}`,
+        redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(next)}`,
       },
     });
     if (error) throw error;
@@ -152,7 +152,7 @@ export async function recuperarSenha(_prev: FormState, form: FormData): Promise<
     if (!(await passedTurnstile(form))) return ROBOT;
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-      redirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/confirmar?next=/redefinir-senha`,
+      redirectTo: `${siteUrl()}/auth/confirmar?next=/redefinir-senha`,
     });
     if (error) log("warn", "auth.reset_failed", { email: maskEmail(parsed.data.email), code: error.code });
   } catch (err) {
