@@ -64,15 +64,16 @@ export interface Respostas {
   q3: string;
   q4?: string;
   setoriais?: Record<string, unknown>;
-  grade_q5?: Record<string, string>;
+  /** Escolha múltipla desde o motor 0.3.0; texto é o formato antigo (uma opção). */
+  grade_q5?: Record<string, string | string[]>;
   pessoas_q6?: Record<string, string>;
   q7?: string;
-  q8: string;
+  q8: string | string[];
   dados_D?: Record<string, string>;
-  q9: string;
+  q9: string | string[];
   q10: string;
   q11: string;
-  q12?: string;
+  q12?: string | string[];
 }
 
 interface Cenario {

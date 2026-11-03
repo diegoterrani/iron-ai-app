@@ -30,7 +30,7 @@ export default async function MeusDadosPage() {
 
         <h2 className="subtitulo">Baixar uma cópia</h2>
         <p className="auth-lead">
-          Arquivo JSON com sua conta, perfil, aceites, papéis, empresas, convites e pedidos feitos.
+          Arquivo JSON com sua conta, perfil, aceites, papéis, empresas, convites, pedidos feitos, produtos liberados e assessments (respostas e resultados).
         </p>
         {/* Link simples: o download é um GET para a própria sessão. */}
         <a className="btn btn-inline btn-secondary btn-link" href="/meus-dados/exportar" download>
@@ -49,7 +49,7 @@ export default async function MeusDadosPage() {
         ) : (
           <>
             <p className="auth-lead">
-              Apagamos sua conta, perfil, papéis e vínculos com empresas. O registro de auditoria (quem mudou o quê e quando)
+              Apagamos sua conta, perfil, papéis, vínculos com empresas e assessments. O registro de auditoria (quem mudou o quê e quando)
               é mantido por obrigação legal e de segurança.
             </p>
             <AcaoForm action={solicitarExclusao} rotulo="Pedir exclusão da conta" rotuloEnviando="Enviando…" variante="perigo" />
