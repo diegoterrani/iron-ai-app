@@ -57,6 +57,26 @@ export function erroDeRaciocinio(err: unknown): boolean {
   return /signature|thinking|block_binding|bound to a different conversation/i.test(e.message);
 }
 
+/**
+ * O que vai ao log quando a API da Anthropic recusa: status, tipo, id da
+ * requisição e o texto do erro da API (que aponta o campo, como
+ * "messages.3.content.0"), cortado e sem trechos entre aspas, para não
+ * levar ao log nada que o cliente escreveu.
+ */
+export function detalheErroApi(err: unknown) {
+  const e = err as { name?: string; status?: number; requestID?: string; message?: unknown; error?: { error?: { type?: unknown; message?: unknown } } } | null;
+  // O texto útil fica em error.error.message (o message do SDK é o JSON inteiro da resposta).
+  const bruto = typeof e?.error?.error?.message === "string" ? e.error.error.message : typeof e?.message === "string" ? e.message : "";
+  const texto = bruto ? bruto.replace(/"[^"]{0,2000}"|'[^']{0,2000}'/g, "\"…\"").slice(0, 300) : undefined;
+  return {
+    reason: e?.name ?? "desconhecido",
+    status: e?.status,
+    tipo: typeof e?.error?.error?.type === "string" ? e.error.error.type : undefined,
+    request_id: e?.requestID,
+    detalhe: texto,
+  };
+}
+
 /** Monta a chamada: prompt e ferramentas fixos primeiro, para o cache de prompt valer entre turnos. */
 export function parametros(
   q: Questionario,

@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { BETA_VINCULO_RACIOCINIO, MAX_RODADAS, erroDeRaciocinio, executarTurno, falasParaTela, parametros, type ChamarLLM } from "@/lib/assessment/agente/conversa";
+import { BETA_VINCULO_RACIOCINIO, MAX_RODADAS, detalheErroApi, erroDeRaciocinio, executarTurno, falasParaTela, parametros, type ChamarLLM } from "@/lib/assessment/agente/conversa";
 import { executarFerramenta, type EstadoAgente } from "@/lib/assessment/agente/ferramentas";
 import { montarPromptSistema } from "@/lib/assessment/agente/prompt";
 import { montarQuestionario } from "@/lib/assessment/self";
@@ -195,6 +195,21 @@ describe("400 de raciocínio antigo (thinking)", () => {
     expect(recebidas[1].betas).toContain(BETA_VINCULO_RACIOCINIO);
     expect(recebidas[1].thinking).toEqual({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } });
     expect(recebidas[1].messages.slice(0, 2)).toEqual(historico);
+  });
+
+  it("log do erro traz o texto da API (não o JSON) sem trechos entre aspas", () => {
+    const err = Object.assign(new Error('400 {"type":"error"}'), {
+      status: 400,
+      requestID: "req_1",
+      error: { type: "error", error: { type: "invalid_request_error", message: 'Your credit balance is too low. Cliente disse "segredo"' } },
+    });
+    expect(detalheErroApi(err)).toEqual({
+      reason: "Error",
+      status: 400,
+      tipo: "invalid_request_error",
+      request_id: "req_1",
+      detalhe: 'Your credit balance is too low. Cliente disse "…"',
+    });
   });
 
   it("outro erro, ou o mesmo erro na repetição, sobe sem laço", async () => {
