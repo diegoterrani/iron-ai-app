@@ -41,3 +41,36 @@ export async function gravarConclusaoSelf(c: ConclusaoSelf) {
   });
   return { data: data as number | null, error: error ? { code: error.code, message: error.message } : null };
 }
+
+export interface UsoConversa {
+  entrada: number;
+  saida: number;
+  cacheLeitura: number;
+  cacheEscrita: number;
+}
+
+/**
+ * Reserva um turno da conversa antes de chamar o LLM (teto de 60 no banco) e
+ * devolve o histórico. O banco confere dono, rascunho e conta ativa.
+ */
+export async function reservarTurnoConversa(assessmentId: string, userId: string) {
+  const { data, error } = await clienteServidor().rpc("conversa_reservar_turno", {
+    p_assessment: assessmentId,
+    p_user: userId,
+  });
+  return { historico: (data ?? []) as unknown[], error: error ? { code: error.code, message: error.message } : null };
+}
+
+/** Grava o histórico (só cresce) e soma o uso de tokens do turno. */
+export async function gravarConversa(assessmentId: string, userId: string, historico: unknown[], uso: UsoConversa) {
+  const { error } = await clienteServidor().rpc("conversa_gravar", {
+    p_assessment: assessmentId,
+    p_user: userId,
+    p_mensagens: historico,
+    p_tokens_entrada: uso.entrada,
+    p_tokens_saida: uso.saida,
+    p_tokens_cache_leitura: uso.cacheLeitura,
+    p_tokens_cache_escrita: uso.cacheEscrita,
+  });
+  return { error: error ? { code: error.code, message: error.message } : null };
+}
