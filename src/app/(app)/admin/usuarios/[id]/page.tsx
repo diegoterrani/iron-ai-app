@@ -5,7 +5,7 @@ import { resumoAuditoria, type LinhaAuditoria } from "@/lib/admin/auditoria";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
 import { PAPEIS_GLOBAIS, ROTULO_PAPEL, ROTULO_STATUS, idValido, type Status } from "@/lib/validation/admin";
-import { AcaoForm } from "../../acao-form";
+import { AcaoForm } from "@/components/acao-form";
 import { atribuirStaff, concederPapel, definirStatus, desvincularEmpresa, revogarPapel } from "../../actions";
 import { formatarDataHora } from "../../formato";
 

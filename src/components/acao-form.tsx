@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, type ReactNode } from "react";
-import type { AcaoState } from "./actions";
+import type { AcaoState } from "@/lib/acao/tipos";
 
 interface AcaoFormProps {
   action: (prev: AcaoState, form: FormData) => Promise<AcaoState>;

@@ -35,7 +35,17 @@ function parse<T extends z.ZodType>(schema: T): z.infer<T> {
   return result.data;
 }
 
+/**
+ * Chave secreta do Supabase (ignora RLS). Usada SÓ em src/lib/supabase/admin.ts,
+ * para enviar e-mail de convite depois que o banco autorizou a operação.
+ * Nunca com prefixo NEXT_PUBLIC_ (não pode ir para o navegador).
+ */
+const adminSchema = z.object({
+  SUPABASE_SECRET_KEY: z.string().min(20),
+});
+
 export const publicEnv = () => parse(publicSchema);
+export const adminEnv = () => parse(adminSchema);
 export const serverEnv = () => parse(serverSchema);
 
 export function isSupabaseConfigured(): boolean {

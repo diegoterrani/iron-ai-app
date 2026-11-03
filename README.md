@@ -12,7 +12,7 @@ O site institucional (iron-ai.io) fica em outro repositório, `iron-ai-site`.
 | --- | --- |
 | Next.js 16 (App Router, TypeScript) | Aplicação, renderizada no servidor |
 | Vercel | Hospedagem (projeto `iron-ai-app`) |
-| Supabase (sa-east-1) | Auth, Postgres com RLS, Storage (a partir da fase 1) |
+| Supabase (us-east-1) | Auth, Postgres com RLS, Storage (a partir da fase 1) |
 | Cloudflare | DNS com proxy, WAF, rate limit |
 
 ## Rodar localmente

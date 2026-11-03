@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
     if (error) throw error;
-    const fallback = type === "recovery" ? "/redefinir-senha" : "/painel";
+    // Convidado ainda não tem senha: cria uma antes de entrar.
+    const fallback = type === "recovery" || type === "invite" ? "/redefinir-senha" : "/painel";
     return NextResponse.redirect(new URL(safeNextPath(searchParams.get("next"), fallback), origin));
   } catch (err) {
     log("warn", "auth.confirm_failed", { type, reason: (err as Error)?.name });

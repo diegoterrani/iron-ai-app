@@ -40,7 +40,7 @@ e a aplicação manda a pessoa para `/configurar-mfa`.
 Depois que o Terrani se cadastrar e confirmar o e-mail, no SQL Editor do Supabase:
 
 ```sql
--- Alvo: projeto iron-ai-app (sa-east-1). Troque o e-mail.
+-- Alvo: projeto iron-ai-app (us-east-1). Troque o e-mail.
 update public.profiles set status = 'ativo'
 where id = (select id from auth.users where email = 'SEU_EMAIL');
 
@@ -62,3 +62,13 @@ Funções de leitura adicionadas em `20261102190000_backoffice.sql`:
 `admin_listar_usuarios`, `admin_obter_usuario`, `admin_buscar_usuario_por_email`,
 `admin_contadores` e a operação `admin_desvincular_empresa`. Todas chamam
 `exigir_super_admin()` antes de qualquer coisa.
+
+## Convites do Master (fase 3b)
+
+Tela `/empresa` (só Master B2B): pessoas com e-mail, convites pendentes,
+convidar por e-mail e remover Membros. Funções em `20261102200000_convites.sql`:
+`empresa_convidar`, `empresa_cancelar_convite`, `empresa_listar_membros`
+(Master) e `meus_convites`, `aceitar_convite`, `recusar_convite` (convidado).
+Convite sempre gera **Membro**; Master só pelo super-admin. O convite aparece
+no painel ou na tela de "aguardando aprovação" de quem tem o e-mail confirmado;
+aceitar ativa a conta.

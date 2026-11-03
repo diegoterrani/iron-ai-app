@@ -71,8 +71,8 @@ test("404 também sai com nonce na CSP", async ({ request }) => {
   expect(res.headers()["content-security-policy"]).toContain("'nonce-");
 });
 
-for (const path of ["/admin", "/admin/usuarios", "/admin/empresas", "/admin/auditoria", "/admin/usuarios/qualquer"]) {
-  test(`${path} exige login (backoffice)`, async ({ page }) => {
+for (const path of ["/admin", "/admin/usuarios", "/admin/empresas", "/admin/auditoria", "/admin/usuarios/qualquer", "/admin/lgpd", "/empresa", "/meus-dados"]) {
+  test(`${path} exige login`, async ({ page }) => {
     await page.goto(path);
     const url = new URL(page.url());
     expect(url.pathname).toBe("/entrar");
@@ -87,4 +87,10 @@ test("página inicial leva para entrar e criar conta", async ({ page }) => {
   await page.goto("/");
   await page.locator(".home-ctas").getByRole("link", { name: "Entrar" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Entrar");
+});
+
+test("exportação de dados sem login não entrega nada", async ({ request }) => {
+  const res = await request.get("/meus-dados/exportar", { maxRedirects: 0 });
+  expect([302, 303, 307, 401]).toContain(res.status());
+  expect(res.headers()["content-disposition"]).toBeUndefined();
 });

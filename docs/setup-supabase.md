@@ -9,7 +9,7 @@ no repositório**: são colados direto no painel do Supabase ou da Vercel.
 | --- | --- |
 | Organização | iron@iron-security.com's Org (Pro) |
 | Nome | `iron-ai-app` |
-| Região | South America (São Paulo), `sa-east-1` |
+| Região | East US (N. Virginia), `us-east-1` (projeto `wdvlafvamvslwclnkyjp`, decisão do Terrani em 02/11/2026) |
 | Senha do banco | gerada pelo painel, guardada só com o Terrani |
 
 Validação: o projeto aparece como "Healthy" no painel.
@@ -40,7 +40,8 @@ Validação: tabela `public.profiles` existe com RLS ligado.
 
 - Confirm signup: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=email`
 - Reset password: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=recovery&next=/redefinir-senha`
-- Invite user: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=invite`
+- Invite user: `{{ .SiteURL }}/auth/confirmar?token_hash={{ .TokenHash }}&type=invite&next=/redefinir-senha`
+  (texto sugerido: "Sua empresa convidou você para a área do cliente IRON AI. Crie sua senha pelo link.")
 
 SMTP (Auth → SMTP Settings): Resend, remetente do domínio iron-ai.io.
 
@@ -69,4 +70,9 @@ SMTP (Auth → SMTP Settings): Resend, remetente do domínio iron-ai.io.
 | `TURNSTILE_SECRET_KEY` | mesmo widget (secreta) | todos, marcada como Sensitive |
 | `TURNSTILE_EXPECTED_HOSTNAME` | `app.iron-ai.io` | produção |
 
-A chave secreta do Supabase (service role) **não** entra nesta fase.
+| `SUPABASE_SECRET_KEY` | Supabase → API Keys → secret (`sb_secret_...`) | todos, marcada como **Sensitive** |
+
+A chave secreta ignora RLS. No código ela só existe em `src/lib/supabase/admin.ts`
+(com `server-only`) e é usada para uma coisa: enviar o e-mail de convite, depois
+que o banco autorizou o Master. Nunca use prefixo `NEXT_PUBLIC_` nela.
+Cole o valor direto na Vercel; não passe por chat nem por e-mail.
