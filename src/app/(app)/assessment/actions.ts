@@ -49,6 +49,24 @@ export async function iniciarSelf(): Promise<AcaoState> {
 }
 
 /**
+ * O que vai ao log quando a API da Anthropic recusa: status, tipo, id da
+ * requisição e o texto do erro da API (que aponta o campo, como
+ * "messages.3.content.0"), cortado e sem trechos entre aspas, para não
+ * levar ao log nada que o cliente escreveu.
+ */
+function detalheErroApi(err: unknown) {
+  const e = err as { name?: string; status?: number; requestID?: string; message?: unknown; error?: { error?: { type?: unknown } } } | null;
+  const texto = typeof e?.message === "string" ? e.message.replace(/"[^"]{0,2000}"|'[^']{0,2000}'/g, "\"…\"").slice(0, 300) : undefined;
+  return {
+    reason: e?.name ?? "desconhecido",
+    status: e?.status,
+    tipo: typeof e?.error?.error?.type === "string" ? e.error.error.type : undefined,
+    request_id: e?.requestID,
+    detalhe: texto,
+  };
+}
+
+/**
  * Descarta um rascunho do próprio usuário. Quem confere dono e status é a
  * função do banco (descartar_rascunho); concluído não se descarta.
  */
@@ -284,9 +302,7 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
       chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY),
     });
   } catch (err) {
-    // Erro tipado do SDK: só o nome e o status vão ao log, nunca a mensagem do cliente.
-    const status = (err as { status?: number })?.status;
-    log("error", "self.conversa.llm_erro", { trace, ator: userId, reason: (err as Error)?.name ?? "desconhecido", status });
+    log("error", "self.conversa.llm_erro", { trace, ator: userId, ...detalheErroApi(err) });
     return { ok: false, erro: `O assistente não respondeu agora. Tente de novo em instantes. (código ${trace})` };
   }
 
@@ -317,6 +333,7 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
     tokens_saida: turno.uso.saida,
     cache_leitura: turno.uso.cacheLeitura,
     cache_escrita: turno.uso.cacheEscrita,
+    raciocinios_descartados: turno.descartes,
   });
 
   const textos =

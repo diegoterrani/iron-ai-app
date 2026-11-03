@@ -47,7 +47,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       <p className="eyebrow">
         <Link href="/assessment">Self assessment</Link> / Food service
       </p>
-      <h1 className="title">{conversa ? "Conversa" : "Responder"}</h1>
+      <h1 className="title">{conversa ? "Self Assessment" : "Responder"}</h1>
       {conversa ? (
         <ConversaSelf
           assessmentId={id}
