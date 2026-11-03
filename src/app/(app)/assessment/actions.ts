@@ -20,7 +20,7 @@ import { log, newTraceId } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
 import { gravarConclusaoSelf, gravarConversa, reservarTurnoConversa } from "@/lib/supabase/servidor";
 import type Anthropic from "@anthropic-ai/sdk";
-import { MAX_TEXTO_CLIENTE, chamarAnthropic, executarTurno, falasParaTela, type FalaTela } from "@/lib/assessment/agente/conversa";
+import { MAX_TEXTO_CLIENTE, chamarAnthropic, detalheErroApi, executarTurno, falasParaTela, separarBaloes, type FalaTela } from "@/lib/assessment/agente/conversa";
 import type { CampoSeguro, Sinal } from "@/lib/assessment/agente/ferramentas";
 import type { RespostasSelf } from "@/lib/assessment/questionario";
 import { cnpjValido } from "@/lib/validation/cnpj";
@@ -46,24 +46,6 @@ export async function iniciarSelf(): Promise<AcaoState> {
   }
   log("info", "self.iniciar.ok", { trace });
   redirect(`/assessment/${data}`);
-}
-
-/**
- * O que vai ao log quando a API da Anthropic recusa: status, tipo, id da
- * requisição e o texto do erro da API (que aponta o campo, como
- * "messages.3.content.0"), cortado e sem trechos entre aspas, para não
- * levar ao log nada que o cliente escreveu.
- */
-function detalheErroApi(err: unknown) {
-  const e = err as { name?: string; status?: number; requestID?: string; message?: unknown; error?: { error?: { type?: unknown } } } | null;
-  const texto = typeof e?.message === "string" ? e.message.replace(/"[^"]{0,2000}"|'[^']{0,2000}'/g, "\"…\"").slice(0, 300) : undefined;
-  return {
-    reason: e?.name ?? "desconhecido",
-    status: e?.status,
-    tipo: typeof e?.error?.error?.type === "string" ? e.error.error.type : undefined,
-    request_id: e?.requestID,
-    detalhe: texto,
-  };
 }
 
 /**
@@ -344,7 +326,7 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
         : ["Pode continuar, estou acompanhando."];
   return {
     ok: true,
-    falas: textos.map((texto) => ({ autor: "agente" as const, texto })),
+    falas: textos.flatMap((texto) => separarBaloes(texto).map((t) => ({ autor: "agente" as const, texto: t }))),
     sinais: turno.sinais,
     respostas: turno.estado.respostas,
     empresa: turno.estado.empresa,
