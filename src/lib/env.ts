@@ -7,12 +7,31 @@ import { z } from "zod";
  * não precisa das variáveis.
  */
 
-const publicSchema = z.object({
-  NEXT_PUBLIC_SUPABASE_URL: z.url().startsWith("https://"),
-  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
-  NEXT_PUBLIC_SITE_URL: z.url(),
-  NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(10),
-});
+/**
+ * Em produção, o endereço público precisa ser HTTPS e não pode ser um
+ * *.vercel.app: os links de login, confirmação, convite e troca de senha
+ * nasceriam apontando para um deploy de preview (já aconteceu em 03/11/2026).
+ */
+export function siteUrlValidaParaProducao(siteUrl: string): boolean {
+  try {
+    const url = new URL(siteUrl);
+    return url.protocol === "https:" && !url.hostname.endsWith(".vercel.app") && url.pathname === "/";
+  } catch {
+    return false;
+  }
+}
+
+const publicSchema = z
+  .object({
+    NEXT_PUBLIC_SUPABASE_URL: z.url().startsWith("https://"),
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(20),
+    NEXT_PUBLIC_SITE_URL: z.url(),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(10),
+    VERCEL_ENV: z.string().optional(),
+  })
+  .refine((env) => env.VERCEL_ENV !== "production" || siteUrlValidaParaProducao(env.NEXT_PUBLIC_SITE_URL), {
+    path: ["NEXT_PUBLIC_SITE_URL"],
+  });
 
 const serverSchema = z.object({
   TURNSTILE_SECRET_KEY: z.string().min(10),
