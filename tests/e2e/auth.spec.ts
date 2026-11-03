@@ -30,10 +30,10 @@ for (const [path, heading] of [
   });
 }
 
-test("entrar mostra Google, Microsoft e formulário com rótulos", async ({ page }) => {
+test("entrar mostra só Google e formulário com rótulos", async ({ page }) => {
   await page.goto("/entrar");
   await expect(page.getByRole("button", { name: "Continuar com Google" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continuar com Microsoft" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continuar com Microsoft" })).toHaveCount(0);
   await expect(page.getByLabel("E-mail")).toHaveAttribute("autocomplete", "email");
   await expect(page.getByLabel("Senha")).toHaveAttribute("type", "password");
 });

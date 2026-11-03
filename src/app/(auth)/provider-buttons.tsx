@@ -1,6 +1,9 @@
 import { entrarComProvedor } from "./actions";
 
-/** Google (pessoal e Workspace) e Microsoft Entra ID. */
+/**
+ * Login social: só Google (pessoal e Workspace) por enquanto.
+ * Microsoft Entra ID fica para depois (decisão do Terrani, 03/11/2026).
+ */
 export function ProviderButtons({ next }: { next: string }) {
   return (
     <div className="providers">
@@ -9,13 +12,6 @@ export function ProviderButtons({ next }: { next: string }) {
         <input type="hidden" name="next" value={next} />
         <button type="submit" className="btn btn-secondary">
           Continuar com Google
-        </button>
-      </form>
-      <form action={entrarComProvedor}>
-        <input type="hidden" name="provedor" value="microsoft" />
-        <input type="hidden" name="next" value={next} />
-        <button type="submit" className="btn btn-secondary">
-          Continuar com Microsoft
         </button>
       </form>
       <p className="field-hint">

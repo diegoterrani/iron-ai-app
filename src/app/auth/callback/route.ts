@@ -3,7 +3,7 @@ import { log, newTraceId } from "@/lib/log";
 import { safeNextPath } from "@/lib/security/redirect";
 import { createClient } from "@/lib/supabase/server";
 
-/** Retorno do Google / Microsoft (fluxo PKCE): troca o código pela sessão. */
+/** Retorno do Google (fluxo PKCE): troca o código pela sessão. */
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const code = searchParams.get("code");

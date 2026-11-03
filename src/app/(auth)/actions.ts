@@ -117,7 +117,9 @@ export async function cadastrar(_prev: FormState, form: FormData): Promise<FormS
   redirect("/verifique-email");
 }
 
-const PROVIDERS = { google: "google", microsoft: "azure" } as const;
+// Lista fechada de provedores aceitos. Microsoft (azure) saiu até o Entra ID
+// ser configurado: sem ela aqui, um formulário forjado não abre esse fluxo.
+const PROVIDERS = { google: "google" } as const;
 
 export async function entrarComProvedor(form: FormData): Promise<void> {
   const key = String(form.get("provedor"));
@@ -132,8 +134,6 @@ export async function entrarComProvedor(form: FormData): Promise<void> {
       provider,
       options: {
         redirectTo: `${publicEnv().NEXT_PUBLIC_SITE_URL}/auth/callback?next=${encodeURIComponent(next)}`,
-        // Entra ID: o e-mail precisa vir no token para unir contas com segurança.
-        scopes: provider === "azure" ? "email" : undefined,
       },
     });
     if (error) throw error;
