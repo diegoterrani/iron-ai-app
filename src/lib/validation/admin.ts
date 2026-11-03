@@ -86,6 +86,12 @@ export const exclusaoSchema = z.object({ solicitacaoId: id });
 
 export const desvinculoSchema = z.object({ orgId: id, userId: id });
 
+/** Produtos que o backoffice libera manualmente (Stripe grava a mesma tabela na fase 4). */
+export const PRODUTOS = ["self_assessment"] as const;
+export const ROTULO_PRODUTO: Record<(typeof PRODUTOS)[number], string> = { self_assessment: "Self assessment" };
+
+export const direitoSchema = z.object({ userId: id, produto: z.enum(PRODUTOS, { error: "Produto inválido." }) });
+
 export const staffSchema = z.object({
   orgId: id,
   userId: id,

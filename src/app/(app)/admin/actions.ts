@@ -10,6 +10,7 @@ import {
   assentosSchema,
   exclusaoSchema,
   desvinculoSchema,
+  direitoSchema,
   empresaSchema,
   papelSchema,
   staffSchema,
@@ -55,6 +56,30 @@ export async function revogarPapel(_prev: AcaoState, form: FormData): Promise<Ac
     form,
     (rpc, d) => rpc("admin_revogar_papel", { p_user: d.userId, p_role: d.papel }),
     "Papel revogado.",
+    ADMIN,
+  );
+  return estado;
+}
+
+export async function concederDireito(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.direito_conceder",
+    direitoSchema,
+    form,
+    (rpc, d) => rpc("admin_conceder_direito", { p_user: d.userId, p_produto: d.produto }),
+    "Acesso liberado.",
+    ADMIN,
+  );
+  return estado;
+}
+
+export async function revogarDireito(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.direito_revogar",
+    direitoSchema,
+    form,
+    (rpc, d) => rpc("admin_revogar_direito", { p_user: d.userId, p_produto: d.produto }),
+    "Acesso revogado.",
     ADMIN,
   );
   return estado;
