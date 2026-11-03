@@ -12,6 +12,7 @@ import {
   concederPapel,
   definirStatus,
   desvincularEmpresa,
+  removerAssessment,
   revogarDireito,
   revogarPapel,
 } from "../../actions";
@@ -54,7 +55,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   if (!idValido(id)) notFound();
 
   const supabase = await createClient();
-  const [fichaRes, papeisRes, vinculosRes, staffRes, empresasRes, auditoriaRes, direitosRes] = await Promise.all([
+  const [fichaRes, papeisRes, vinculosRes, staffRes, empresasRes, auditoriaRes, direitosRes, assessmentsRes] = await Promise.all([
     supabase.rpc("admin_obter_usuario", { p_user: id }).maybeSingle<Ficha>(),
     supabase.from("user_roles").select("role, concedido_em").eq("user_id", id),
     supabase.from("memberships").select("org_id, role, organizations(id, nome)").eq("user_id", id),
@@ -71,6 +72,13 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
       .select("produto, origem, concedido_em")
       .eq("user_id", id)
       .is("revogado_em", null),
+    // RLS: super-admin lê os assessments de qualquer pessoa (só status e datas aqui).
+    supabase
+      .from("assessments")
+      .select("id, setor, status, criado_em, concluido_em")
+      .eq("user_id", id)
+      .order("criado_em", { ascending: false })
+      .limit(50),
   ]);
 
   const ficha = fichaRes.data;
@@ -83,6 +91,13 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   const empresas = (empresasRes.data ?? []) as Empresa[];
   const auditoria = (auditoriaRes.data ?? []) as LinhaAuditoria[];
   const direitos = (direitosRes.data ?? []) as { produto: string; origem: string; concedido_em: string }[];
+  const assessments = (assessmentsRes.data ?? []) as {
+    id: string;
+    setor: string;
+    status: "rascunho" | "concluido";
+    criado_em: string;
+    concluido_em: string | null;
+  }[];
   const ehStaff = papeis.some((p) => p === "equipe_iron" || p === "parceiro");
   const naoAtribuidas = empresas.filter((e) => !atribuicoes.some((a) => a.org_id === e.id));
 
@@ -213,6 +228,40 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
           })}
         </ul>
         <p className="field-hint">Enquanto o pagamento não está no ar, a liberação é manual. A pessoa precisa estar com a conta ativa para usar.</p>
+      </section>
+
+      <section className="secao" aria-labelledby="sec-assessments">
+        <h2 id="sec-assessments">Assessments</h2>
+        {assessments.length === 0 ? (
+          <p className="field-hint">Nenhum assessment.</p>
+        ) : (
+          <ul className="lista">
+            {assessments.map((a) => (
+              <li key={a.id}>
+                <span>
+                  Self · {a.status === "concluido"
+                    ? `concluído em ${formatarDataHora(a.concluido_em ?? a.criado_em)}`
+                    : `rascunho iniciado em ${formatarDataHora(a.criado_em)}`}
+                </span>
+                <AcaoForm
+                  action={removerAssessment}
+                  campos={{ assessmentId: a.id }}
+                  rotulo="Remover"
+                  rotuloEnviando="Removendo…"
+                  variante="perigo"
+                >
+                  <div className="field">
+                    <label htmlFor={`motivo-${a.id}`}>Motivo (vai para a auditoria)</label>
+                    <input id={`motivo-${a.id}`} name="motivo" type="text" minLength={5} maxLength={300} required />
+                  </div>
+                </AcaoForm>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="field-hint">
+          Remover apaga as respostas, o resultado e a conversa com o assistente, sem volta. Fica só o registro na auditoria.
+        </p>
       </section>
 
       <section className="secao" aria-labelledby="sec-empresas">

@@ -24,6 +24,7 @@ function produto(valor: unknown): string {
 const ETAPA_ASSESSMENT: Record<string, string> = {
   assessment_iniciado: "Self assessment iniciado",
   assessment_concluido: "Self assessment concluído",
+  assessment_descartado: "Rascunho do Self assessment descartado pelo usuário",
 };
 
 function papel(valor: unknown): string {
@@ -65,6 +66,11 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
       return linha.acao === "delete" ? `Acesso removido: ${produto(atual.produto)}` : `Acesso liberado: ${produto(atual.produto)}`;
     case "assessments":
       // Auditoria própria: só etapa e setor, nunca as respostas.
+      if (linha.acao === "assessment_removido") {
+        // Remoção pelo super-admin grava o motivo direto em dados.
+        const motivo = texto((linha.dados as Record<string, unknown> | null)?.motivo);
+        return motivo ? `Self assessment removido pelo admin: ${motivo}` : "Self assessment removido pelo admin";
+      }
       return ETAPA_ASSESSMENT[linha.acao] ?? "Self assessment atualizado";
     default:
       return `${ACAO[linha.acao] ?? linha.acao} em ${linha.tabela}`;

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { executar } from "@/lib/acao/executar";
 import type { AcaoState } from "@/lib/acao/tipos";
 import { getSessao } from "@/lib/auth/session";
 import { calcularSelf, RespostaInvalida } from "@/lib/assessment/motor";
@@ -24,7 +25,7 @@ import type { CampoSeguro, Sinal } from "@/lib/assessment/agente/ferramentas";
 import type { RespostasSelf } from "@/lib/assessment/questionario";
 import { cnpjValido } from "@/lib/validation/cnpj";
 import { agenteConfigurado, llmEnv } from "@/lib/env";
-import { mensagemErroBanco } from "@/lib/validation/admin";
+import { descarteRascunhoSchema, mensagemErroBanco } from "@/lib/validation/admin";
 
 /**
  * Self assessment: iniciar, salvar rascunho e concluir.
@@ -45,6 +46,22 @@ export async function iniciarSelf(): Promise<AcaoState> {
   }
   log("info", "self.iniciar.ok", { trace });
   redirect(`/assessment/${data}`);
+}
+
+/**
+ * Descarta um rascunho do próprio usuário. Quem confere dono e status é a
+ * função do banco (descartar_rascunho); concluído não se descarta.
+ */
+export async function descartarRascunho(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "self.descartar",
+    descarteRascunhoSchema,
+    form,
+    (rpc, d) => rpc("descartar_rascunho", { p_assessment: d.assessmentId }),
+    "Rascunho descartado.",
+    { autorizar: async () => Boolean((await getSessao())?.perfil), revalidar: "/assessment" },
+  );
+  return estado;
 }
 
 export interface SalvarResultado {

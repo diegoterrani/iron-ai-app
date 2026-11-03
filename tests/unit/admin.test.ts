@@ -3,6 +3,7 @@ import { resumoAuditoria } from "@/lib/admin/auditoria";
 import {
   cnpjValido,
   conviteIdSchema,
+  descarteRascunhoSchema,
   conviteSchema,
   direitoSchema,
   empresaSchema,
@@ -10,6 +11,7 @@ import {
   lerFiltroUsuarios,
   lerPagina,
   mensagemErroBanco,
+  remocaoAssessmentSchema,
   papelSchema,
   staffSchema,
   statusSchema,
@@ -163,5 +165,34 @@ describe("liberação de produtos", () => {
       }),
     ).toBe("Acesso revogado: Self assessment");
     expect(resumoAuditoria({ acao: "assessment_concluido", tabela: "assessments", dados: null })).toBe("Self assessment concluído");
+  });
+});
+
+describe("remoção de assessments", () => {
+  const id = "7d000000-0000-4000-8000-000000000001";
+
+  it("super-admin precisa de motivo de 5 a 300 caracteres", () => {
+    expect(remocaoAssessmentSchema.safeParse({ assessmentId: id, motivo: "teste de mesa" }).success).toBe(true);
+    expect(remocaoAssessmentSchema.safeParse({ assessmentId: id, motivo: "  ab  " }).success).toBe(false);
+    expect(remocaoAssessmentSchema.safeParse({ assessmentId: id, motivo: "x".repeat(301) }).success).toBe(false);
+    expect(remocaoAssessmentSchema.safeParse({ assessmentId: "1 or 1=1", motivo: "teste de mesa" }).success).toBe(false);
+  });
+
+  it("descarte do rascunho exige a confirmação marcada", () => {
+    expect(descarteRascunhoSchema.safeParse({ assessmentId: id, confirmar: "on" }).success).toBe(true);
+    expect(descarteRascunhoSchema.safeParse({ assessmentId: id }).success).toBe(false);
+  });
+
+  it("auditoria mostra quem removeu e o motivo, sem respostas", () => {
+    expect(resumoAuditoria({ acao: "assessment_descartado", tabela: "assessments", dados: null })).toBe(
+      "Rascunho do Self assessment descartado pelo usuário",
+    );
+    expect(
+      resumoAuditoria({
+        acao: "assessment_removido",
+        tabela: "assessments",
+        dados: { motivo: "teste de mesa" } as never,
+      }),
+    ).toBe("Self assessment removido pelo admin: teste de mesa");
   });
 });
