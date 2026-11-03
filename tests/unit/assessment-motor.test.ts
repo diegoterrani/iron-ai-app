@@ -43,8 +43,8 @@ describe("motor do Self assessment", () => {
 
   it("reproduz o piloto Rede Piloto Alfa (score 35%, R$ 289 mil/ano conservador)", () => {
     const r = calcularSelf(respostasPiloto as unknown as Respostas, P, M);
-    // O resultado do piloto foi gerado na versão 0.2.0; só a versão do motor muda.
-    const esperado = { ...resultadoPiloto, versoes: { ...resultadoPiloto.versoes, motor: MOTOR_VERSAO } };
+    // O resultado do piloto foi gerado na versão 0.2.0; só as versões do motor e do pacote mudam.
+    const esperado = { ...resultadoPiloto, versoes: r.versoes };
     expect(comparar(r, esperado)).toEqual([]);
     expect(Math.round(r.score.valor * 100)).toBe(35);
     expect(Math.round(r.retorno.conservador.P)).toBe(289154);
@@ -83,6 +83,65 @@ describe("motor do Self assessment", () => {
     const base = respostasPiloto as unknown as Respostas;
     const r = { ...base, setoriais: { ...base.setoriais, lugares_total: -5 } };
     expect(() => calcularSelf(r, P, M)).toThrow(RespostaInvalida);
+  });
+});
+
+describe("tipos de unidade (motor 0.4.0)", () => {
+  const base = respostasPiloto as unknown as Respostas;
+  const s = base.setoriais as { unidades: number; lugares_total: number; ticket_pessoa: string; fila_pico: string };
+  const restaurante = {
+    segmento: "restaurantes",
+    quantidade: s.unidades,
+    participacao_receita: 100,
+    lugares_total: s.lugares_total,
+    ticket_pessoa: s.ticket_pessoa,
+    fila_pico: s.fila_pico,
+  };
+
+  it("só restaurante com 100% da receita dá o mesmo retorno do formato antigo", () => {
+    const antigo = calcularSelf(base, P, M);
+    const novo = calcularSelf({ ...base, unidades: [restaurante] }, P, M);
+    expect(novo.retorno.conservador.P).toBe(antigo.retorno.conservador.P);
+    expect(novo.retorno.base.P).toBe(antigo.retorno.base.P);
+    expect(novo.score).toEqual(antigo.score);
+  });
+
+  it("calcula o caso do teste de mesa: 7 restaurantes e 8 cozinhas de hospital", () => {
+    const r: Respostas = {
+      ...base,
+      setoriais: undefined,
+      unidades: [
+        { ...restaurante, quantidade: 7, participacao_receita: 60 },
+        { segmento: "institucional", quantidade: 8, participacao_receita: 40, refeicoes_dia: 6000 },
+      ],
+    };
+    const res = calcularSelf(r, P, M);
+    const [cmv, giro] = res.retorno.conservador.alavancas;
+    // CMV roda nos dois tipos, cada um com o seu CMV; giro de mesas só no restaurante.
+    expect(cmv.por_unidade?.map((u) => u.segmento)).toEqual(["restaurantes", "institucional"]);
+    expect(giro.por_unidade?.map((u) => u.segmento)).toEqual(["restaurantes"]);
+    const receita = res.retorno.conservador.receita_usada;
+    expect(cmv.por_unidade?.[1].valor).toBeCloseTo(receita * 0.4 * 0.4 * 0.01, 6);
+  });
+
+  it("só cozinhas institucionais: giro de mesas não se aplica", () => {
+    const r: Respostas = {
+      ...base,
+      unidades: [{ segmento: "institucional", quantidade: 3, participacao_receita: 100, refeicoes_dia: 2000 }],
+    };
+    const giro = calcularSelf(r, P, M).retorno.conservador.alavancas[1];
+    expect(giro.valor).toBe(0);
+    expect(giro.motivo).toBe("não se aplica aos tipos de unidade informados");
+  });
+
+  it.each([
+    ["lista vazia", []],
+    ["segmento a construir", [{ segmento: "hotelaria", quantidade: 1, participacao_receita: 100 }]],
+    ["soma diferente de 100%", [{ segmento: "institucional", quantidade: 1, participacao_receita: 70, refeicoes_dia: 10 }]],
+    ["quantidade fracionada", [{ segmento: "institucional", quantidade: 1.5, participacao_receita: 100, refeicoes_dia: 10 }]],
+    ["segmento herdado do protótipo", [{ segmento: "constructor", quantidade: 1, participacao_receita: 100 }]],
+  ])("recusa %s", (_nome, unidades) => {
+    expect(() => calcularSelf({ ...base, unidades: unidades as Respostas["unidades"] }, P, M)).toThrow(RespostaInvalida);
   });
 });
 

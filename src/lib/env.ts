@@ -92,10 +92,21 @@ const adminSchema = z.object({
   SUPABASE_SECRET_KEY: z.string().min(20),
 });
 
+/**
+ * Chave da API da Anthropic para o agente do Self assessment. Só no servidor
+ * (nunca NEXT_PUBLIC_); sem ela, a conversa fica indisponível e o formulário
+ * continua funcionando.
+ */
+const llmSchema = z.object({
+  ANTHROPIC_API_KEY: z.string().min(20),
+});
+
 export const publicEnv = () => parse(publicSchema);
 export const siteUrl = () => resolverSiteUrl(publicEnv());
 export const adminEnv = () => parse(adminSchema);
 export const serverEnv = () => parse(serverSchema);
+export const llmEnv = () => parse(llmSchema);
+export const agenteConfigurado = () => llmSchema.safeParse(process.env).success;
 
 export function isSupabaseConfigured(): boolean {
   return publicSchema.safeParse(process.env).success;

@@ -854,3 +854,98 @@ a {
     break-inside: avoid;
   }
 }
+
+/* ---------------------------------------------------------- Self em conversa */
+.conversa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: calc(100dvh - 220px);
+}
+
+.conversa-falas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+}
+
+.fala {
+  max-width: 44rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+}
+
+.fala p {
+  margin: 0;
+}
+
+.fala p + p {
+  margin-top: var(--space-1);
+}
+
+.fala-agente {
+  align-self: flex-start;
+  background: var(--surface);
+}
+
+.fala-cliente {
+  align-self: flex-end;
+  background: var(--paper);
+  border-color: var(--hairline);
+}
+
+.fala-pensando {
+  color: var(--subtle);
+  margin: 0;
+}
+
+.conversa-entrada {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-end;
+  position: sticky;
+  bottom: 0;
+  background: var(--paper);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.conversa-entrada textarea {
+  flex: 1;
+  min-height: var(--control-height);
+  resize: vertical;
+  font: inherit;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--text);
+}
+
+.campo-seguro,
+.resumo-conversa {
+  align-self: stretch;
+  max-width: 44rem;
+  padding: var(--space-3);
+  border: 1px solid var(--accent);
+  background: var(--paper);
+}
+
+.resumo-lista dt {
+  font-weight: 600;
+  margin-top: var(--space-2);
+}
+
+.resumo-lista dd {
+  margin: 0;
+}
+
+.resumo-item {
+  display: block;
+}
+
+.modo-troca {
+  margin: 0 0 var(--space-2);
+}

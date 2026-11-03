@@ -43,6 +43,33 @@ export interface Questionario {
     S3: { texto: string; orientacao: Orientacao };
   };
   dados: { texto: string; itens: { id: string; nome: string }[] };
+  /** 0.4.0: tipos de unidade que o Self aceita e o que cada um pergunta. */
+  segmentos: SegmentoSelf[];
+  unidades: {
+    U1: { texto: string; orientacao: Orientacao };
+    I1: { texto: string; orientacao: Orientacao };
+  };
+  maxUnidades: number;
+}
+
+export type CampoUnidade = "lugares_total" | "ticket_pessoa" | "fila_pico" | "refeicoes_dia";
+
+export interface SegmentoSelf {
+  id: string;
+  nome: string;
+  abrange: string;
+  campos: CampoUnidade[];
+}
+
+/** Um tipo de unidade no rascunho: tudo opcional até concluir. */
+export interface UnidadeSelf {
+  segmento: string;
+  quantidade?: number;
+  participacao_receita?: number;
+  lugares_total?: number;
+  ticket_pessoa?: string;
+  fila_pico?: string;
+  refeicoes_dia?: number;
 }
 
 /**
@@ -56,6 +83,8 @@ export interface RespostasSelf {
   q3?: string;
   q4?: string;
   setoriais?: { unidades?: number; lugares_total?: number; ticket_pessoa?: string; fila_pico?: string };
+  /** 0.4.0: tipos de unidade de negócio; substitui `setoriais` nos rascunhos novos. */
+  unidades?: UnidadeSelf[];
   grade_q5?: Record<string, string[]>;
   pessoas_q6?: Record<string, string>;
   q7?: string;
@@ -95,6 +124,31 @@ export function paraEscolhaMultipla(r: RespostasGravadas): RespostasSelf {
   if (q12 !== undefined) novo.q12 = comoLista(q12);
   return novo;
 }
+
+/**
+ * Rascunho de antes de 0.4.0 (perguntas S1 a S3) vira um tipo de unidade
+ * "restaurantes" com 100% da receita. O motor dá o mesmo resultado nos dois
+ * formatos (teste em assessment-motor).
+ */
+export function paraUnidades(r: RespostasSelf): RespostasSelf {
+  if (r.unidades !== undefined || r.setoriais === undefined) return r;
+  const { setoriais: s, ...resto } = r;
+  const u: UnidadeSelf = { segmento: "restaurantes", participacao_receita: 100 };
+  if (s.unidades !== undefined) u.quantidade = s.unidades;
+  if (s.lugares_total !== undefined) u.lugares_total = s.lugares_total;
+  if (s.ticket_pessoa !== undefined) u.ticket_pessoa = s.ticket_pessoa;
+  if (s.fila_pico !== undefined) u.fila_pico = s.fila_pico;
+  return { ...resto, unidades: [u] };
+}
+
+/** Soma da participação na receita, arredondada a uma casa para a tela. */
+export function somaParticipacao(us: UnidadeSelf[] | undefined): number {
+  const total = (us ?? []).reduce((acc, u) => acc + (u.participacao_receita ?? 0), 0);
+  return Math.round(total * 10) / 10;
+}
+
+/** Mesma tolerância do motor: a soma precisa ficar a até 0,5 ponto de 100%. */
+export const somaFecha = (us: UnidadeSelf[] | undefined) => Math.abs(somaParticipacao(us) - 100) <= 0.5;
 
 /** Marca ou desmarca uma opção, mantendo a ordem da lista de opções. */
 export function alternarOpcao(opcoes: readonly string[], atual: string[] | undefined, opcao: string, marcar: boolean): string[] {
@@ -180,10 +234,7 @@ export function pendencias(q: Questionario, r: RespostasSelf, e: EmpresaSelf = {
   if (!e.contato_email || !EMAIL.test(e.contato_email)) p.push({ passo: "empresa", texto: "E-mail do contato principal" });
   if ((r.q2_valor === undefined || r.q2_valor === null) && !r.q2) p.push({ passo: "perfil", texto: "Faturamento anual" });
   if (!r.q3) p.push({ passo: "perfil", texto: "Número de pessoas" });
-  const s = r.setoriais ?? {};
-  if (s.unidades === undefined || s.lugares_total === undefined) p.push({ passo: "setor", texto: "Unidades e lugares" });
-  if (!s.ticket_pessoa) p.push({ passo: "setor", texto: "Ticket médio" });
-  if (!s.fila_pico) p.push({ passo: "setor", texto: "Fila no pico" });
+  p.push(...pendenciasUnidades(q, r));
   const faltaQ5 = q.areasQ5.filter((a) => !marcou(r.grade_q5?.[a.id]));
   if (faltaQ5.length) p.push({ passo: "esforco", texto: `Como cada área trabalha (${faltaQ5.length} sem resposta)` });
   const q6 = areasQ6(q, r.grade_q5);
@@ -195,5 +246,33 @@ export function pendencias(q: Questionario, r: RespostasSelf, e: EmpresaSelf = {
   if (!r.q10) p.push({ passo: "prontidao", texto: "Política de IA e dados" });
   if (!r.q11) p.push({ passo: "prontidao", texto: "Patrocínio e orçamento" });
   if (!marcou(r.q12)) p.push({ passo: "prontidao", texto: "Objetivos principais" });
+  return p;
+}
+
+const ROTULO_CAMPO: Record<CampoUnidade, string> = {
+  lugares_total: "lugares no salão",
+  ticket_pessoa: "ticket médio",
+  fila_pico: "fila no pico",
+  refeicoes_dia: "refeições por dia",
+};
+
+/** Pendências do passo Operação (tipos de unidade). Rascunho antigo é lido como uma unidade de restaurante. */
+export function pendenciasUnidades(q: Questionario, r: RespostasSelf): { passo: PassoId; texto: string }[] {
+  const us = paraUnidades(r).unidades ?? [];
+  if (us.length === 0) return [{ passo: "setor", texto: "Tipos de operação da empresa" }];
+  const p: { passo: PassoId; texto: string }[] = [];
+  for (const u of us) {
+    const seg = q.segmentos.find((s) => s.id === u.segmento);
+    if (!seg) {
+      p.push({ passo: "setor", texto: "Tipo de operação inválido" });
+      continue;
+    }
+    const faltam: string[] = [];
+    if (u.quantidade === undefined) faltam.push("quantidade");
+    if (u.participacao_receita === undefined) faltam.push("parte do faturamento");
+    for (const c of seg.campos) if (u[c] === undefined) faltam.push(ROTULO_CAMPO[c]);
+    if (faltam.length) p.push({ passo: "setor", texto: `${seg.nome}: ${faltam.join(", ")}` });
+  }
+  if (!somaFecha(us)) p.push({ passo: "setor", texto: "A parte do faturamento de cada tipo precisa somar 100%" });
   return p;
 }

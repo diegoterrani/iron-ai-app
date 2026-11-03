@@ -19,6 +19,14 @@ versões do motor, do modelo e do pacote, mais o hash das respostas.
 
 ## Histórico
 
+- 0.4.0 (03/11/2026): tipos de unidade de negócio, depois do teste de mesa com
+  um cliente que tem 7 restaurantes e 8 cozinhas de hospital. As respostas
+  podem trazer `unidades` (segmento, quantidade, parte do faturamento e as
+  variáveis do segmento). Cada alavanca declara em que `segmentos` roda e o
+  motor soma por unidade, com `parametros_por_segmento` (CMV de 40% na cozinha
+  institucional, hipotese_iron). Pacote food_service 0.2.0 ganha o segmento
+  `institucional`. Sem `unidades`, o cálculo é o de 0.3.0 (os 200 casos antigos
+  continuam iguais); 100 casos novos cobrem as unidades.
 - 0.3.0 (02/11/2026): escolha múltipla, a pedido do Terrani. Pergunta 5 (cada
   área) e pergunta 8 usam a média das opções marcadas (planilhas + sistema = 2,5);
   pergunta 9 usa o estágio mais avançado; pergunta 12 continua fora do cálculo.

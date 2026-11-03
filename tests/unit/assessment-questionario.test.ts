@@ -5,7 +5,9 @@ import {
   alternarOpcao,
   areasQ6,
   paraEscolhaMultipla,
+  paraUnidades,
   pendencias,
+  pendenciasUnidades,
   type RespostasGravadas,
   type RespostasSelf,
 } from "@/lib/assessment/questionario";
@@ -118,6 +120,60 @@ describe("rascunho", () => {
     const n = normalizarRascunho({ ...piloto, pessoas_q6: { "10_juridico": "1 a 5" } }, "food_service");
     expect(n.ok).toBe(true);
     expect(n.ok && n.respostas.pessoas_q6).toBeUndefined();
+  });
+});
+
+describe("tipos de unidade no rascunho (0.4.0)", () => {
+  it("descarta campos que não pertencem ao segmento e tira as perguntas S1 a S3", () => {
+    const n = normalizarRascunho(
+      {
+        setoriais: { unidades: 3 },
+        unidades: [
+          { segmento: "restaurantes", quantidade: 7, participacao_receita: 60.04, lugares_total: 900, refeicoes_dia: 5 },
+          { segmento: "institucional", quantidade: 8, participacao_receita: 39.96, refeicoes_dia: 6000, ticket_pessoa: "até 40" },
+        ],
+      },
+      "food_service",
+    );
+    expect(n.ok && n.respostas).toEqual({
+      setor: "food_service",
+      unidades: [
+        { segmento: "restaurantes", quantidade: 7, participacao_receita: 60, lugares_total: 900 },
+        { segmento: "institucional", quantidade: 8, participacao_receita: 40, refeicoes_dia: 6000 },
+      ],
+    });
+  });
+
+  it("recusa segmento a construir, repetido ou fora da faixa", () => {
+    const rec = (unidades: unknown) => normalizarRascunho({ unidades }, "food_service").ok;
+    expect(rec([{ segmento: "hotelaria" }])).toBe(false);
+    expect(rec([{ segmento: "restaurantes" }, { segmento: "restaurantes" }])).toBe(false);
+    expect(rec([{ segmento: "institucional", participacao_receita: 0 }])).toBe(false);
+    expect(rec([{ segmento: "institucional", participacao_receita: 101 }])).toBe(false);
+    expect(rec([{ segmento: "institucional", quantidade: 1.5 }])).toBe(false);
+  });
+
+  it("converte rascunho antigo em uma unidade de restaurante com 100%", () => {
+    const r = paraUnidades({ setoriais: { unidades: 12, lugares_total: 1500, ticket_pessoa: "80 a 150", fila_pico: "toda semana" } });
+    expect(r).toEqual({
+      unidades: [
+        { segmento: "restaurantes", participacao_receita: 100, quantidade: 12, lugares_total: 1500, ticket_pessoa: "80 a 150", fila_pico: "toda semana" },
+      ],
+    });
+  });
+
+  it("aponta o que falta em cada tipo e a soma que não fecha", () => {
+    const faltas = pendenciasUnidades(q, {
+      unidades: [
+        { segmento: "restaurantes", quantidade: 7, participacao_receita: 60 },
+        { segmento: "institucional", quantidade: 8, participacao_receita: 30, refeicoes_dia: 10 },
+      ],
+    }).map((p) => p.texto);
+    expect(faltas).toEqual([
+      "Restaurantes: lugares no salão, ticket médio, fila no pico",
+      "A parte do faturamento de cada tipo precisa somar 100%",
+    ]);
+    expect(pendenciasUnidades(q, {}).map((p) => p.texto)).toEqual(["Tipos de operação da empresa"]);
   });
 });
 

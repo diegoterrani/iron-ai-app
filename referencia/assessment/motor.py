@@ -29,7 +29,8 @@ import operator
 import sys
 from pathlib import Path
 
-MOTOR_VERSAO = "0.3.0"
+MOTOR_VERSAO = "0.4.0"
+MAX_UNIDADES = 10  # tipos de unidade por empresa; cada tipo soma todas as lojas daquele tipo
 CENARIOS = ("conservador", "base")  # o otimista nunca é mostrado ao cliente
 DIMENSOES = ("estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas")
 
@@ -192,6 +193,28 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
         pessoas.append({"area": area, "fte": fte, "e_a": ea, "valor": fte * C * ea})
 
     variaveis = {k: v["valor"] for k, v in pacote["parametros_padrao"].items()}
+    us = r.get("unidades")
+    if us is None:
+        alavancas = _alavancas_formato_antigo(r, pacote, s, variaveis, receita_c, cenario)
+    else:
+        alavancas = _alavancas_por_unidade(us, pacote, s, variaveis, receita_c, cenario)
+
+    bruto_pessoas = sum(p["valor"] for p in pessoas)
+    bruto_alavancas = sum(a["valor"] for a in alavancas)
+    P = R * (bruto_pessoas + bruto_alavancas)
+    return {"receita_usada": receita_c, "pessoas": pessoas, "alavancas": alavancas,
+            "potencial_bruto": bruto_pessoas + bruto_alavancas, "R": R, "P": P,
+            # 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
+            "delta_margem_pp": P / receita_c * 100 if receita_c > 0 else None}
+
+
+def _locais(a: dict, cenario: str) -> dict:
+    return {k: _param(v, cenario) for k, v in a.items() if isinstance(v, dict) and k != "condicao"}
+
+
+def _alavancas_formato_antigo(r: dict, pacote: dict, s: dict, variaveis: dict, receita_c: float, cenario: str) -> list:
+    """Até 0.3.0: a empresa inteira é uma operação de restaurante (perguntas S1 a S3)."""
+    variaveis = dict(variaveis)
     variaveis.update({
         "receita_salao_delivery": receita_c,
         "lugares_total": r["setoriais"]["lugares_total"],
@@ -205,22 +228,99 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
             alavancas.append({"alavanca": nome, "nome": a["nome"], "linha_dre": a["linha_dre"], "valor": 0.0,
                               "motivo": f"não calculada: {cond['campo']} = {r['setoriais'].get(cond['campo'])}"})
             continue
-        locais = {k: _param(v, cenario) for k, v in a.items() if isinstance(v, dict) and k != "condicao"}
-        valor = calcular_formula(a["formula"], {**variaveis, **locais})
+        valor = calcular_formula(a["formula"], {**variaveis, **_locais(a, cenario)})
         alavancas.append({"alavanca": nome, "nome": a["nome"], "linha_dre": a["linha_dre"], "valor": valor})
+    return alavancas
 
-    bruto_pessoas = sum(p["valor"] for p in pessoas)
-    bruto_alavancas = sum(a["valor"] for a in alavancas)
-    P = R * (bruto_pessoas + bruto_alavancas)
-    return {"receita_usada": receita_c, "pessoas": pessoas, "alavancas": alavancas,
-            "potencial_bruto": bruto_pessoas + bruto_alavancas, "R": R, "P": P,
-            # 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
-            "delta_margem_pp": P / receita_c * 100 if receita_c > 0 else None}
+
+def _alavancas_por_unidade(us: list, pacote: dict, s: dict, variaveis: dict, receita_c: float, cenario: str) -> list:
+    """0.4.0: cada tipo de unidade (restaurante, cozinha institucional...) entra com a sua parte da
+    receita e as suas variáveis; a alavanca só roda nos segmentos que ela declara."""
+    por_segmento = pacote.get("parametros_por_segmento", {})
+    alavancas = []
+    for nome in pacote["self_ordem_alavancas"][: pacote["self_alavancas_max"]]:
+        a = pacote["alavancas"][nome]
+        segs = a.get("segmentos")
+        cond = a.get("condicao")
+        partes = []
+        for u in us:
+            seg = u["segmento"]
+            if segs is not None and seg not in segs:
+                continue
+            if cond and u.get(cond["campo"]) not in cond["em"]:
+                partes.append({"segmento": seg, "valor": 0.0,
+                               "motivo": f"não calculada: {cond['campo']} = {u.get(cond['campo'])}"})
+                continue
+            v = dict(variaveis)
+            v.update({k: p["valor"] for k, p in por_segmento.get(seg, {}).items()})
+            v["receita_salao_delivery"] = receita_c * (u["participacao_receita"] / 100)
+            if "lugares_total" in u:
+                v["lugares_total"] = u["lugares_total"]
+            if "ticket_pessoa" in u:
+                v["ticket_pessoa"] = _faixa(s["faixas_ticket"][u["ticket_pessoa"]], cenario)
+            partes.append({"segmento": seg, "valor": calcular_formula(a["formula"], {**v, **_locais(a, cenario)})})
+        item = {"alavanca": nome, "nome": a["nome"], "linha_dre": a["linha_dre"],
+                "valor": sum((x["valor"] for x in partes), 0.0), "por_unidade": partes}
+        if not partes:
+            item["motivo"] = "não se aplica aos tipos de unidade informados"
+        elif all("motivo" in x for x in partes):
+            item["motivo"] = "; ".join(x["motivo"] for x in partes)
+        alavancas.append(item)
+    return alavancas
+
+
+def _numero(v, pergunta: str, minimo: float = 0) -> float:
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v in (float("inf"), float("-inf")) or v < minimo:
+        raise RespostaInvalida(f"{pergunta}: informe um número válido")
+    return v
+
+
+def validar_unidades(r: dict, pacote: dict, modelo: dict) -> None:
+    """0.4.0: tipos de unidade de negócio. Sem a lista, vale o formato antigo (perguntas S1 a S3)."""
+    us = r.get("unidades")
+    if us is None:
+        return
+    if not isinstance(us, list) or not us:
+        raise RespostaInvalida("unidades: informe pelo menos um tipo de unidade")
+    if len(us) > MAX_UNIDADES:
+        raise RespostaInvalida(f"unidades: no máximo {MAX_UNIDADES} tipos")
+    segmentos = pacote["segmentos"]
+    disponiveis = [k for k, v in segmentos.items() if v.get("no_self")]
+    opcoes_campo = {"ticket_pessoa": modelo["self"]["faixas_ticket"],
+                    "fila_pico": dict.fromkeys(pacote["perguntas_self"]["S3"]["opcoes"])}
+    vistos = set()
+    total = 0.0
+    for i, u in enumerate(us):
+        p = f"unidade {i + 1}"
+        if not isinstance(u, dict):
+            raise RespostaInvalida(f"{p}: formato inválido")
+        seg = u.get("segmento")
+        if not isinstance(seg, str) or seg not in disponiveis:
+            raise RespostaInvalida(f"{p}: segmento '{seg}' não disponível no Self ({', '.join(disponiveis)})")
+        if seg in vistos:
+            raise RespostaInvalida(f"{p}: segmento '{seg}' repetido; some as unidades do mesmo tipo numa só")
+        vistos.add(seg)
+        q = _numero(u.get("quantidade"), f"{p} (quantidade)", 1)
+        if q != int(q):
+            raise RespostaInvalida(f"{p} (quantidade): informe um número inteiro")
+        part = _numero(u.get("participacao_receita"), f"{p} (participação na receita)")
+        if part <= 0 or part > 100:
+            raise RespostaInvalida(f"{p} (participação na receita): use um valor acima de 0 e até 100%")
+        total += part
+        for campo in segmentos[seg]["campos_self"]:
+            if campo in opcoes_campo:
+                valor = u.get(campo)
+                _opcao(opcoes_campo[campo], valor if isinstance(valor, str) else None, f"{p} ({campo})")
+            else:
+                _numero(u.get(campo), f"{p} ({campo})")
+    if abs(total - 100) > 0.5:
+        raise RespostaInvalida("unidades: a participação na receita dos tipos de unidade precisa somar 100%")
 
 
 # ---------------------------------------------------------------- validações
-def validar_coerencia(r: dict, modelo: dict) -> list[str]:
+def validar_coerencia(r: dict, pacote: dict, modelo: dict) -> list[str]:
     s = modelo["self"]
+    validar_unidades(r, pacote, modelo)
     lo_tot, hi_tot = _opcao(s["faixas_pessoas_total"], r["q3"], "pergunta 3")
     soma_lo = sum(_opcao(s["faixas_pessoas_area"], f, "pergunta 6")[0] for f in r["pessoas_q6"].values())
     if soma_lo > hi_tot:
@@ -240,7 +340,7 @@ def validar_coerencia(r: dict, modelo: dict) -> list[str]:
 def calcular_self(r: dict, pacote: dict, modelo: dict) -> dict:
     if r.get("setor") != pacote["pacote"]:
         raise RespostaInvalida(f"setor '{r.get('setor')}' não corresponde ao pacote '{pacote['pacote']}'")
-    avisos = validar_coerencia(r, modelo)
+    avisos = validar_coerencia(r, pacote, modelo)
     notas, areas_nota, cobertura = notas_dimensoes(r, pacote, modelo)
     S, teto = score_sucesso(notas, modelo)
     R = fator_R(S, modelo)

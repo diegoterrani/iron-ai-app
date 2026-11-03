@@ -16,12 +16,14 @@ import { createHash } from "node:crypto";
 import { RespostaInvalida } from "./erros";
 import { listaMarcadas, ordenarAreasQ6, soma } from "./areas";
 import { calcularFormula } from "./formula";
-import type { Modelo, Pacote, Respostas, ResultadoSelf } from "./tipos";
+import type { Alavanca, Modelo, Pacote, Respostas, ResultadoSelf, Unidade } from "./tipos";
 
 export { RespostaInvalida } from "./erros";
 export { soma } from "./areas";
 
-export const MOTOR_VERSAO = "0.3.0";
+export const MOTOR_VERSAO = "0.4.0";
+/** Tipos de unidade por empresa; cada tipo soma todas as unidades daquele tipo. */
+export const MAX_UNIDADES = 10;
 /** O otimista nunca é mostrado ao cliente. */
 type Cenario = "conservador" | "base";
 const DIMENSOES = ["estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas"] as const;
@@ -206,32 +208,12 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
     return { area, fte, e_a: ea, valor: fte * C * ea };
   });
 
-  const setoriais = r.setoriais ?? {};
   const variaveis: Record<string, number> = {};
   for (const [k, v] of Object.entries(pacote.parametros_padrao)) variaveis[k] = v.valor;
-  variaveis.receita_salao_delivery = receitaC;
-  variaveis.lugares_total = numeroNaoNegativo(setoriais.lugares_total, "pergunta S1 (lugares)");
-  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), cenario);
-
-  const alavancas = pacote.self_ordem_alavancas.slice(0, pacote.self_alavancas_max).map((nome) => {
-    const a = pacote.alavancas[nome];
-    const cond = a.condicao;
-    if (cond && !cond.em.includes(setoriais[cond.campo] as string)) {
-      return {
-        alavanca: nome,
-        nome: a.nome,
-        linha_dre: a.linha_dre,
-        valor: 0,
-        motivo: `não calculada: ${cond.campo} = ${String(setoriais[cond.campo] ?? "None")}`,
-      };
-    }
-    const locais: Record<string, number> = {};
-    for (const [k, v] of Object.entries(a)) {
-      if (v !== null && typeof v === "object" && !Array.isArray(v) && k !== "condicao") locais[k] = param(v, cenario);
-    }
-    const valor = calcularFormula(a.formula, { ...variaveis, ...locais });
-    return { alavanca: nome, nome: a.nome, linha_dre: a.linha_dre, valor };
-  });
+  const alavancas =
+    r.unidades === undefined
+      ? alavancasFormatoAntigo(r, pacote, modelo, variaveis, receitaC, cenario)
+      : alavancasPorUnidade(r.unidades, pacote, modelo, variaveis, receitaC, cenario);
 
   const brutoPessoas = soma(pessoas.map((p) => p.valor));
   const brutoAlavancas = soma(alavancas.map((a) => a.valor));
@@ -248,10 +230,160 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
   };
 }
 
+/** Parâmetros próprios da alavanca (objetos com conservador/base/valor), menos a condição. */
+function locaisDe(a: Alavanca, cenario: Cenario): Record<string, number> {
+  const locais: Record<string, number> = {};
+  for (const [k, v] of Object.entries(a)) {
+    if (v !== null && typeof v === "object" && !Array.isArray(v) && k !== "condicao") locais[k] = param(v, cenario);
+  }
+  return locais;
+}
+
+/** Igual ao str() do Python para os valores que aparecem nas mensagens (texto ou ausente). */
+const textoPy = (v: unknown) => (v === undefined || v === null ? "None" : String(v));
+
+type ItemAlavanca = ResultadoSelf["retorno"]["conservador"]["alavancas"][number];
+
+/** Até 0.3.0: a empresa inteira é uma operação de restaurante (perguntas S1 a S3). */
+function alavancasFormatoAntigo(
+  r: Respostas,
+  pacote: Pacote,
+  modelo: Modelo,
+  base: Record<string, number>,
+  receitaC: number,
+  cenario: Cenario,
+): ItemAlavanca[] {
+  const s = modelo.self;
+  const setoriais = r.setoriais ?? {};
+  const variaveis = { ...base };
+  variaveis.receita_salao_delivery = receitaC;
+  variaveis.lugares_total = numeroNaoNegativo(setoriais.lugares_total, "pergunta S1 (lugares)");
+  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), cenario);
+
+  return pacote.self_ordem_alavancas.slice(0, pacote.self_alavancas_max).map((nome) => {
+    const a = pacote.alavancas[nome];
+    const cond = a.condicao;
+    if (cond && !cond.em.includes(setoriais[cond.campo] as string)) {
+      return {
+        alavanca: nome,
+        nome: a.nome,
+        linha_dre: a.linha_dre,
+        valor: 0,
+        motivo: `não calculada: ${cond.campo} = ${textoPy(setoriais[cond.campo])}`,
+      };
+    }
+    const valor = calcularFormula(a.formula, { ...variaveis, ...locaisDe(a, cenario) });
+    return { alavanca: nome, nome: a.nome, linha_dre: a.linha_dre, valor };
+  });
+}
+
+/**
+ * 0.4.0: cada tipo de unidade (restaurante, cozinha institucional...) entra com
+ * a sua parte da receita e as suas variáveis; a alavanca só roda nos
+ * segmentos que ela declara. Lista já validada por validarUnidades.
+ */
+function alavancasPorUnidade(
+  us: Unidade[],
+  pacote: Pacote,
+  modelo: Modelo,
+  base: Record<string, number>,
+  receitaC: number,
+  cenario: Cenario,
+): ItemAlavanca[] {
+  const s = modelo.self;
+  const porSegmento = pacote.parametros_por_segmento ?? {};
+  return pacote.self_ordem_alavancas.slice(0, pacote.self_alavancas_max).map((nome) => {
+    const a = pacote.alavancas[nome];
+    const cond = a.condicao;
+    const partes: { segmento: string; valor: number; motivo?: string }[] = [];
+    for (const u of us) {
+      const seg = u.segmento;
+      if (a.segmentos !== undefined && !a.segmentos.includes(seg)) continue;
+      const campo = cond ? (u as unknown as Record<string, unknown>)[cond.campo] : undefined;
+      if (cond && !cond.em.includes(campo as string)) {
+        partes.push({ segmento: seg, valor: 0, motivo: `não calculada: ${cond.campo} = ${textoPy(campo)}` });
+        continue;
+      }
+      const v = { ...base };
+      const proprios = Object.hasOwn(porSegmento, seg) ? porSegmento[seg] : {};
+      for (const [k, p] of Object.entries(proprios)) v[k] = p.valor;
+      v.receita_salao_delivery = receitaC * (u.participacao_receita / 100);
+      if (u.lugares_total !== undefined) v.lugares_total = u.lugares_total;
+      if (u.ticket_pessoa !== undefined) v.ticket_pessoa = faixa(opcao(s.faixas_ticket, u.ticket_pessoa, "ticket"), cenario);
+      partes.push({ segmento: seg, valor: calcularFormula(a.formula, { ...v, ...locaisDe(a, cenario) }) });
+    }
+    const item: ItemAlavanca = {
+      alavanca: nome,
+      nome: a.nome,
+      linha_dre: a.linha_dre,
+      valor: soma(partes.map((x) => x.valor)),
+      por_unidade: partes,
+    };
+    if (partes.length === 0) item.motivo = "não se aplica aos tipos de unidade informados";
+    else if (partes.every((x) => x.motivo !== undefined)) item.motivo = partes.map((x) => x.motivo).join("; ");
+    return item;
+  });
+}
+
+function numeroUnidade(v: unknown, pergunta: string, minimo = 0): number {
+  if (typeof v !== "number" || !Number.isFinite(v) || v < minimo) {
+    throw new RespostaInvalida(`${pergunta}: informe um número válido`);
+  }
+  return v;
+}
+
+/** 0.4.0: tipos de unidade de negócio. Sem a lista, vale o formato antigo (perguntas S1 a S3). */
+export function validarUnidades(r: Respostas, pacote: Pacote, modelo: Modelo): void {
+  const us: unknown = r.unidades;
+  if (us === undefined) return;
+  if (!Array.isArray(us) || us.length === 0) throw new RespostaInvalida("unidades: informe pelo menos um tipo de unidade");
+  if (us.length > MAX_UNIDADES) throw new RespostaInvalida(`unidades: no máximo ${MAX_UNIDADES} tipos`);
+  const disponiveis = Object.entries(pacote.segmentos)
+    .filter(([, v]) => v.no_self === true)
+    .map(([k]) => k);
+  const fila = (pacote.perguntas_self.S3 as { opcoes: string[] }).opcoes;
+  const opcoesCampo: Record<string, Readonly<Record<string, unknown>>> = {
+    ticket_pessoa: modelo.self.faixas_ticket,
+    fila_pico: Object.fromEntries(fila.map((o) => [o, null])),
+  };
+  const vistos = new Set<string>();
+  let total = 0;
+  us.forEach((bruto: unknown, i) => {
+    const p = `unidade ${i + 1}`;
+    if (bruto === null || typeof bruto !== "object" || Array.isArray(bruto)) throw new RespostaInvalida(`${p}: formato inválido`);
+    const u = bruto as Record<string, unknown>;
+    const seg = u.segmento;
+    if (typeof seg !== "string" || !disponiveis.includes(seg)) {
+      throw new RespostaInvalida(`${p}: segmento '${textoPy(seg)}' não disponível no Self (${disponiveis.join(", ")})`);
+    }
+    if (vistos.has(seg)) throw new RespostaInvalida(`${p}: segmento '${seg}' repetido; some as unidades do mesmo tipo numa só`);
+    vistos.add(seg);
+    const q = numeroUnidade(u.quantidade, `${p} (quantidade)`, 1);
+    if (!Number.isInteger(q)) throw new RespostaInvalida(`${p} (quantidade): informe um número inteiro`);
+    const part = numeroUnidade(u.participacao_receita, `${p} (participação na receita)`);
+    if (part <= 0 || part > 100) {
+      throw new RespostaInvalida(`${p} (participação na receita): use um valor acima de 0 e até 100%`);
+    }
+    total += part;
+    for (const campo of pacote.segmentos[seg].campos_self ?? []) {
+      if (Object.hasOwn(opcoesCampo, campo)) {
+        const valor = u[campo];
+        opcao(opcoesCampo[campo], typeof valor === "string" ? valor : "None", `${p} (${campo})`);
+      } else {
+        numeroUnidade(u[campo], `${p} (${campo})`);
+      }
+    }
+  });
+  if (Math.abs(total - 100) > 0.5) {
+    throw new RespostaInvalida("unidades: a participação na receita dos tipos de unidade precisa somar 100%");
+  }
+}
+
 // ---------------------------------------------------------------- validações
 
-function validarCoerencia(r: Respostas, modelo: Modelo): string[] {
+function validarCoerencia(r: Respostas, pacote: Pacote, modelo: Modelo): string[] {
   const s = modelo.self;
+  validarUnidades(r, pacote, modelo);
   const [loTot, hiTot] = opcao(s.faixas_pessoas_total, r.q3, "pergunta 3");
   const q6 = r.pessoas_q6 ?? {};
   const somaLo = soma(Object.values(q6).map((f) => opcao(s.faixas_pessoas_area, f, "pergunta 6")[0]));
@@ -276,7 +408,7 @@ export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): Resu
   if (r.setor !== pacote.pacote) {
     throw new RespostaInvalida(`setor '${String(r.setor)}' não corresponde ao pacote '${pacote.pacote}'`);
   }
-  const avisos = validarCoerencia(r, modelo);
+  const avisos = validarCoerencia(r, pacote, modelo);
   const { notas, areasNota, cobertura } = notasDimensoes(r, pacote, modelo);
   const { valor: S, teto } = scoreSucesso(notas, modelo);
   const R = fatorR(S, modelo);

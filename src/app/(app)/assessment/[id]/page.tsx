@@ -2,17 +2,21 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { exigirContaAtiva } from "@/lib/auth/session";
-import { paraEscolhaMultipla, type EmpresaSelf, type RespostasGravadas } from "@/lib/assessment/questionario";
+import { paraEscolhaMultipla, paraUnidades, type EmpresaSelf, type RespostasGravadas } from "@/lib/assessment/questionario";
 import { montarQuestionario } from "@/lib/assessment/self";
 import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
+import { MAX_TEXTO_CLIENTE } from "@/lib/assessment/agente/conversa";
+import { agenteConfigurado } from "@/lib/env";
+import { ConversaSelf } from "./conversa-self";
 import { QuestionarioSelf } from "./questionario-self";
 
 export const metadata: Metadata = { title: "Self assessment" };
 
-export default async function ResponderPage({ params }: PageProps<"/assessment/[id]">) {
+export default async function ResponderPage({ params, searchParams }: PageProps<"/assessment/[id]">) {
   const perfil = await exigirContaAtiva();
   const { id } = await params;
+  const { modo } = await searchParams;
   if (!idValido(id)) notFound();
 
   const supabase = await createClient();
@@ -32,14 +36,37 @@ export default async function ResponderPage({ params }: PageProps<"/assessment/[
     empresa = { contato_nome: perfil.nome, contato_email: auth.user?.email ?? undefined };
   }
 
+  const inicial = paraUnidades(paraEscolhaMultipla(linha.respostas ?? {}));
+  const questionario = montarQuestionario();
+  // Conversa é o padrão (03/11/2026); o formulário fica como alternativa e
+  // como reserva se a chave da API não estiver configurada.
+  const conversa = modo !== "formulario" && agenteConfigurado();
+
   return (
     <main>
       <p className="eyebrow">
         <Link href="/assessment">Self assessment</Link> / Food service
       </p>
-      <h1 className="title">Responder</h1>
-      <p className="field-hint">As respostas são salvas automaticamente. Você pode sair e voltar depois.</p>
-      <QuestionarioSelf assessmentId={id} questionario={montarQuestionario()} inicial={paraEscolhaMultipla(linha.respostas ?? {})} inicialEmpresa={empresa} />
+      <h1 className="title">{conversa ? "Conversa" : "Responder"}</h1>
+      {conversa ? (
+        <ConversaSelf
+          assessmentId={id}
+          questionario={questionario}
+          inicial={inicial}
+          inicialEmpresa={empresa}
+          maxTexto={MAX_TEXTO_CLIENTE}
+        />
+      ) : (
+        <>
+          <p className="field-hint">As respostas são salvas automaticamente. Você pode sair e voltar depois.</p>
+          {agenteConfigurado() && (
+            <p className="modo-troca">
+              <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
+            </p>
+          )}
+          <QuestionarioSelf assessmentId={id} questionario={questionario} inicial={inicial} inicialEmpresa={empresa} />
+        </>
+      )}
     </main>
   );
 }

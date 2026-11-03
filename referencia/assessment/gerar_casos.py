@@ -21,6 +21,10 @@ import motor  # noqa: E402
 
 SEMENTE = 20261102
 N_CASOS = 200
+# 0.4.0: casos com tipos de unidade (restaurante + cozinha institucional), sorteio à parte
+# para os 200 casos do formato antigo continuarem os mesmos.
+SEMENTE_UNIDADES = 20261103
+N_CASOS_UNIDADES = 100
 DADOS = RAIZ / "src/lib/assessment/dados"
 SAIDA = RAIZ / "tests/fixtures/assessment/casos.json"
 
@@ -73,6 +77,44 @@ def sortear(rng: random.Random, pacote: dict, modelo: dict) -> dict:
     return r
 
 
+def sortear_unidades(rng: random.Random, pacote: dict, modelo: dict) -> dict:
+    """Mesmo sorteio do formato antigo, mais a lista de unidades (motor 0.4.0)."""
+    r = sortear(rng, pacote, modelo)
+    s = modelo["self"]
+    filas = pacote["perguntas_self"]["S3"]["opcoes"]
+    restaurante = {"segmento": "restaurantes", "quantidade": rng.randint(1, 60),
+                   "lugares_total": rng.randint(20, 12_000), "ticket_pessoa": rng.choice(list(s["faixas_ticket"])),
+                   "fila_pico": rng.choice(filas)}
+    institucional = {"segmento": "institucional", "quantidade": rng.randint(1, 40),
+                     "refeicoes_dia": rng.randint(100, 40_000)}
+    tipo = rng.random()
+    if tipo < 0.25:
+        us = [dict(restaurante, participacao_receita=100)]
+    elif tipo < 0.45:
+        us = [dict(institucional, participacao_receita=100)]
+    else:
+        parte = rng.choice([rng.randint(5, 95), round(rng.uniform(5, 95), 1)])
+        us = [dict(restaurante, participacao_receita=parte), dict(institucional, participacao_receita=100 - parte)]
+        if rng.random() < 0.5:
+            us.reverse()
+    if rng.random() < 0.5:
+        del r["setoriais"]  # com unidades, as perguntas S1 a S3 não entram no cálculo
+    # Inválidos de propósito, só com mensagens sem números formatados (Python e TS formatam diferente).
+    sorteio = rng.random()
+    if sorteio < 0.04:
+        us[0]["participacao_receita"] = 50 if len(us) == 1 else us[0]["participacao_receita"] + 10
+    elif sorteio < 0.07:
+        us.append({"segmento": "hotelaria", "quantidade": 1, "participacao_receita": 1})
+    elif sorteio < 0.10:
+        us.append(dict(us[0]))
+    elif sorteio < 0.13:
+        us[0].pop("lugares_total" if us[0]["segmento"] == "restaurantes" else "refeicoes_dia")
+    elif sorteio < 0.15:
+        us = []
+    r["unidades"] = us
+    return r
+
+
 def main() -> int:
     pacote = json.loads((DADOS / "food_service.json").read_text(encoding="utf-8"))
     modelo = json.loads((DADOS / "modelo_comum.json").read_text(encoding="utf-8"))
@@ -80,6 +122,13 @@ def main() -> int:
     casos = []
     for i in range(N_CASOS):
         r = sortear(rng, pacote, modelo)
+        try:
+            casos.append({"id": i, "respostas": r, "resultado": motor.calcular_self(r, pacote, modelo)})
+        except motor.RespostaInvalida as exc:
+            casos.append({"id": i, "respostas": r, "erro": str(exc)})
+    rng_u = random.Random(SEMENTE_UNIDADES)
+    for i in range(N_CASOS, N_CASOS + N_CASOS_UNIDADES):
+        r = sortear_unidades(rng_u, pacote, modelo)
         try:
             casos.append({"id": i, "respostas": r, "resultado": motor.calcular_self(r, pacote, modelo)})
         except motor.RespostaInvalida as exc:
