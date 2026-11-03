@@ -963,3 +963,23 @@ a {
 .modo-troca {
   margin: 0 0 var(--space-2);
 }
+
+/* Cursor da digitação do assistente; some com movimento reduzido. */
+.fala-digitando > div > :last-child::after {
+  content: "▍";
+  margin-left: 2px;
+  color: var(--subtle);
+  animation: cursor-digitacao 1s steps(1) infinite;
+}
+
+@keyframes cursor-digitacao {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fala-digitando > div > :last-child::after {
+    animation: none;
+  }
+}

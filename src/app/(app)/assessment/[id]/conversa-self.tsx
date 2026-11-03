@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { AcaoState } from "@/lib/acao/tipos";
 import type { FalaTela } from "@/lib/assessment/agente/conversa";
+import {
+  INTERVALO_DIGITACAO_MS,
+  PAUSA_ENTRE_BALOES_MS,
+  palavrasPorPasso,
+  pedacosDeDigitacao,
+  textoParcial,
+} from "@/lib/assessment/agente/digitacao";
 import type { CampoSeguro } from "@/lib/assessment/agente/ferramentas";
 import type { EmpresaSelf, Questionario, RespostasSelf } from "@/lib/assessment/questionario";
 import { cnpjValido, formatarCnpj } from "@/lib/validation/cnpj";
@@ -38,6 +45,40 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
   const [mostrarResumo, setMostrarResumo] = useState(false);
   const entrada = useRef<HTMLTextAreaElement>(null);
   const iniciou = useRef(false);
+
+  // Digitação: falas com índice < `exibidas` aparecem inteiras; a fala de
+  // índice `exibidas` está sendo revelada (`reveladas` pedaços); as seguintes
+  // esperam a vez. O histórico gravado abre inteiro, sem animação.
+  const [exibidas, setExibidas] = useState(0);
+  const [reveladas, setReveladas] = useState(0);
+  const digitando = exibidas < falas.length;
+  const falaAtual = digitando ? falas[exibidas] : undefined;
+  const pedacos = useMemo(() => (falaAtual ? pedacosDeDigitacao(falaAtual.texto) : []), [falaAtual]);
+
+  useEffect(() => {
+    if (!falaAtual) return;
+    const semAnimacao = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const terminou = falaAtual.autor !== "agente" || semAnimacao || reveladas >= pedacos.length;
+    // Fala pronta: passa para a próxima depois de uma pausa curta entre balões
+    // (zero para fala do cliente ou movimento reduzido).
+    const atraso = !terminou ? INTERVALO_DIGITACAO_MS : falaAtual.autor === "agente" && !semAnimacao ? PAUSA_ENTRE_BALOES_MS : 0;
+    const passo = palavrasPorPasso(pedacos.length);
+    const t = window.setTimeout(() => {
+      if (terminou) {
+        setExibidas((n) => n + 1);
+        setReveladas(0);
+      } else {
+        setReveladas((n) => n + passo);
+      }
+    }, atraso);
+    return () => window.clearTimeout(t);
+  }, [falaAtual, pedacos, reveladas]);
+
+  /** Mostra tudo de uma vez (quando o cliente responde antes do fim). */
+  const pularDigitacao = () => {
+    setExibidas(falas.length);
+    setReveladas(0);
+  };
 
   const enviar = async (e: EntradaConversa, fala?: FalaTela) => {
     setErro(null);
@@ -74,6 +115,7 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
       const r = await lerConversa(assessmentId);
       if (r.ok && r.falas && r.falas.length > 0) {
         setFalas(r.falas);
+        setExibidas(r.falas.length);
         setAguardando(false);
       } else {
         await enviar({ tipo: "inicio" });
@@ -83,19 +125,22 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId]);
 
-  // Rola até o fim da página a cada fala nova: a caixa de resposta é fixa no
-  // rodapé, então rolar só até a última fala a deixaria escondida atrás dela.
+  // Rola até o fim da página a cada fala nova e a cada palavra digitada: a
+  // caixa de resposta é fixa no rodapé, então rolar só até a última fala a
+  // deixaria escondida atrás dela. Durante a digitação a rolagem é imediata,
+  // para não brigar com uma animação suave a cada palavra.
   useEffect(() => {
-    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const suave = !digitando && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     requestAnimationFrame(() =>
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior: suave ? "smooth" : "auto" }),
     );
-  }, [falas, aguardando, campoSeguro, mostrarResumo, erro]);
+  }, [falas, exibidas, reveladas, digitando, aguardando, campoSeguro, mostrarResumo, erro]);
 
   const aoEnviar = async (ev: React.FormEvent) => {
     ev.preventDefault();
     const t = texto.trim();
     if (!t || aguardando) return;
+    pularDigitacao();
     setTexto("");
     setMostrarResumo(false);
     const ok = await enviar({ tipo: "mensagem", texto: t }, { autor: "cliente", texto: t });
@@ -107,19 +152,34 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
   return (
     <section className="conversa" aria-label="Conversa do Self assessment">
       <div className="conversa-falas" role="log" aria-live="polite" aria-relevant="additions">
-        {falas.map((f, i) => (
-          <div key={i} className={f.autor === "agente" ? "fala fala-agente" : "fala fala-cliente"}>
-            <span className="sr-only">{f.autor === "agente" ? "Assistente:" : "Você:"}</span>
-            <TextoFala texto={f.texto} />
-          </div>
-        ))}
+        {falas.slice(0, exibidas + 1).map((f, i) => {
+          const emDigitacao = i === exibidas;
+          if (f.autor === "cliente") {
+            return (
+              <div key={i} className="fala fala-cliente">
+                <span className="sr-only">Você:</span>
+                <TextoFala texto={f.texto} />
+              </div>
+            );
+          }
+          // Leitor de tela recebe a fala inteira uma vez só; a parte que vai
+          // aparecendo fica escondida dele para não ser anunciada a cada palavra.
+          return (
+            <div key={i} className={emDigitacao ? "fala fala-agente fala-digitando" : "fala fala-agente"}>
+              <span className="sr-only">Assistente: {f.texto}</span>
+              <div aria-hidden="true">
+                <TextoFala texto={emDigitacao ? textoParcial(pedacos, reveladas) : f.texto} />
+              </div>
+            </div>
+          );
+        })}
         {aguardando && (
           <p className="fala fala-agente fala-pensando" aria-label="O assistente está escrevendo">
             Escrevendo…
           </p>
         )}
 
-        {campoSeguro && (
+        {campoSeguro && !digitando && (
           <CampoSeguroCard
             campo={campoSeguro}
             aoSalvar={async (valor) => {
@@ -135,7 +195,7 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
           />
         )}
 
-        {mostrarResumo && (
+        {mostrarResumo && !digitando && (
           <div className="resumo-conversa">
             <h2 className="pergunta-titulo">Confira o que foi registrado</h2>
             <Resumo q={q} r={respostas} e={empresa} />
