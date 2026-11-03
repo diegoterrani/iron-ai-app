@@ -1,0 +1,222 @@
+{
+  "versoes": {
+    "motor": "0.2.0",
+    "modelo": "0.4.0",
+    "pacote": "food_service 0.1.1"
+  },
+  "hash_respostas": "39c20b1543cf85da",
+  "avisos": [],
+  "precisao_receita": "informada",
+  "score": {
+    "valor": 0.35251623376623376,
+    "teto_aplicado": null,
+    "nivel": "Exploratório",
+    "nota_prontidao": 2.410064935064935,
+    "dimensoes": {
+      "estrategia": 3,
+      "dados": 2.9545454545454546,
+      "processos": 2.142857142857143,
+      "tecnologia": 2,
+      "governanca": 1,
+      "pessoas": 2
+    },
+    "cobertura_fontes": 0.6363636363636364,
+    "ressalva": "Índice fundamentado, não probabilidade estatística, até calibrar com projetos reais."
+  },
+  "score_por_area": {
+    "04_financas": 2,
+    "05_compras": 2,
+    "06_operacoes": 2,
+    "07_comercial": 2,
+    "08_atendimento": 3,
+    "09_rh": 3,
+    "10_juridico": 1,
+    "11_ti_seguranca": 2,
+    "01_estrategia": 3,
+    "02_dados": 2.9545454545454546,
+    "03_pessoas": 2
+  },
+  "areas_sugeridas_q6": [
+    "06_operacoes",
+    "08_atendimento",
+    "04_financas"
+  ],
+  "retorno": {
+    "conservador": {
+      "receita_usada": 96600000.0,
+      "pessoas": [
+        {
+          "area": "06_operacoes",
+          "fte": 151,
+          "e_a": 0.01,
+          "valor": 59645.0
+        },
+        {
+          "area": "08_atendimento",
+          "fte": 1,
+          "e_a": 0.14,
+          "valor": 5530.000000000001
+        },
+        {
+          "area": "04_financas",
+          "fte": 6,
+          "e_a": 0.05,
+          "valor": 11850.0
+        }
+      ],
+      "alavancas": [
+        {
+          "alavanca": "L_cmv",
+          "nome": "Compras, ficha técnica e desperdício",
+          "linha_dre": "custo_produtos",
+          "valor": 309120.0
+        },
+        {
+          "alavanca": "L_giro",
+          "nome": "Giro de mesas no pico",
+          "linha_dre": "receita_bruta",
+          "valor": 179150.40000000002
+        }
+      ],
+      "potencial_bruto": 565295.4,
+      "R": 0.5115097402597403,
+      "P": 289154.103224026,
+      "delta_margem_pp": 0.2993313697971283
+    },
+    "base": {
+      "receita_usada": 96600000.0,
+      "pessoas": [
+        {
+          "area": "06_operacoes",
+          "fte": 325.5,
+          "e_a": 0.03,
+          "valor": 385717.5
+        },
+        {
+          "area": "08_atendimento",
+          "fte": 3.0,
+          "e_a": 0.3,
+          "valor": 35550.0
+        },
+        {
+          "area": "04_financas",
+          "fte": 13.0,
+          "e_a": 0.1,
+          "valor": 51350.0
+        }
+      ],
+      "alavancas": [
+        {
+          "alavanca": "L_cmv",
+          "nome": "Compras, ficha técnica e desperdício",
+          "linha_dre": "custo_produtos",
+          "valor": 618240.0
+        },
+        {
+          "alavanca": "L_giro",
+          "nome": "Giro de mesas no pico",
+          "linha_dre": "receita_bruta",
+          "valor": 515057.4
+        }
+      ],
+      "potencial_bruto": 1605914.9,
+      "R": 0.5115097402597403,
+      "P": 821441.1133782468,
+      "delta_margem_pp": 0.8503531194391789
+    }
+  },
+  "top3": [
+    {
+      "origem": "L_cmv",
+      "valor_conservador": 158117.8909090909,
+      "exemplo": "Alerta de preço de insumo e sugestão de substituição"
+    },
+    {
+      "origem": "L_giro",
+      "valor_conservador": 91637.17457142858,
+      "exemplo": "Medição de tempo de mesa por câmera"
+    },
+    {
+      "origem": "06_operacoes",
+      "valor_conservador": 30508.998457792208,
+      "exemplo": "Escala de pessoal pela demanda prevista"
+    }
+  ],
+  "o_que_destrava": [
+    {
+      "dimensao": "estrategia",
+      "score_novo": 0.41501623376623376,
+      "ganho_score_pp": 6.25,
+      "ganho_retorno": 21198.577500000014
+    }
+  ],
+  "mapa_de_dados": [
+    {
+      "fonte": "F01",
+      "nome": "Vendas por mesa, dia e horário",
+      "situacao": "tem"
+    },
+    {
+      "fonte": "F02",
+      "nome": "Abertura e fechamento de mesa",
+      "situacao": "parcial",
+      "como_criar": "Criar fonte: visão computacional nas câmeras do salão cruzada com o PDV, ou ativar o módulo de mesa",
+      "criar_fonte_com_ia": true
+    },
+    {
+      "fonte": "F03",
+      "nome": "Reservas e comparecimento",
+      "situacao": "parcial",
+      "como_criar": "Criar fonte: agente de reservas por WhatsApp que registra e confirma",
+      "criar_fonte_com_ia": true
+    },
+    {
+      "fonte": "F04",
+      "nome": "Compras por insumo, fornecedor e preço",
+      "situacao": "tem"
+    },
+    {
+      "fonte": "F05",
+      "nome": "Inventário periódico",
+      "situacao": "parcial",
+      "como_criar": "Rotina de contagem com app; não precisa de IA",
+      "criar_fonte_com_ia": false
+    },
+    {
+      "fonte": "F06",
+      "nome": "Registro de desperdício",
+      "situacao": "não tem",
+      "como_criar": "Criar fonte: balança com câmera no descarte que classifica o item",
+      "criar_fonte_com_ia": true
+    },
+    {
+      "fonte": "F07",
+      "nome": "Ficha técnica dos pratos",
+      "situacao": "não tem",
+      "como_criar": "Criar fonte: agente que monta fichas a partir das receitas e das compras",
+      "criar_fonte_com_ia": true
+    },
+    {
+      "fonte": "F08",
+      "nome": "Escala por turno",
+      "situacao": "parcial",
+      "como_criar": "Exportar do ponto eletrônico; não precisa de IA",
+      "criar_fonte_com_ia": false
+    },
+    {
+      "fonte": "F09",
+      "nome": "Avaliações online",
+      "situacao": "tem"
+    },
+    {
+      "fonte": "F10",
+      "nome": "Delivery por canal",
+      "situacao": "tem"
+    },
+    {
+      "fonte": "F11",
+      "nome": "DRE por unidade",
+      "situacao": "tem"
+    }
+  ]
+}

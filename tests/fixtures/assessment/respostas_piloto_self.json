@@ -1,0 +1,47 @@
+{
+  "_sobre": "Respostas do Self assessment da Rede Piloto Alfa (fictícia), dadas a partir de perfil.md, como a diretoria responderia.",
+  "setor": "food_service",
+  "q2_valor": 96600000,
+  "q3": "101 a 500",
+  "q4": "prefiro não dizer",
+  "setoriais": {
+    "unidades": 12,
+    "lugares_total": 1450,
+    "ticket_pessoa": "80 a 150",
+    "fila_pico": "toda semana"
+  },
+  "grade_q5": {
+    "04_financas": "planilhas",
+    "05_compras": "planilhas",
+    "06_operacoes": "planilhas",
+    "07_comercial": "planilhas",
+    "08_atendimento": "sistema",
+    "09_rh": "sistema",
+    "10_juridico": "manual ou papel",
+    "11_ti_seguranca": "planilhas"
+  },
+  "pessoas_q6": {
+    "06_operacoes": "151 a 500",
+    "08_atendimento": "1 a 5",
+    "04_financas": "6 a 20"
+  },
+  "q7": "Montar escala e pedidos de compra de cada loja toda semana, em planilha.",
+  "q8": "sistemas isolados",
+  "dados_D": {
+    "F01": "tem",
+    "F02": "parcial",
+    "F03": "parcial",
+    "F04": "tem",
+    "F05": "parcial",
+    "F06": "não tem",
+    "F07": "não tem",
+    "F08": "parcial",
+    "F09": "tem",
+    "F10": "tem",
+    "F11": "tem"
+  },
+  "q9": "uso individual",
+  "q10": "não",
+  "q11": "diretoria",
+  "q12": "reduzir custo"
+}
