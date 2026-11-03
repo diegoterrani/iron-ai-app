@@ -181,6 +181,17 @@ export interface FalaTela {
   texto: string;
 }
 
+/** Linha que o agente usa para separar a confirmação da próxima pergunta (vira dois balões). */
+const SEPARADOR_BALOES = /\n[ \t]*-{3,}[ \t]*(?:\n|$)/;
+
+/** Quebra um texto do agente nos balões da tela, sem balão vazio. */
+export function separarBaloes(texto: string): string[] {
+  return texto
+    .split(SEPARADOR_BALOES)
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 /** Histórico para a tela: só textos do cliente e do agente (sem ferramentas, raciocínio e avisos do app). */
 export function falasParaTela(historico: readonly unknown[]): FalaTela[] {
   const falas: FalaTela[] = [];
@@ -191,7 +202,7 @@ export function falasParaTela(historico: readonly unknown[]): FalaTela[] {
     for (const b of blocos as { type?: unknown; text?: unknown }[]) {
       if (b?.type !== "text" || typeof b.text !== "string" || !b.text.trim()) continue;
       if (role === "user" && !b.text.startsWith("[Aviso do app]")) falas.push({ autor: "cliente", texto: b.text });
-      if (role === "assistant") falas.push({ autor: "agente", texto: b.text.trim() });
+      if (role === "assistant") for (const t of separarBaloes(b.text)) falas.push({ autor: "agente", texto: t });
     }
   }
   return falas;

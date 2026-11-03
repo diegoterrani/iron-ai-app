@@ -36,7 +36,6 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
   const [empresa, setEmpresa] = useState<EmpresaSelf>(inicialEmpresa);
   const [campoSeguro, setCampoSeguro] = useState<CampoSeguro | null>(null);
   const [mostrarResumo, setMostrarResumo] = useState(false);
-  const fim = useRef<HTMLDivElement>(null);
   const entrada = useRef<HTMLTextAreaElement>(null);
   const iniciou = useRef(false);
 
@@ -84,9 +83,14 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId]);
 
+  // Rola até o fim da página a cada fala nova: a caixa de resposta é fixa no
+  // rodapé, então rolar só até a última fala a deixaria escondida atrás dela.
   useEffect(() => {
-    fim.current?.scrollIntoView({ block: "end" });
-  }, [falas, aguardando, campoSeguro, mostrarResumo]);
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    requestAnimationFrame(() =>
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: suave ? "smooth" : "auto" }),
+    );
+  }, [falas, aguardando, campoSeguro, mostrarResumo, erro]);
 
   const aoEnviar = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -106,9 +110,7 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
         {falas.map((f, i) => (
           <div key={i} className={f.autor === "agente" ? "fala fala-agente" : "fala fala-cliente"}>
             <span className="sr-only">{f.autor === "agente" ? "Assistente:" : "Você:"}</span>
-            {f.texto.split("\n").map((linha, j) => (
-              <p key={j}>{linha}</p>
-            ))}
+            <TextoFala texto={f.texto} />
           </div>
         ))}
         {aguardando && (
@@ -151,7 +153,6 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
             )}
           </div>
         )}
-        <div ref={fim} />
       </div>
 
       {erro && (
@@ -189,6 +190,37 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
         assistente. <Link href={`/assessment/${assessmentId}?modo=formulario`}>Prefiro preencher em formulário</Link>
       </p>
     </section>
+  );
+}
+
+/**
+ * Texto de uma fala: linhas comuns viram parágrafos e linhas "1. Opção"
+ * seguidas viram lista numerada (o cliente responde com o número).
+ * Só texto puro: nada é interpretado como HTML.
+ */
+function TextoFala({ texto }: { texto: string }) {
+  const blocos: ({ tipo: "p"; texto: string } | { tipo: "ol"; inicio: number; itens: string[] })[] = [];
+  for (const linha of texto.split("\n")) {
+    const item = /^\s*(\d{1,2})[.)]\s+(.+)$/.exec(linha);
+    const ultimo = blocos[blocos.length - 1];
+    if (item && ultimo?.tipo === "ol") ultimo.itens.push(item[2]);
+    else if (item) blocos.push({ tipo: "ol", inicio: Number(item[1]), itens: [item[2]] });
+    else if (linha.trim()) blocos.push({ tipo: "p", texto: linha });
+  }
+  return (
+    <>
+      {blocos.map((b, i) =>
+        b.tipo === "p" ? (
+          <p key={i}>{b.texto}</p>
+        ) : (
+          <ol key={i} start={b.inicio} className="fala-opcoes">
+            {b.itens.map((t, j) => (
+              <li key={j}>{t}</li>
+            ))}
+          </ol>
+        ),
+      )}
+    </>
   );
 }
 

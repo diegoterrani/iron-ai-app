@@ -885,6 +885,20 @@ a {
   margin-top: var(--space-1);
 }
 
+.fala-opcoes {
+  margin: var(--space-1) 0 0;
+  padding-left: 1.75rem;
+}
+
+.fala-opcoes li + li {
+  margin-top: 2px;
+}
+
+.fala * + .fala-opcoes,
+.fala .fala-opcoes + p {
+  margin-top: var(--space-1);
+}
+
 .fala-agente {
   align-self: flex-start;
   background: var(--surface);
