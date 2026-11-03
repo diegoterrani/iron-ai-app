@@ -38,10 +38,32 @@ export interface ResultadoTurno {
   sinais: Sinal[];
   uso: Uso;
   fim: "ok" | "recusa" | "rodadas" | "corte";
+  /** Raciocínios antigos que a API descartou (só aparece após a repetição com drop_block). */
+  descartes: number;
+}
+
+/** Beta que permite descartar raciocínio antigo que a API não aceita mais (em vez de 400). */
+export const BETA_VINCULO_RACIOCINIO = "thinking-binding-controls-2026-08-01";
+
+/**
+ * 400 da API por raciocínio (thinking) de turno anterior que não confere com o
+ * histórico enviado. A remediação documentada é repetir uma vez com
+ * `prefix_mismatch_behavior: "drop_block"`: a conversa segue, só aquele
+ * raciocínio antigo deixa de ser lido pelo modelo.
+ */
+export function erroDeRaciocinio(err: unknown): boolean {
+  const e = err as { status?: number; message?: unknown } | null;
+  if (e?.status !== 400 || typeof e.message !== "string") return false;
+  return /signature|thinking|block_binding|bound to a different conversation/i.test(e.message);
 }
 
 /** Monta a chamada: prompt e ferramentas fixos primeiro, para o cache de prompt valer entre turnos. */
-export function parametros(q: Questionario, mensagens: Anthropic.Beta.BetaMessageParam[]): Anthropic.Beta.MessageCreateParamsNonStreaming {
+export function parametros(
+  q: Questionario,
+  mensagens: Anthropic.Beta.BetaMessageParam[],
+  opcoes: { descartarRaciocinioInvalido?: boolean } = {},
+): Anthropic.Beta.MessageCreateParamsNonStreaming {
+  const descartar = opcoes.descartarRaciocinioInvalido === true;
   return {
     model: MODELO_AGENTE,
     max_tokens: MAX_TOKENS_RESPOSTA,
@@ -53,8 +75,9 @@ export function parametros(q: Questionario, mensagens: Anthropic.Beta.BetaMessag
     // Cache do histórico: o último bloco vira ponto de cache a cada chamada.
     cache_control: { type: "ephemeral" },
     // Se o modelo recusar por política, a API tenta o modelo de reserva recomendado.
-    betas: ["server-side-fallback-2026-07-01"],
+    betas: descartar ? ["server-side-fallback-2026-07-01", BETA_VINCULO_RACIOCINIO] : ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
+    ...(descartar ? { thinking: { type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } } } : {}),
   };
 }
 
@@ -82,22 +105,35 @@ export async function executarTurno(args: {
   const textos: string[] = [];
   const sinais: Sinal[] = [];
   let uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
+  let descartar = false;
+  let descartes = 0;
+  const fechar = (fim: ResultadoTurno["fim"]): ResultadoTurno => ({ historico: mensagens, estado, alterou, textos, sinais, uso, fim, descartes });
 
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
-    const resposta = await chamar(parametros(q, mensagens));
+    let resposta: Anthropic.Beta.BetaMessage;
+    try {
+      resposta = await chamar(parametros(q, mensagens, { descartarRaciocinioInvalido: descartar }));
+    } catch (err) {
+      // Uma única repetição, e só para o 400 de raciocínio; qualquer outro erro sobe.
+      if (descartar || !erroDeRaciocinio(err)) throw err;
+      descartar = true;
+      resposta = await chamar(parametros(q, mensagens, { descartarRaciocinioInvalido: true }));
+    }
     uso = somarUso(uso, resposta);
+    const transformacoes = (resposta as { input_transformations?: unknown }).input_transformations;
+    if (Array.isArray(transformacoes)) descartes += transformacoes.length;
 
     // Recusa da cadeia toda: não grava a fala parcial e devolve uma mensagem fixa.
     if (resposta.stop_reason === "refusal") {
-      return { historico: mensagens, estado, alterou, textos, sinais, uso, fim: "recusa" };
+      return fechar("recusa");
     }
 
     mensagens.push({ role: "assistant", content: resposta.content as Anthropic.Beta.BetaContentBlockParam[] });
     for (const b of resposta.content) if (b.type === "text" && b.text.trim()) textos.push(b.text.trim());
 
     if (resposta.stop_reason === "pause_turn") continue;
-    if (resposta.stop_reason === "max_tokens") return { historico: mensagens, estado, alterou, textos, sinais, uso, fim: "corte" };
-    if (resposta.stop_reason !== "tool_use") return { historico: mensagens, estado, alterou, textos, sinais, uso, fim: "ok" };
+    if (resposta.stop_reason === "max_tokens") return fechar("corte");
+    if (resposta.stop_reason !== "tool_use") return fechar("ok");
 
     // Todas as ferramentas da resposta numa única mensagem de resultados.
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
@@ -111,7 +147,7 @@ export async function executarTurno(args: {
     }
     mensagens.push({ role: "user", content: resultados });
   }
-  return { historico: mensagens, estado, alterou, textos, sinais, uso, fim: "rodadas" };
+  return fechar("rodadas");
 }
 
 /** Cliente da API com tempo e retentativas limitados (o SDK já repete 429 e 5xx). */

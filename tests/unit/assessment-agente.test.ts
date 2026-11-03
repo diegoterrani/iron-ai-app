@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it } from "vitest";
-import { MAX_RODADAS, executarTurno, falasParaTela, parametros, type ChamarLLM } from "@/lib/assessment/agente/conversa";
+import { BETA_VINCULO_RACIOCINIO, MAX_RODADAS, erroDeRaciocinio, executarTurno, falasParaTela, parametros, type ChamarLLM } from "@/lib/assessment/agente/conversa";
 import { executarFerramenta, type EstadoAgente } from "@/lib/assessment/agente/ferramentas";
 import { montarPromptSistema } from "@/lib/assessment/agente/prompt";
 import { montarQuestionario } from "@/lib/assessment/self";
@@ -163,6 +163,52 @@ describe("turno do agente", () => {
     const t = await executarTurno({ q, historico, entrada: "Rede X", estado: vazio, chamar: api.chamar });
     expect(t.historico.slice(0, 2)).toEqual(historico);
     expect(api.recebidas[0].messages.slice(0, 2)).toEqual(historico);
+  });
+});
+
+describe("400 de raciocínio antigo (thinking)", () => {
+  const erro400 = (message: string) => Object.assign(new Error(message), { status: 400 });
+  const historico: Anthropic.Beta.BetaMessageParam[] = [
+    { role: "user", content: "Iron Security" },
+    { role: "assistant", content: [{ type: "thinking", thinking: "…", signature: "sig" }, { type: "text", text: "Anotei." }] },
+  ];
+
+  it("reconhece só o 400 de assinatura do raciocínio", () => {
+    expect(erroDeRaciocinio(erro400("messages.1.content.0: Invalid `signature` in `thinking` block."))).toBe(true);
+    expect(erroDeRaciocinio(erro400("max_tokens: too large"))).toBe(false);
+    expect(erroDeRaciocinio(Object.assign(new Error("thinking"), { status: 500 }))).toBe(false);
+  });
+
+  it("repete uma vez com drop_block e a conversa segue, sem mexer no histórico", async () => {
+    const recebidas: Anthropic.Beta.MessageCreateParamsNonStreaming[] = [];
+    let n = 0;
+    const chamar: ChamarLLM = async (p) => {
+      recebidas.push(structuredClone(p));
+      if (n++ === 0) throw erro400("messages.1.content.0: Invalid `signature` in `thinking` block.");
+      return { ...resposta([texto("Em que cidade fica a sede?")]), input_transformations: [{ type: "thinking_dropped" }] } as never;
+    };
+    const t = await executarTurno({ q, historico, entrada: "Sim", estado: vazio, chamar });
+    expect(t.fim).toBe("ok");
+    expect(t.descartes).toBe(1);
+    expect(recebidas).toHaveLength(2);
+    expect(recebidas[0].betas).not.toContain(BETA_VINCULO_RACIOCINIO);
+    expect(recebidas[1].betas).toContain(BETA_VINCULO_RACIOCINIO);
+    expect(recebidas[1].thinking).toEqual({ type: "adaptive", block_binding: { prefix_mismatch_behavior: "drop_block" } });
+    expect(recebidas[1].messages.slice(0, 2)).toEqual(historico);
+  });
+
+  it("outro erro, ou o mesmo erro na repetição, sobe sem laço", async () => {
+    let chamadas = 0;
+    const sempre400: ChamarLLM = async () => {
+      chamadas++;
+      throw erro400("Invalid `signature` in `thinking` block.");
+    };
+    await expect(executarTurno({ q, historico, entrada: "Sim", estado: vazio, chamar: sempre400 })).rejects.toThrow();
+    expect(chamadas).toBe(2);
+    const outro: ChamarLLM = async () => {
+      throw erro400("max_tokens: too large");
+    };
+    await expect(executarTurno({ q, historico, entrada: "Sim", estado: vazio, chamar: outro })).rejects.toThrow("max_tokens");
   });
 });
 
