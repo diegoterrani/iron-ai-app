@@ -109,3 +109,12 @@ O roadmap, quando existir, usa as mesmas `assessment.ver` e `assessment.editar`.
   pessoal de quem o iniciou).
 - O acesso ao Self da empresa é liberado na ficha da empresa no backoffice
   (`admin_conceder_direito_empresa`).
+
+### Transferir Self pessoal para a empresa
+
+`admin_transferir_assessment_empresa(assessment, empresa, motivo)` (migração
+`20261104130000_transferir_assessment.sql`), na ficha do usuário no backoffice.
+Só super-admin com MFA; só assessment pessoal; o dono precisa ser ADM ou
+RW-Cliente da empresa; rascunho só entra se a empresa não tiver outro do mesmo
+setor. Respostas, resultado e autor não mudam; a conversa continua só da pessoa.
+Auditado como `assessment_transferido` com o motivo.

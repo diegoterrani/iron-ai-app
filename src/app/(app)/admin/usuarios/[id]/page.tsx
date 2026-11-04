@@ -15,6 +15,7 @@ import {
   removerAssessment,
   revogarDireito,
   revogarPapel,
+  transferirAssessment,
 } from "../../actions";
 import { formatarDataHora } from "../../formato";
 
@@ -75,7 +76,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
     // RLS: super-admin lê os assessments de qualquer pessoa (só status e datas aqui).
     supabase
       .from("assessments")
-      .select("id, setor, status, criado_em, concluido_em")
+      .select("id, org_id, setor, status, criado_em, concluido_em")
       .eq("user_id", id)
       .order("criado_em", { ascending: false })
       .limit(50),
@@ -93,6 +94,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   const direitos = (direitosRes.data ?? []) as { produto: string; origem: string; concedido_em: string }[];
   const assessments = (assessmentsRes.data ?? []) as {
     id: string;
+    org_id: string | null;
     setor: string;
     status: "rascunho" | "concluido";
     criado_em: string;
@@ -100,6 +102,10 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
   }[];
   const ehStaff = papeis.some((p) => p === "equipe_iron" || p === "parceiro");
   const naoAtribuidas = empresas.filter((e) => !atribuicoes.some((a) => a.org_id === e.id));
+  // Destino possível de um Self pessoal: empresas em que a pessoa é ADM ou RW (o banco confere).
+  const destinos = vinculos.filter((v) => v.role === "adm_cliente" || v.role === "rw_cliente");
+  const nomeEmpresa = (orgId: string) =>
+    vinculos.find((v) => v.org_id === orgId)?.organizations?.nome ?? empresas.find((e) => e.id === orgId)?.nome ?? "empresa";
 
   return (
     <main>
@@ -239,10 +245,36 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
             {assessments.map((a) => (
               <li key={a.id}>
                 <span>
-                  Self · {a.status === "concluido"
+                  Self · {a.org_id ? `da empresa ${nomeEmpresa(a.org_id)}` : "pessoal"} ·{" "}
+                  {a.status === "concluido"
                     ? `concluído em ${formatarDataHora(a.concluido_em ?? a.criado_em)}`
                     : `rascunho iniciado em ${formatarDataHora(a.criado_em)}`}
                 </span>
+                {!a.org_id && destinos.length > 0 && (
+                  <AcaoForm
+                    action={transferirAssessment}
+                    campos={{ assessmentId: a.id }}
+                    rotulo="Transferir para a empresa"
+                    rotuloEnviando="Transferindo…"
+                    variante="secundario"
+                    className="acao-form acao-form-coluna"
+                  >
+                    <div className="field">
+                      <label htmlFor={`destino-${a.id}`}>Empresa</label>
+                      <select id={`destino-${a.id}`} name="orgId" defaultValue={destinos[0].org_id}>
+                        {destinos.map((v) => (
+                          <option key={v.org_id} value={v.org_id}>
+                            {v.organizations?.nome ?? "Empresa"} ({ROTULO_PAPEL[v.role] ?? v.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`motivo-transf-${a.id}`}>Motivo (vai para a auditoria)</label>
+                      <input id={`motivo-transf-${a.id}`} name="motivo" type="text" minLength={5} maxLength={300} required />
+                    </div>
+                  </AcaoForm>
+                )}
                 <AcaoForm
                   action={removerAssessment}
                   campos={{ assessmentId: a.id }}
@@ -261,6 +293,8 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
         )}
         <p className="field-hint">
           Remover apaga as respostas, o resultado e a conversa com o assistente, sem volta. Fica só o registro na auditoria.
+          Transferir leva um Self pessoal para a empresa em que a pessoa é ADM ou RW-Cliente: as pessoas da empresa passam a
+          ver (e, se for rascunho, ADM e RW a editar); a conversa com o assistente continua só da pessoa.
         </p>
       </section>
 

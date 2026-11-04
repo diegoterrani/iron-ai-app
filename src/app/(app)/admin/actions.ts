@@ -17,6 +17,7 @@ import {
   remocaoAssessmentSchema,
   staffSchema,
   statusSchema,
+  transferenciaAssessmentSchema,
   vinculoSchema,
 } from "@/lib/validation/admin";
 
@@ -118,6 +119,20 @@ export async function removerAssessment(_prev: AcaoState, form: FormData): Promi
     form,
     (rpc, d) => rpc("admin_remover_assessment", { p_assessment: d.assessmentId, p_motivo: d.motivo }),
     "Assessment removido.",
+    ADMIN,
+  );
+  return estado;
+}
+
+/** Self pessoal vira o da empresa (o banco exige que o dono seja ADM ou RW nela). */
+export async function transferirAssessment(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.assessment_transferir",
+    transferenciaAssessmentSchema,
+    form,
+    (rpc, d) =>
+      rpc("admin_transferir_assessment_empresa", { p_assessment: d.assessmentId, p_org: d.orgId, p_motivo: d.motivo }),
+    "Assessment transferido para a empresa.",
     ADMIN,
   );
   return estado;

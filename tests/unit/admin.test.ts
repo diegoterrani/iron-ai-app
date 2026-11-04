@@ -17,6 +17,7 @@ import {
   papelSchema,
   staffSchema,
   statusSchema,
+  transferenciaAssessmentSchema,
   vinculoSchema,
 } from "@/lib/validation/admin";
 
@@ -68,6 +69,15 @@ describe("travas de entrada do backoffice", () => {
     expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "rw_cliente" }).success).toBe(true);
     expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "adm_cliente" }).success).toBe(false);
     expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "super_admin" }).success).toBe(false);
+  });
+  it("transferência de assessment exige empresa, UUIDs e motivo", () => {
+    expect(transferenciaAssessmentSchema.safeParse({ assessmentId: ID, orgId: ID, motivo: "virou empresa" }).success).toBe(true);
+    expect(transferenciaAssessmentSchema.safeParse({ assessmentId: ID, motivo: "virou empresa" }).success).toBe(false);
+    expect(transferenciaAssessmentSchema.safeParse({ assessmentId: ID, orgId: ID, motivo: "x" }).success).toBe(false);
+    expect(transferenciaAssessmentSchema.safeParse({ assessmentId: ID, orgId: "1 or 1=1", motivo: "virou empresa" }).success).toBe(false);
+    expect(resumoAuditoria({ acao: "assessment_transferido", tabela: "assessments", dados: { motivo: "virou empresa" } as never })).toBe(
+      "Self assessment transferido para a empresa: virou empresa",
+    );
   });
   it("direito da empresa exige UUID e produto conhecido", () => {
     expect(direitoEmpresaSchema.safeParse({ orgId: ID, produto: "self_assessment" }).success).toBe(true);
