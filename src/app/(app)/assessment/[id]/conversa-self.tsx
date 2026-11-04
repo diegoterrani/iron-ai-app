@@ -28,13 +28,15 @@ interface Props {
   questionario: Questionario;
   inicial: RespostasSelf;
   inicialEmpresa: EmpresaSelf;
+  /** Versão do rascunho ao abrir (atualizado_em); protege a edição de colegas da empresa. */
+  versaoInicial: string;
   /** Limite de caracteres por mensagem (o servidor confere de novo). */
   maxTexto: number;
 }
 
 const ROTULO_SEGURO: Record<CampoSeguro, string> = { cnpj: "CNPJ da empresa", contato_telefone: "Telefone do contato" };
 
-export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEmpresa, maxTexto }: Props) {
+export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEmpresa, versaoInicial, maxTexto }: Props) {
   const [falas, setFalas] = useState<FalaTela[]>([]);
   const [texto, setTexto] = useState("");
   const [aguardando, setAguardando] = useState(true);
@@ -45,6 +47,7 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
   const [mostrarResumo, setMostrarResumo] = useState(false);
   const entrada = useRef<HTMLTextAreaElement>(null);
   const iniciou = useRef(false);
+  const versao = useRef(versaoInicial);
 
   // Digitação: falas com índice < `exibidas` aparecem inteiras; a fala de
   // índice `exibidas` está sendo revelada (`reveladas` pedaços); as seguintes
@@ -93,6 +96,7 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
       setFalas((f) => [...f, ...(r.falas ?? [])]);
       if (r.respostas) setRespostas(r.respostas);
       if (r.empresa) setEmpresa(r.empresa);
+      if (r.versao) versao.current = r.versao;
       for (const s of r.sinais ?? []) {
         if (s.tipo === "campo_seguro") setCampoSeguro(s.campo);
         if (s.tipo === "resumo") setMostrarResumo(true);
@@ -184,8 +188,9 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
             campo={campoSeguro}
             aoSalvar={async (valor) => {
               const novaEmpresa = { ...empresa, [campoSeguro]: valor };
-              const s = await salvarRascunho(assessmentId, { respostas, empresa: novaEmpresa });
+              const s = await salvarRascunho(assessmentId, { respostas, empresa: novaEmpresa }, versao.current);
               if (!s.ok) return s.erro ?? "Não foi possível salvar.";
+              if (s.salvoEm) versao.current = s.salvoEm;
               setEmpresa(novaEmpresa);
               const campo = campoSeguro;
               setCampoSeguro(null);

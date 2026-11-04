@@ -45,9 +45,9 @@ begin
   b := public.admin_criar_empresa('Empresa B', null, 5);
   perform set_config('teste.a', a::text, true);
   perform set_config('teste.b', b::text, true);
-  perform public.admin_vincular_empresa(a, '30000000-0000-0000-0000-000000000002', 'master_b2b');
-  perform public.admin_vincular_empresa(a, '30000000-0000-0000-0000-000000000004', 'membro_b2b');
-  perform public.admin_vincular_empresa(b, '30000000-0000-0000-0000-000000000003', 'master_b2b');
+  perform public.admin_vincular_empresa(a, '30000000-0000-0000-0000-000000000002', 'adm_cliente');
+  perform public.admin_vincular_empresa(a, '30000000-0000-0000-0000-000000000004', 'rw_cliente');
+  perform public.admin_vincular_empresa(b, '30000000-0000-0000-0000-000000000003', 'adm_cliente');
 end $$;
 
 -- ===== Master A convida

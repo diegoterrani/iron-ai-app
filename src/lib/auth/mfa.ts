@@ -16,3 +16,14 @@ export async function fatorTotpVerificado(supabase: SupabaseClient) {
   const { data } = await supabase.auth.mfa.listFactors();
   return data?.totp.find((f) => f.status === "verified") ?? null;
 }
+
+/**
+ * A sessão atual passou pelo segundo fator (aal2)? O servidor informa isso às
+ * funções que rodam com a chave secreta (concluir, conversar), para o banco
+ * aplicar a mesma regra de MFA do RLS. Chame só depois de getUser(), que
+ * confirma o token no Supabase.
+ */
+export async function sessaoComMfa(supabase: SupabaseClient): Promise<boolean> {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  return !error && data?.currentLevel === "aal2";
+}

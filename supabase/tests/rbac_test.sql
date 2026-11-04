@@ -61,9 +61,9 @@ begin
   perform set_config('teste.org_a', a::text, true);
   perform set_config('teste.org_b', b::text, true);
 
-  perform public.admin_vincular_empresa(a, '10000000-0000-0000-0000-000000000004', 'master_b2b');
-  perform public.admin_vincular_empresa(a, '10000000-0000-0000-0000-000000000005', 'membro_b2b');
-  perform public.admin_vincular_empresa(b, '10000000-0000-0000-0000-000000000006', 'master_b2b');
+  perform public.admin_vincular_empresa(a, '10000000-0000-0000-0000-000000000004', 'adm_cliente');
+  perform public.admin_vincular_empresa(a, '10000000-0000-0000-0000-000000000005', 'ro_cliente');
+  perform public.admin_vincular_empresa(b, '10000000-0000-0000-0000-000000000006', 'adm_cliente');
   perform public.admin_atribuir_staff('10000000-0000-0000-0000-000000000002', a);
   perform public.admin_atribuir_staff('10000000-0000-0000-0000-000000000003', a);
 
@@ -74,7 +74,7 @@ begin
     'admin alterou os próprios papéis');
   perform pg_temp.falha($q$select public.admin_definir_status('10000000-0000-0000-0000-000000000001', 'suspenso')$q$,
     'admin alterou o próprio status');
-  perform pg_temp.falha($q$select public.admin_conceder_papel('10000000-0000-0000-0000-000000000002', 'master_b2b')$q$,
+  perform pg_temp.falha($q$select public.admin_conceder_papel('10000000-0000-0000-0000-000000000002', 'adm_cliente')$q$,
     'papel de empresa usado como global');
   perform pg_temp.falha(format($q$select public.admin_vincular_empresa(%L, '10000000-0000-0000-0000-000000000007', 'equipe_iron')$q$, a),
     'papel global usado como de empresa');
@@ -170,7 +170,7 @@ do $$ begin
   perform pg_temp.como('10000000-0000-0000-0000-000000000004');
   perform pg_temp.falha($q$insert into public.user_roles (user_id, role) values ('10000000-0000-0000-0000-000000000004', 'super_admin')$q$,
     'insert direto em user_roles');
-  perform pg_temp.falha($q$update public.memberships set role = 'master_b2b' where user_id = '10000000-0000-0000-0000-000000000005'$q$,
+  perform pg_temp.falha($q$update public.memberships set role = 'adm_cliente' where user_id = '10000000-0000-0000-0000-000000000005'$q$,
     'update direto em memberships');
   perform pg_temp.falha($q$update public.organizations set assentos = 9999$q$, 'master aumentou assentos');
   perform pg_temp.falha($q$insert into public.audit_log (acao, tabela) values ('x', 'y')$q$, 'insert direto na auditoria');

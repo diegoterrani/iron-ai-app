@@ -16,8 +16,10 @@ export interface Sessao {
   perfil: Perfil | null;
   /** Papéis globais (super_admin, equipe_iron, parceiro, aluno_b2c). */
   papeis: string[];
-  /** Empresas em que é Master B2B (para mostrar "Minha empresa"). */
+  /** Empresas em que é ADM-Cliente (para mostrar "Minha empresa"). */
   gestorDe: string[];
+  /** Vínculos com empresas (ADM, RW ou RO-Cliente), para a tela escolher o que mostrar. */
+  vinculos: { orgId: string; role: string }[];
   /** Tem app autenticador ativo mas a sessão ainda está em aal1. */
   precisaMfa: boolean;
   /** Algum papel exige MFA (staff) e o usuário ainda não ativou. */
@@ -35,21 +37,23 @@ export const getSessao = cache(async (): Promise<Sessao | null> => {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return null;
 
-  const [perfilRes, papeisRes, gestorRes, precisaMfa, fator] = await Promise.all([
+  const [perfilRes, papeisRes, vinculosRes, precisaMfa, fator] = await Promise.all([
     supabase.from("profiles").select("id, nome, status").eq("id", auth.user.id).maybeSingle(),
     supabase.from("user_roles").select("role, roles(exige_mfa)").eq("user_id", auth.user.id),
-    supabase.from("memberships").select("org_id").eq("user_id", auth.user.id).eq("role", "master_b2b"),
+    supabase.from("memberships").select("org_id, role").eq("user_id", auth.user.id),
     precisaSegundoFator(supabase),
     fatorTotpVerificado(supabase),
   ]);
 
   const linhas = (papeisRes.data ?? []) as unknown as { role: string; roles: { exige_mfa: boolean } | null }[];
   const exigeMfa = linhas.some((l) => l.roles?.exige_mfa === true);
+  const vinculos = ((vinculosRes.data ?? []) as { org_id: string; role: string }[]).map((m) => ({ orgId: m.org_id, role: m.role }));
 
   return {
     perfil: (perfilRes.data as Perfil | null) ?? null,
     papeis: linhas.map((l) => l.role),
-    gestorDe: (gestorRes.data ?? []).map((m) => m.org_id as string),
+    gestorDe: vinculos.filter((v) => v.role === "adm_cliente").map((v) => v.orgId),
+    vinculos,
     precisaMfa,
     precisaCadastrarMfa: exigeMfa && !fator,
   };

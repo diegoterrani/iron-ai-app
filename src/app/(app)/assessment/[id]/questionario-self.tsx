@@ -27,6 +27,8 @@ interface Props {
   questionario: Questionario;
   inicial: RespostasSelf;
   inicialEmpresa: EmpresaSelf;
+  /** Versão do rascunho ao abrir (atualizado_em); protege a edição de colegas da empresa. */
+  versaoInicial: string;
 }
 
 type Salvamento = { estado: "ocioso" | "pendente" | "salvando" | "salvo" | "erro"; texto?: string };
@@ -56,7 +58,7 @@ function lerInteiro(texto: string): number | undefined {
 
 const reais = new Intl.NumberFormat("pt-BR");
 
-export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inicialEmpresa }: Props) {
+export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inicialEmpresa, versaoInicial }: Props) {
   const [r, setR] = useState<RespostasSelf>(inicial);
   const [emp, setEmp] = useState<EmpresaSelf>(inicialEmpresa);
   const [passo, setPasso] = useState(0);
@@ -64,20 +66,31 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
   const [salv, setSalv] = useState<Salvamento>({ estado: "ocioso" });
   const ultimo = useRef<{ respostas: RespostasSelf; empresa: EmpresaSelf }>({ respostas: inicial, empresa: inicialEmpresa });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const versao = useRef(versaoInicial);
   const titulo = useRef<HTMLHeadingElement>(null);
+
+  // Salvamentos em fila: cada um parte da versão gravada pelo anterior. Dois
+  // em paralelo usariam a mesma versão e o segundo seria recusado como conflito.
+  const fila = useRef<Promise<boolean>>(Promise.resolve(true));
 
   const salvar = useCallback(async () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    const enviar = ultimo.current;
-    setSalv({ estado: "salvando" });
-    const res = await salvarRascunho(assessmentId, enviar);
-    if (res.ok) {
-      setSalv({ estado: "salvo", texto: res.salvoEm ? `Salvo às ${hora.format(new Date(res.salvoEm))}` : "Salvo" });
-    } else {
-      setSalv({ estado: "erro", texto: res.erro ?? "Não foi possível salvar." });
-    }
-    return res.ok;
+    const executar = async () => {
+      const enviar = ultimo.current;
+      setSalv({ estado: "salvando" });
+      const res = await salvarRascunho(assessmentId, enviar, versao.current);
+      if (res.ok) {
+        if (res.salvoEm) versao.current = res.salvoEm;
+        setSalv({ estado: "salvo", texto: res.salvoEm ? `Salvo às ${hora.format(new Date(res.salvoEm))}` : "Salvo" });
+      } else {
+        setSalv({ estado: "erro", texto: res.erro ?? "Não foi possível salvar." });
+      }
+      return res.ok;
+    };
+    const proximo = fila.current.then(executar, executar);
+    fila.current = proximo;
+    return proximo;
   }, [assessmentId]);
 
   const agendar = useCallback(() => {

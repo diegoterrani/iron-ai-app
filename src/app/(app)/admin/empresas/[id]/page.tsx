@@ -3,9 +3,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
-import { PAPEIS_EMPRESA, ROTULO_PAPEL, idValido } from "@/lib/validation/admin";
+import { PAPEIS_EMPRESA, PRODUTOS, ROTULO_PAPEL, ROTULO_PRODUTO, idValido } from "@/lib/validation/admin";
 import { AcaoForm } from "@/components/acao-form";
-import { atribuirStaff, definirAssentos, desvincularEmpresa, vincularEmpresa } from "../../actions";
+import {
+  atribuirStaff,
+  concederDireitoEmpresa,
+  definirAssentos,
+  desvincularEmpresa,
+  revogarDireitoEmpresa,
+  vincularEmpresa,
+} from "../../actions";
 import { formatarCnpj, formatarDataHora } from "../../formato";
 
 export const metadata: Metadata = { title: "Empresa" };
@@ -30,7 +37,7 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
   if (!idValido(id)) notFound();
 
   const supabase = await createClient();
-  const [empresaRes, membrosRes, staffRes] = await Promise.all([
+  const [empresaRes, membrosRes, staffRes, direitosRes] = await Promise.all([
     supabase.from("organizations").select("id, nome, cnpj, assentos, created_at").eq("id", id).maybeSingle<Empresa>(),
     // Duas FKs para profiles (user_id e adicionado_por): o nome da FK desfaz a ambiguidade.
     supabase
@@ -42,6 +49,7 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
       .from("staff_assignments")
       .select("user_id, profiles!staff_assignments_user_id_fkey(nome, status)")
       .eq("org_id", id),
+    supabase.from("direitos").select("produto, concedido_em").eq("org_id", id).is("revogado_em", null),
   ]);
 
   const empresa = empresaRes.data;
@@ -49,6 +57,7 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
   const membros = (membrosRes.data ?? []) as unknown as Pessoa[];
   const staff = (staffRes.data ?? []) as unknown as Pessoa[];
   const livres = empresa.assentos - membros.length;
+  const direitos = (direitosRes.data ?? []) as { produto: string; concedido_em: string }[];
 
   return (
     <main>
@@ -81,7 +90,7 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
       <section className="secao" aria-labelledby="sec-membros">
         <h2 id="sec-membros">Pessoas da empresa</h2>
         {membros.length === 0 ? (
-          <p className="field-hint">Ninguém vinculado ainda. Comece pelo Master B2B.</p>
+          <p className="field-hint">Ninguém vinculado ainda. Comece pelo ADM-Cliente.</p>
         ) : (
           <ul className="lista">
             {membros.map((m) => (
@@ -115,7 +124,7 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
           </div>
           <div className="field">
             <label htmlFor="papel">Papel</label>
-            <select id="papel" name="papel" defaultValue={membros.some((m) => m.role === "master_b2b") ? "membro_b2b" : "master_b2b"}>
+            <select id="papel" name="papel" defaultValue={membros.some((m) => m.role === "adm_cliente") ? "rw_cliente" : "adm_cliente"}>
               {PAPEIS_EMPRESA.map((p) => (
                 <option key={p} value={p}>
                   {ROTULO_PAPEL[p]}
@@ -125,6 +134,33 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
           </div>
         </AcaoForm>
         <p className="field-hint">Se a pessoa já estiver na empresa, o papel é atualizado. A conta precisa estar ativa para ter acesso.</p>
+      </section>
+
+      <section className="secao" aria-labelledby="sec-acessos">
+        <h2 id="sec-acessos">Acessos da empresa</h2>
+        <p className="field-hint">
+          Vale para as pessoas da empresa conforme o papel: ADM e RW-Cliente respondem e editam o assessment da empresa;
+          RO-Cliente só lê.
+        </p>
+        <ul className="lista">
+          {PRODUTOS.map((p) => {
+            const ativo = direitos.find((d) => d.produto === p);
+            return (
+              <li key={p}>
+                <span>
+                  {ROTULO_PRODUTO[p]} · {ativo ? `liberado em ${formatarDataHora(ativo.concedido_em)}` : "não liberado"}
+                </span>
+                <AcaoForm
+                  action={ativo ? revogarDireitoEmpresa : concederDireitoEmpresa}
+                  campos={{ orgId: empresa.id, produto: p }}
+                  rotulo={ativo ? "Revogar" : "Liberar"}
+                  rotuloEnviando={ativo ? "Revogando…" : "Liberando…"}
+                  variante={ativo ? "secundario" : undefined}
+                />
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="secao" aria-labelledby="sec-staff">

@@ -14,15 +14,18 @@ export type Status = (typeof STATUS)[number];
 
 /** Papéis globais que a tela pode conceder (super_admin só por SQL). */
 export const PAPEIS_GLOBAIS = ["equipe_iron", "parceiro", "aluno_b2c"] as const;
-/** Papéis dentro de uma empresa. */
-export const PAPEIS_EMPRESA = ["master_b2b", "membro_b2b"] as const;
+/** Papéis dentro de uma empresa (o super-admin concede qualquer um). */
+export const PAPEIS_EMPRESA = ["adm_cliente", "rw_cliente", "ro_cliente"] as const;
+/** Papéis que o ADM-Cliente concede na própria empresa (ADM só pelo super-admin). */
+export const PAPEIS_CONVITE = ["rw_cliente", "ro_cliente"] as const;
 
 export const ROTULO_PAPEL: Record<string, string> = {
   super_admin: "Super-admin",
   equipe_iron: "Equipe IRON",
   parceiro: "Parceiro",
-  master_b2b: "Master B2B",
-  membro_b2b: "Membro B2B",
+  adm_cliente: "ADM-Cliente",
+  rw_cliente: "RW-Cliente",
+  ro_cliente: "RO-Cliente",
   aluno_b2c: "Aluno B2C",
 };
 
@@ -65,10 +68,22 @@ export const vinculoSchema = z.object({
   papel: z.enum(PAPEIS_EMPRESA, { error: "Papel inválido." }),
 });
 
+/** O que cada papel do cliente faz, para a tela de convite. */
+export const DESCRICAO_PAPEL_CLIENTE: Record<(typeof PAPEIS_CONVITE)[number], string> = {
+  rw_cliente: "adiciona informações no assessment e no roadmap",
+  ro_cliente: "somente leitura",
+};
+
+const papelConvite = z.enum(PAPEIS_CONVITE, { error: "Escolha RW-Cliente ou RO-Cliente." });
+
 export const conviteSchema = z.object({
   orgId: id,
   email: z.string().trim().toLowerCase().max(254).pipe(z.email({ error: "E-mail inválido." })),
+  papel: papelConvite,
 });
+
+/** ADM-Cliente troca RW <-> RO de alguém da própria empresa. */
+export const papelClienteSchema = z.object({ orgId: id, userId: id, papel: papelConvite });
 
 export const conviteIdSchema = z.object({ conviteId: id });
 
@@ -82,6 +97,9 @@ export const ROTULO_PRODUTO: Record<(typeof PRODUTOS)[number], string> = { self_
 
 export const direitoSchema = z.object({ userId: id, produto: z.enum(PRODUTOS, { error: "Produto inválido." }) });
 
+/** Direito da empresa: vale para as pessoas dela conforme o papel. */
+export const direitoEmpresaSchema = z.object({ orgId: id, produto: z.enum(PRODUTOS, { error: "Produto inválido." }) });
+
 /** Remoção de assessment pelo super-admin: o motivo vai para a auditoria. */
 export const remocaoAssessmentSchema = z.object({
   assessmentId: id,
@@ -92,7 +110,7 @@ export const remocaoAssessmentSchema = z.object({
     .max(300, "Máximo de 300 caracteres."),
 });
 
-/** Descarte do próprio rascunho: exige marcar a confirmação. */
+/** Descarte de rascunho (o próprio ou, para o ADM-Cliente, o da empresa): exige marcar a confirmação. */
 export const descarteRascunhoSchema = z.object({
   assessmentId: id,
   confirmar: z.literal("on", { error: "Marque a confirmação para descartar." }),
