@@ -25,6 +25,8 @@ export interface ConclusaoSelf {
   respostas: unknown;
   versoes: { motor: string; modelo: string; pacote: string };
   resultado: unknown;
+  /** Sessão de quem pediu está em aal2 (MFA). O banco usa para papéis de staff. */
+  aal2: boolean;
 }
 
 /** Grava o resultado calculado pelo motor e fecha o rascunho (concluir_self no banco). */
@@ -38,6 +40,7 @@ export async function gravarConclusaoSelf(c: ConclusaoSelf) {
     p_modelo: c.versoes.modelo,
     p_pacote: c.versoes.pacote,
     p_resultado: c.resultado,
+    p_aal2: c.aal2,
   });
   return { data: data as number | null, error: error ? { code: error.code, message: error.message } : null };
 }
@@ -50,13 +53,15 @@ export interface UsoConversa {
 }
 
 /**
- * Reserva um turno da conversa antes de chamar o LLM (teto de 60 no banco) e
- * devolve o histórico. O banco confere dono, rascunho e conta ativa.
+ * Reserva um turno da conversa da pessoa antes de chamar o LLM (teto de 60 no
+ * banco) e devolve o histórico dela. O banco confere rascunho, conta ativa e
+ * se a pessoa pode editar (dono do pessoal ou assessment.editar na empresa).
  */
-export async function reservarTurnoConversa(assessmentId: string, userId: string) {
+export async function reservarTurnoConversa(assessmentId: string, userId: string, aal2: boolean) {
   const { data, error } = await clienteServidor().rpc("conversa_reservar_turno", {
     p_assessment: assessmentId,
     p_user: userId,
+    p_aal2: aal2,
   });
   return { historico: (data ?? []) as unknown[], error: error ? { code: error.code, message: error.message } : null };
 }

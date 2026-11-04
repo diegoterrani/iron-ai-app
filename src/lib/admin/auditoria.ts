@@ -24,7 +24,8 @@ function produto(valor: unknown): string {
 const ETAPA_ASSESSMENT: Record<string, string> = {
   assessment_iniciado: "Self assessment iniciado",
   assessment_concluido: "Self assessment concluído",
-  assessment_descartado: "Rascunho do Self assessment descartado pelo usuário",
+  assessment_descartado: "Rascunho do Self assessment descartado",
+  assessment_editado: "Self assessment da empresa editado",
 };
 
 function papel(valor: unknown): string {

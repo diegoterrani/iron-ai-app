@@ -16,7 +16,7 @@ where id in ('70000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-00
 insert into public.user_roles (user_id, role) values ('70000000-0000-0000-0000-000000000001', 'super_admin');
 insert into public.organizations (id, nome) values ('7a000000-0000-0000-0000-000000000001', 'Rede X');
 insert into public.memberships (org_id, user_id, role) values
-  ('7a000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000004', 'master_b2b');
+  ('7a000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000004', 'adm_cliente');
 
 create function pg_temp.como(p_user text, p_aal text default 'aal1') returns void language sql as $$
   select set_config('request.jwt.claim.sub', p_user, true),

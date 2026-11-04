@@ -116,7 +116,7 @@ begin
   perform public.admin_definir_status('20000000-0000-0000-0000-000000000002', 'ativo');
   a := public.admin_criar_empresa('Empresa T', null, 2);
   perform set_config('teste.org_t', a::text, true);
-  perform public.admin_vincular_empresa(a, '20000000-0000-0000-0000-000000000002', 'master_b2b');
+  perform public.admin_vincular_empresa(a, '20000000-0000-0000-0000-000000000002', 'adm_cliente');
   perform public.admin_desvincular_empresa(a, '20000000-0000-0000-0000-000000000002');
   if exists (select 1 from public.memberships where org_id = a) then
     raise exception 'FALHA: vínculo não removido';
@@ -127,7 +127,7 @@ begin
   end if;
   perform pg_temp.falha(format($q$select public.admin_desvincular_empresa(%L, '20000000-0000-0000-0000-000000000002')$q$, a),
     'desvincular inexistente não avisou');
-  perform public.admin_vincular_empresa(a, '20000000-0000-0000-0000-000000000002', 'master_b2b');
+  perform public.admin_vincular_empresa(a, '20000000-0000-0000-0000-000000000002', 'adm_cliente');
 end $$;
 
 -- Master não usa a função de admin para tirar ninguém

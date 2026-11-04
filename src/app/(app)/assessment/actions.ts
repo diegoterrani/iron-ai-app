@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { executar } from "@/lib/acao/executar";
 import type { AcaoState } from "@/lib/acao/tipos";
+import { sessaoComMfa } from "@/lib/auth/mfa";
 import { getSessao } from "@/lib/auth/session";
 import { calcularSelf, RespostaInvalida } from "@/lib/assessment/motor";
 import type { Respostas } from "@/lib/assessment/tipos";
@@ -29,28 +30,57 @@ import { descarteRascunhoSchema, mensagemErroBanco } from "@/lib/validation/admi
 
 /**
  * Self assessment: iniciar, salvar rascunho e concluir.
- * Quem decide o acesso é o banco: iniciar_self (direito + conta ativa),
- * RLS no update das respostas e concluir_self (só servidor). Aqui só se
- * valida a forma e se registra no log, sem nunca logar as respostas.
+ * Quem decide o acesso é o banco: iniciar_self (direito + conta ativa +
+ * papel na empresa), RLS no update das respostas e concluir_self (só
+ * servidor, que reconfere a permissão de quem pediu). Aqui só se valida a
+ * forma e se registra no log, sem nunca logar as respostas.
+ *
+ * Assessment da empresa (org_id preenchido): um rascunho só, que ADM-Cliente
+ * e RW-Cliente editam; RO-Cliente só lê. Pessoal (org_id nulo): só o dono.
  */
 
 const idSchema = z.uuid();
+/** Versão do rascunho que a tela viu (atualizado_em), para não sobrescrever a edição de um colega. */
+const versaoSchema = z.iso.datetime({ offset: true });
 
-export async function iniciarSelf(): Promise<AcaoState> {
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * A pessoa pode editar este rascunho? Pessoal: só o dono. Da empresa:
+ * pergunta ao banco (tem_permissao), a mesma regra do RLS. Serve para a
+ * aplicação não chamar o servidor à toa; o banco confere de novo.
+ */
+async function podeEditar(
+  supabase: Supabase,
+  linha: { user_id: string; org_id: string | null },
+  userId: string,
+): Promise<boolean> {
+  if (linha.org_id === null) return linha.user_id === userId;
+  const { data } = await supabase.rpc("tem_permissao", { p_permissao: "assessment.editar", p_org: linha.org_id });
+  return data === true;
+}
+
+const CONFLITO = "Outra pessoa da empresa alterou este assessment agora. Recarregue a página para ver a versão atual.";
+
+export async function iniciarSelf(_prev: AcaoState, form: FormData): Promise<AcaoState> {
   const trace = newTraceId();
+  // Sem empresa: assessment pessoal. Com empresa: o rascunho único dela.
+  const bruto = form.get("orgId");
+  const orgId = typeof bruto === "string" && bruto !== "" ? bruto : null;
+  if (orgId !== null && !idSchema.safeParse(orgId).success) return { message: "Empresa inválida." };
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("iniciar_self", { p_setor: "food_service" });
+  const { data, error } = await supabase.rpc("iniciar_self", { p_setor: "food_service", p_org: orgId });
   if (error || typeof data !== "string") {
     log("warn", "self.iniciar.recusado", { trace, code: error?.code });
     return { message: `${mensagemErroBanco(error)} (código ${trace})` };
   }
-  log("info", "self.iniciar.ok", { trace });
+  log("info", "self.iniciar.ok", { trace, empresa: orgId !== null });
   redirect(`/assessment/${data}`);
 }
 
 /**
- * Descarta um rascunho do próprio usuário. Quem confere dono e status é a
- * função do banco (descartar_rascunho); concluído não se descarta.
+ * Descarta um rascunho: o pessoal pelo dono, o da empresa só pelo ADM-Cliente.
+ * Quem confere é a função do banco (descartar_rascunho); concluído não se descarta.
  */
 export async function descartarRascunho(_prev: AcaoState, form: FormData): Promise<AcaoState> {
   const { estado } = await executar(
@@ -67,21 +97,30 @@ export async function descartarRascunho(_prev: AcaoState, form: FormData): Promi
 export interface SalvarResultado {
   ok: boolean;
   erro?: string;
+  /** Nova versão do rascunho (atualizado_em): a tela manda de volta no próximo salvamento. */
   salvoEm?: string;
+  /** Outra pessoa salvou antes: a tela pede para recarregar em vez de sobrescrever. */
+  conflito?: boolean;
 }
 
 /**
  * Autosave do questionário. Grava só `respostas` e `empresa`, as únicas
- * colunas que o cliente pode alterar (e só enquanto é rascunho).
+ * colunas que o cliente pode alterar (e só enquanto é rascunho; o RLS decide
+ * quem pode). Com `versao`, só grava se ninguém salvou depois dela.
  */
-export async function salvarRascunho(id: string, entrada: { respostas?: unknown; empresa?: unknown }): Promise<SalvarResultado> {
+export async function salvarRascunho(
+  id: string,
+  entrada: { respostas?: unknown; empresa?: unknown },
+  versao?: string,
+): Promise<SalvarResultado> {
   if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
+  if (versao !== undefined && !versaoSchema.safeParse(versao).success) return { ok: false, erro: "Versão inválida." };
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("setor, status")
+    .select("setor, status, atualizado_em")
     .eq("id", id)
-    .maybeSingle<{ setor: string; status: string }>();
+    .maybeSingle<{ setor: string; status: string; atualizado_em: string }>();
   if (!linha) return { ok: false, erro: "Assessment não encontrado." };
   if (linha.status !== "rascunho") return { ok: false, erro: "Este assessment já foi concluído." };
 
@@ -90,13 +129,16 @@ export async function salvarRascunho(id: string, entrada: { respostas?: unknown;
   const emp = normalizarEmpresa(entrada?.empresa ?? {});
   if (!emp.ok) return { ok: false, erro: emp.erro };
 
-  const { data, error } = await supabase
+  let consulta = supabase
     .from("assessments")
     .update({ respostas: norm.respostas, empresa: emp.empresa })
     .eq("id", id)
-    .eq("status", "rascunho")
-    .select("atualizado_em")
-    .maybeSingle<{ atualizado_em: string }>();
+    .eq("status", "rascunho");
+  if (versao !== undefined) consulta = consulta.eq("atualizado_em", versao);
+  const { data, error } = await consulta.select("atualizado_em").maybeSingle<{ atualizado_em: string }>();
+  if (!error && !data && versao !== undefined && linha.atualizado_em !== versao) {
+    return { ok: false, conflito: true, erro: CONFLITO };
+  }
   if (error || !data) {
     const trace = newTraceId();
     log("warn", "self.salvar.recusado", { trace, code: error?.code ?? "sem_linha" });
@@ -131,9 +173,10 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
       respostas: Respostas;
       empresa: EmpresaSelf;
     }>();
-  // RLS deixa empresa e admin LEREM; concluir é só do dono.
-  if (!linha || linha.user_id !== userId) return { message: "Assessment não encontrado." };
+  if (!linha) return { message: "Assessment não encontrado." };
   if (linha.status !== "rascunho") redirect(`/assessment/${id}/resultado`);
+  // RLS deixa quem tem assessment.ver LER; concluir é de quem pode editar.
+  if (!(await podeEditar(supabase, linha, userId))) return { message: "Você tem acesso só de leitura a este assessment." };
 
   const { data: temDireito } = await supabase.rpc("tem_direito", {
     p_produto: "self_assessment",
@@ -166,6 +209,7 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
     respostas: linha.respostas,
     versoes: resultado.versoes,
     resultado,
+    aal2: await sessaoComMfa(supabase),
   });
   if (error) {
     log("warn", "self.concluir.recusado", { trace, ator: userId, code: error.code });
@@ -189,6 +233,8 @@ export interface RespostaConversa {
   sinais?: Sinal[];
   respostas?: RespostasSelf;
   empresa?: EmpresaSelf;
+  /** Versão do rascunho depois do turno (atualizado_em). */
+  versao?: string;
 }
 
 const entradaSchema = z.discriminatedUnion("tipo", [
@@ -213,7 +259,7 @@ function textoParaAgente(e: z.infer<typeof entradaSchema>, empresa: EmpresaSelf)
   return e.texto.replaceAll(AVISO, "").trim() || "(mensagem vazia)";
 }
 
-/** Abre a conversa: devolve as falas gravadas (o titular lê a própria conversa pelo RLS). */
+/** Abre a conversa: devolve as falas da própria pessoa (o RLS só mostra a dela). */
 export async function lerConversa(id: string): Promise<RespostaConversa> {
   if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
   const supabase = await createClient();
@@ -251,16 +297,25 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("user_id, org_id, setor, status, respostas, empresa")
+    .select("user_id, org_id, setor, status, respostas, empresa, atualizado_em")
     .eq("id", id)
-    .maybeSingle<{ user_id: string; org_id: string | null; setor: string; status: string; respostas: RespostasSelf; empresa: EmpresaSelf }>();
-  if (!linha || linha.user_id !== userId) return { ok: false, erro: "Assessment não encontrado." };
+    .maybeSingle<{
+      user_id: string;
+      org_id: string | null;
+      setor: string;
+      status: string;
+      respostas: RespostasSelf;
+      empresa: EmpresaSelf;
+      atualizado_em: string;
+    }>();
+  if (!linha) return { ok: false, erro: "Assessment não encontrado." };
   if (linha.status !== "rascunho") return { ok: false, erro: "Este assessment já foi concluído." };
+  if (!(await podeEditar(supabase, linha, userId))) return { ok: false, erro: "Você tem acesso só de leitura a este assessment." };
 
   const { data: temDireito } = await supabase.rpc("tem_direito", { p_produto: "self_assessment", p_org: linha.org_id });
   if (temDireito !== true) return { ok: false, erro: "Seu acesso ao Self assessment não está liberado." };
 
-  const reserva = await reservarTurnoConversa(id, userId);
+  const reserva = await reservarTurnoConversa(id, userId, await sessaoComMfa(supabase));
   if (reserva.error) {
     log("warn", "self.conversa.reserva_recusada", { trace, ator: userId, code: reserva.error.code });
     const limite = reserva.error.message.includes("limite");
@@ -288,16 +343,26 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
     return { ok: false, erro: `O assistente não respondeu agora. Tente de novo em instantes. (código ${trace})` };
   }
 
+  let versao = linha.atualizado_em;
   if (turno.alterou) {
-    const { error } = await supabase
+    // Só grava se ninguém salvou durante o turno (o agente partiu desta versão).
+    const { data: gravado, error } = await supabase
       .from("assessments")
       .update({ respostas: turno.estado.respostas, empresa: turno.estado.empresa })
       .eq("id", id)
-      .eq("status", "rascunho");
+      .eq("status", "rascunho")
+      .eq("atualizado_em", linha.atualizado_em)
+      .select("atualizado_em")
+      .maybeSingle<{ atualizado_em: string }>();
     if (error) {
       log("warn", "self.conversa.salvar_recusado", { trace, ator: userId, code: error.code });
       return { ok: false, erro: `Não foi possível salvar as respostas. (código ${trace})` };
     }
+    if (!gravado) {
+      log("info", "self.conversa.conflito", { trace, ator: userId });
+      return { ok: false, erro: CONFLITO };
+    }
+    versao = gravado.atualizado_em;
   }
 
   const gravacao = await gravarConversa(id, userId, turno.historico, turno.uso);
@@ -330,5 +395,6 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
     sinais: turno.sinais,
     respostas: turno.estado.respostas,
     empresa: turno.estado.empresa,
+    versao,
   };
 }

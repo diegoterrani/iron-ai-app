@@ -10,6 +10,7 @@ import {
   assentosSchema,
   exclusaoSchema,
   desvinculoSchema,
+  direitoEmpresaSchema,
   direitoSchema,
   empresaSchema,
   papelSchema,
@@ -81,6 +82,30 @@ export async function revogarDireito(_prev: AcaoState, form: FormData): Promise<
     form,
     (rpc, d) => rpc("admin_revogar_direito", { p_user: d.userId, p_produto: d.produto }),
     "Acesso revogado.",
+    ADMIN,
+  );
+  return estado;
+}
+
+export async function concederDireitoEmpresa(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.direito_empresa_conceder",
+    direitoEmpresaSchema,
+    form,
+    (rpc, d) => rpc("admin_conceder_direito_empresa", { p_org: d.orgId, p_produto: d.produto }),
+    "Acesso liberado para a empresa.",
+    ADMIN,
+  );
+  return estado;
+}
+
+export async function revogarDireitoEmpresa(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.direito_empresa_revogar",
+    direitoEmpresaSchema,
+    form,
+    (rpc, d) => rpc("admin_revogar_direito_empresa", { p_org: d.orgId, p_produto: d.produto }),
+    "Acesso da empresa revogado.",
     ADMIN,
   );
   return estado;

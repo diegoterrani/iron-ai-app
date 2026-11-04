@@ -73,7 +73,7 @@ sandbox de desenvolvimento não alcança challenges.cloudflare.com).
 
 Nenhuma dependência nova na fase 3.
 
-### Convites do Master (fase 3b)
+### Convites do ADM-Cliente (fase 3b)
 
 | Risco | Controle | Teste |
 | --- | --- | --- |
@@ -86,6 +86,22 @@ Nenhuma dependência nova na fase 3.
 | Chave secreta exposta ou mal usada | Só em `src/lib/supabase/admin.ts` (`server-only`), só para `inviteUserByEmail`, só depois do banco autorizar | revisão |
 
 Todos os testes de convite foram validados por mutação (remover cada trava faz o teste falhar).
+
+### Perfis do cliente e assessment da empresa (04/11/2026)
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| ADM-Cliente criar outro ADM (escalada) | `empresa_convidar`, `empresa_adicionar_membro` e `empresa_alterar_papel` só aceitam RW/RO; `convites.role` com `check`; ADM só por `admin_vincular_empresa` | `perfis_cliente_test.sql` |
+| ADM alterar o próprio papel ou o de outro ADM | Recusado no banco (`p_user = auth.uid()` e filtro `role in (rw, ro)`) | `perfis_cliente_test.sql` |
+| RO-Cliente escrever | RO não tem `assessment.editar`/`responder`; RLS do update, `iniciar_self`, `concluir_self` e `conversa_reservar_turno` exigem a permissão | `perfis_cliente_test.sql` |
+| Servidor (chave secreta) agir por quem não pode | `concluir_self` e `conversa_reservar_turno` reconferem `usuario_tem_permissao(pessoa, 'assessment.editar', empresa, mfa)`; MFA vem da sessão | `perfis_cliente_test.sql` |
+| Colega sobrescrever respostas | Salvamento só grava se `atualizado_em` for a versão que a tela viu; senão pede para recarregar | revisão de `assessment/actions.ts` |
+| Ex-funcionário continuar lendo | Leitura do assessment da empresa só por `assessment.ver` na empresa (autoria não dá acesso) | `perfis_cliente_test.sql` |
+| Conversa de uma pessoa vista por colegas | Conversa por pessoa (`assessment_id, user_id`); RLS só o titular | `perfis_cliente_test.sql` |
+| Exportação LGPD levar dado da empresa | `meus_dados` exporta só assessments pessoais e a conversa da própria pessoa | `perfis_cliente_test.sql` |
+| Apagar empresa e o assessment virar pessoal | FK `on delete restrict` | `perfis_cliente_test.sql` |
+
+Nenhuma dependência nova.
 
 ### LGPD (fase 3c)
 

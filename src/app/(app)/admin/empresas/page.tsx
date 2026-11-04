@@ -79,7 +79,7 @@ export default async function EmpresasPage() {
             <input id="cnpj" name="cnpj" inputMode="numeric" maxLength={18} />
           </div>
           <div className="field">
-            <label htmlFor="assentos">Assentos (Master + Membros)</label>
+            <label htmlFor="assentos">Assentos (ADM, RW e RO-Cliente)</label>
             <input id="assentos" name="assentos" type="number" min={1} max={10000} defaultValue={5} required />
           </div>
         </AcaoForm>

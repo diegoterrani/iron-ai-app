@@ -5,6 +5,7 @@ import {
   conviteIdSchema,
   descarteRascunhoSchema,
   conviteSchema,
+  direitoEmpresaSchema,
   direitoSchema,
   empresaSchema,
   exclusaoSchema,
@@ -12,6 +13,7 @@ import {
   lerPagina,
   mensagemErroBanco,
   remocaoAssessmentSchema,
+  papelClienteSchema,
   papelSchema,
   staffSchema,
   statusSchema,
@@ -52,12 +54,25 @@ describe("travas de entrada do backoffice", () => {
   it("papel global: super_admin e papéis de empresa não passam", () => {
     expect(papelSchema.safeParse({ userId: ID, papel: "equipe_iron" }).success).toBe(true);
     expect(papelSchema.safeParse({ userId: ID, papel: "super_admin" }).success).toBe(false);
-    expect(papelSchema.safeParse({ userId: ID, papel: "master_b2b" }).success).toBe(false);
+    expect(papelSchema.safeParse({ userId: ID, papel: "adm_cliente" }).success).toBe(false);
   });
-  it("vínculo de empresa: só master/membro, e-mail normalizado", () => {
-    const r = vinculoSchema.parse({ orgId: ID, email: " Ana@Empresa.com ", papel: "membro_b2b" });
+  it("vínculo de empresa: só ADM/RW/RO-Cliente, e-mail normalizado", () => {
+    const r = vinculoSchema.parse({ orgId: ID, email: " Ana@Empresa.com ", papel: "rw_cliente" });
     expect(r.email).toBe("ana@empresa.com");
     expect(vinculoSchema.safeParse({ orgId: ID, email: "a@b.com", papel: "equipe_iron" }).success).toBe(false);
+  });
+  it("ADM-Cliente só convida ou troca para RW ou RO", () => {
+    expect(conviteSchema.parse({ orgId: ID, email: "a@b.com", papel: "ro_cliente" }).papel).toBe("ro_cliente");
+    expect(conviteSchema.safeParse({ orgId: ID, email: "a@b.com", papel: "adm_cliente" }).success).toBe(false);
+    expect(conviteSchema.safeParse({ orgId: ID, email: "a@b.com" }).success).toBe(false);
+    expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "rw_cliente" }).success).toBe(true);
+    expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "adm_cliente" }).success).toBe(false);
+    expect(papelClienteSchema.safeParse({ orgId: ID, userId: ID, papel: "super_admin" }).success).toBe(false);
+  });
+  it("direito da empresa exige UUID e produto conhecido", () => {
+    expect(direitoEmpresaSchema.safeParse({ orgId: ID, produto: "self_assessment" }).success).toBe(true);
+    expect(direitoEmpresaSchema.safeParse({ orgId: ID, produto: "deep_dive" }).success).toBe(false);
+    expect(direitoEmpresaSchema.safeParse({ orgId: "x", produto: "self_assessment" }).success).toBe(false);
   });
   it("ids precisam ser UUID", () => {
     expect(statusSchema.safeParse({ userId: "1 or 1=1", status: "ativo" }).success).toBe(false);
@@ -72,9 +87,9 @@ describe("travas de entrada do backoffice", () => {
 
 describe("convites", () => {
   it("normaliza o e-mail e exige empresa válida", () => {
-    expect(conviteSchema.parse({ orgId: ID, email: " Ana@Empresa.COM " }).email).toBe("ana@empresa.com");
-    expect(conviteSchema.safeParse({ orgId: "x", email: "ana@empresa.com" }).success).toBe(false);
-    expect(conviteSchema.safeParse({ orgId: ID, email: "ana" }).success).toBe(false);
+    expect(conviteSchema.parse({ orgId: ID, email: " Ana@Empresa.COM ", papel: "rw_cliente" }).email).toBe("ana@empresa.com");
+    expect(conviteSchema.safeParse({ orgId: "x", email: "ana@empresa.com", papel: "rw_cliente" }).success).toBe(false);
+    expect(conviteSchema.safeParse({ orgId: ID, email: "ana", papel: "rw_cliente" }).success).toBe(false);
   });
   it("id do convite precisa ser UUID", () => {
     expect(conviteIdSchema.safeParse({ conviteId: "1; drop table convites" }).success).toBe(false);
@@ -135,8 +150,14 @@ describe("resumoAuditoria", () => {
     expect(resumoAuditoria({ acao: "insert", tabela: "user_roles", dados: { depois: { role: "equipe_iron" } } })).toBe(
       "Papel concedido: Equipe IRON",
     );
-    expect(resumoAuditoria({ acao: "delete", tabela: "memberships", dados: { antes: { role: "membro_b2b" } } })).toBe(
-      "Saiu da empresa (Membro B2B)",
+    expect(resumoAuditoria({ acao: "delete", tabela: "memberships", dados: { antes: { role: "rw_cliente" } } })).toBe(
+      "Saiu da empresa (RW-Cliente)",
+    );
+    expect(
+      resumoAuditoria({ acao: "update", tabela: "memberships", dados: { antes: { role: "rw_cliente" }, depois: { role: "ro_cliente" } } }),
+    ).toBe("Papel na empresa: RW-Cliente → RO-Cliente");
+    expect(resumoAuditoria({ acao: "assessment_editado", tabela: "assessments", dados: {} })).toBe(
+      "Self assessment da empresa editado",
     );
     expect(
       resumoAuditoria({ acao: "update", tabela: "organizations", dados: { antes: { assentos: 3 }, depois: { assentos: 5 } } }),
@@ -185,7 +206,7 @@ describe("remoção de assessments", () => {
 
   it("auditoria mostra quem removeu e o motivo, sem respostas", () => {
     expect(resumoAuditoria({ acao: "assessment_descartado", tabela: "assessments", dados: null })).toBe(
-      "Rascunho do Self assessment descartado pelo usuário",
+      "Rascunho do Self assessment descartado",
     );
     expect(
       resumoAuditoria({

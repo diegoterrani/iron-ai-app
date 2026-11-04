@@ -22,12 +22,42 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("id, user_id, status, respostas, empresa")
+    .select("id, user_id, org_id, status, respostas, empresa, atualizado_em")
     .eq("id", id)
-    .maybeSingle<{ id: string; user_id: string; status: string; respostas: RespostasGravadas | null; empresa: EmpresaSelf }>();
-  // Só o dono responde (empresa e admin podem ler, não editar).
-  if (!linha || linha.user_id !== perfil.id) notFound();
+    .maybeSingle<{
+      id: string;
+      user_id: string;
+      org_id: string | null;
+      status: string;
+      respostas: RespostasGravadas | null;
+      empresa: EmpresaSelf;
+      atualizado_em: string;
+    }>();
+  // RLS: lê o dono do pessoal ou quem tem assessment.ver na empresa.
+  if (!linha) notFound();
   if (linha.status !== "rascunho") redirect(`/assessment/${id}/resultado`);
+
+  // Editar: pessoal só o dono; da empresa quem tem assessment.editar (ADM e
+  // RW-Cliente). O banco decide (RLS no update); aqui só escolhe a tela.
+  const podeEditar =
+    linha.org_id === null
+      ? linha.user_id === perfil.id
+      : (await supabase.rpc("tem_permissao", { p_permissao: "assessment.editar", p_org: linha.org_id })).data === true;
+  if (!podeEditar) {
+    if (linha.org_id === null) notFound();
+    return (
+      <main>
+        <p className="eyebrow">
+          <Link href="/assessment">Self assessment</Link> / Food service
+        </p>
+        <h1 className="title">Em preenchimento</h1>
+        <p className="notice" role="note">
+          O Self assessment da empresa está sendo respondido. Seu acesso é de leitura: o resultado aparece aqui quando
+          ele for concluído.
+        </p>
+      </main>
+    );
+  }
 
   // Cadastro vazio: sugere quem está respondendo como contato principal.
   let empresa: EmpresaSelf = linha.empresa ?? {};
@@ -54,6 +84,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
           questionario={questionario}
           inicial={inicial}
           inicialEmpresa={empresa}
+          versaoInicial={linha.atualizado_em}
           maxTexto={MAX_TEXTO_CLIENTE}
         />
       ) : (
@@ -64,7 +95,13 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
               <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
             </p>
           )}
-          <QuestionarioSelf assessmentId={id} questionario={questionario} inicial={inicial} inicialEmpresa={empresa} />
+          <QuestionarioSelf
+            assessmentId={id}
+            questionario={questionario}
+            inicial={inicial}
+            inicialEmpresa={empresa}
+            versaoInicial={linha.atualizado_em}
+          />
         </>
       )}
     </main>

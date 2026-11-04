@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { AcaoForm } from "@/components/acao-form";
 import { exigirContaAtiva, getSessao } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { ROTULO_PAPEL, ROTULO_STATUS, type Status } from "@/lib/validation/admin";
-import { cancelarConvite, convidarMembro, removerMembro } from "./actions";
+import { DESCRICAO_PAPEL_CLIENTE, PAPEIS_CONVITE, ROTULO_PAPEL, ROTULO_STATUS, type Status } from "@/lib/validation/admin";
+import { alterarPapel, cancelarConvite, convidarMembro, removerMembro } from "./actions";
 
 export const metadata: Metadata = { title: "Minha empresa" };
 
@@ -19,8 +19,12 @@ interface Membro {
 interface Convite {
   id: string;
   email: string;
+  role: string;
   expira_em: string;
 }
+
+/** RW e RO o ADM-Cliente gere; ADM só o super-admin. */
+const geridoPeloAdm = (role: string) => (PAPEIS_CONVITE as readonly string[]).includes(role);
 
 const data = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" });
 
@@ -31,7 +35,7 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
     supabase.rpc("empresa_listar_membros", { p_org: orgId }),
     supabase
       .from("convites")
-      .select("id, email, expira_em")
+      .select("id, email, role, expira_em")
       .eq("org_id", orgId)
       .is("aceito_em", null)
       .is("cancelado_em", null)
@@ -39,7 +43,7 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
       .order("criado_em"),
   ]);
   const empresa = empresaRes.data as { id: string; nome: string; assentos: number } | null;
-  // Sem permissão no banco (ex.: deixou de ser Master): não mostra nada.
+  // Sem permissão no banco (ex.: deixou de ser ADM-Cliente): não mostra nada.
   if (!empresa || membrosRes.error) return null;
 
   const membros = (membrosRes.data ?? []) as Membro[];
@@ -63,14 +67,34 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
               {m.nome} · {m.email} · {ROTULO_PAPEL[m.role] ?? m.role}
               {m.status !== "ativo" && ` · ${ROTULO_STATUS[m.status]}`}
             </span>
-            {m.role === "membro_b2b" && m.user_id !== euId && (
-              <AcaoForm
-                action={removerMembro}
-                campos={{ orgId: empresa.id, userId: m.user_id }}
-                rotulo="Remover"
-                rotuloEnviando="Removendo…"
-                variante="secundario"
-              />
+            {geridoPeloAdm(m.role) && m.user_id !== euId && (
+              <>
+                <AcaoForm
+                  action={alterarPapel}
+                  campos={{ orgId: empresa.id, userId: m.user_id }}
+                  rotulo="Trocar papel"
+                  rotuloEnviando="Salvando…"
+                  variante="secundario"
+                >
+                  <label className="sr-only" htmlFor={`papel-${empresa.id}-${m.user_id}`}>
+                    Papel de {m.nome}
+                  </label>
+                  <select id={`papel-${empresa.id}-${m.user_id}`} name="papel" defaultValue={m.role}>
+                    {PAPEIS_CONVITE.map((p) => (
+                      <option key={p} value={p}>
+                        {ROTULO_PAPEL[p]}
+                      </option>
+                    ))}
+                  </select>
+                </AcaoForm>
+                <AcaoForm
+                  action={removerMembro}
+                  campos={{ orgId: empresa.id, userId: m.user_id }}
+                  rotulo="Remover"
+                  rotuloEnviando="Removendo…"
+                  variante="secundario"
+                />
+              </>
             )}
           </li>
         ))}
@@ -83,7 +107,7 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
             {convites.map((c) => (
               <li key={c.id}>
                 <span>
-                  {c.email} · vale até {data.format(new Date(c.expira_em))}
+                  {c.email} · {ROTULO_PAPEL[c.role] ?? c.role} · vale até {data.format(new Date(c.expira_em))}
                 </span>
                 <AcaoForm
                   action={cancelarConvite}
@@ -111,11 +135,21 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
             <label htmlFor={`email-${empresa.id}`}>E-mail corporativo</label>
             <input id={`email-${empresa.id}`} name="email" type="email" autoComplete="off" required maxLength={254} />
           </div>
+          <div className="field">
+            <label htmlFor={`papel-convite-${empresa.id}`}>Papel</label>
+            <select id={`papel-convite-${empresa.id}`} name="papel" defaultValue="rw_cliente">
+              {PAPEIS_CONVITE.map((p) => (
+                <option key={p} value={p}>
+                  {ROTULO_PAPEL[p]}: {DESCRICAO_PAPEL_CLIENTE[p]}
+                </option>
+              ))}
+            </select>
+          </div>
         </AcaoForm>
       ) : (
         <p className="notice">Todos os assentos estão em uso. Para ampliar, fale com a equipe IRON AI.</p>
       )}
-      <p className="field-hint">O convite vale por 7 dias. A pessoa entra como Membro e só passa a ter acesso depois de aceitar.</p>
+      <p className="field-hint">O convite vale por 7 dias. A pessoa entra com o papel escolhido e só passa a ter acesso depois de aceitar. Para tornar alguém ADM-Cliente, fale com a equipe IRON AI.</p>
     </section>
   );
 }
