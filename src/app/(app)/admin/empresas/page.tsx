@@ -17,8 +17,19 @@ interface LinhaEmpresa {
   memberships: { count: number }[];
 }
 
-export default async function EmpresasPage() {
+/** Primeiro valor de um parâmetro de URL, aparado e limitado (só pré-preenche o formulário). */
+function sugestao(valor: string | string[] | undefined, max: number): string {
+  const v = Array.isArray(valor) ? valor[0] : valor;
+  return (v ?? "").trim().slice(0, max);
+}
+
+export default async function EmpresasPage({ searchParams }: PageProps<"/admin/empresas">) {
   await exigirSuperAdmin();
+  // Vindo da ficha do usuário: nome e CNPJ do cadastro do Self pré-preenchem
+  // o formulário. Nada é criado sem o clique; a validação é a de sempre.
+  const params = await searchParams;
+  const nomeSugerido = sugestao(params.nome, 200);
+  const cnpjSugerido = sugestao(params.cnpj, 18);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("organizations")
@@ -72,11 +83,11 @@ export default async function EmpresasPage() {
         <AcaoForm action={criarEmpresa} rotulo="Criar empresa" rotuloEnviando="Criando…" className="acao-form acao-form-coluna">
           <div className="field">
             <label htmlFor="nome">Nome</label>
-            <input id="nome" name="nome" required maxLength={200} />
+            <input id="nome" name="nome" required maxLength={200} defaultValue={nomeSugerido} />
           </div>
           <div className="field">
             <label htmlFor="cnpj">CNPJ (opcional)</label>
-            <input id="cnpj" name="cnpj" inputMode="numeric" maxLength={18} />
+            <input id="cnpj" name="cnpj" inputMode="numeric" maxLength={18} defaultValue={cnpjSugerido} />
           </div>
           <div className="field">
             <label htmlFor="assentos">Assentos (ADM, RW e RO-Cliente)</label>
