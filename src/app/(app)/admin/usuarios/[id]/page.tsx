@@ -76,7 +76,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
     // RLS: super-admin lê os assessments de qualquer pessoa (só status e datas aqui).
     supabase
       .from("assessments")
-      .select("id, org_id, setor, status, criado_em, concluido_em")
+      .select("id, org_id, setor, status, criado_em, concluido_em, empresa")
       .eq("user_id", id)
       .order("criado_em", { ascending: false })
       .limit(50),
@@ -96,6 +96,7 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
     id: string;
     org_id: string | null;
     setor: string;
+    empresa: { nome?: string; cnpj?: string } | null;
     status: "rascunho" | "concluido";
     criado_em: string;
     concluido_em: string | null;
@@ -250,6 +251,14 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
                     ? `concluído em ${formatarDataHora(a.concluido_em ?? a.criado_em)}`
                     : `rascunho iniciado em ${formatarDataHora(a.criado_em)}`}
                 </span>
+                {a.status === "concluido" && <Link href={`/assessment/${a.id}/resultado`}>Ver relatório</Link>}
+                {!a.org_id && destinos.length === 0 && a.empresa?.nome && (
+                  <Link
+                    href={`/admin/empresas?${new URLSearchParams({ nome: a.empresa.nome, cnpj: a.empresa.cnpj ?? "" }).toString()}#sec-nova`}
+                  >
+                    Cadastrar a empresa {a.empresa.nome}
+                  </Link>
+                )}
                 {!a.org_id && destinos.length > 0 && (
                   <AcaoForm
                     action={transferirAssessment}
@@ -295,6 +304,11 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
           Remover apaga as respostas, o resultado e a conversa com o assistente, sem volta. Fica só o registro na auditoria.
           Transferir leva um Self pessoal para a empresa em que a pessoa é ADM ou RW-Cliente: as pessoas da empresa passam a
           ver (e, se for rascunho, ADM e RW a editar); a conversa com o assistente continua só da pessoa.
+        </p>
+        <p className="field-hint">
+          A empresa informada no cadastro do Self não vira empresa no app sozinha. Para transferir: cadastre a empresa
+          (o link já preenche nome e CNPJ), vincule a pessoa como ADM-Cliente na ficha da empresa, libere o Self lá e
+          volte aqui.
         </p>
       </section>
 
