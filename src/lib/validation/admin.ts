@@ -110,6 +110,9 @@ export const remocaoAssessmentSchema = z.object({
     .max(300, "Máximo de 300 caracteres."),
 });
 
+/** Transferência de Self pessoal para a empresa: o motivo vai para a auditoria. */
+export const transferenciaAssessmentSchema = remocaoAssessmentSchema.extend({ orgId: id });
+
 /** Descarte de rascunho (o próprio ou, para o ADM-Cliente, o da empresa): exige marcar a confirmação. */
 export const descarteRascunhoSchema = z.object({
   assessmentId: id,

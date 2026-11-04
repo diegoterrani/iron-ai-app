@@ -72,6 +72,10 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
         const motivo = texto((linha.dados as Record<string, unknown> | null)?.motivo);
         return motivo ? `Self assessment removido pelo admin: ${motivo}` : "Self assessment removido pelo admin";
       }
+      if (linha.acao === "assessment_transferido") {
+        const motivo = texto((linha.dados as Record<string, unknown> | null)?.motivo);
+        return motivo ? `Self assessment transferido para a empresa: ${motivo}` : "Self assessment transferido para a empresa";
+      }
       return ETAPA_ASSESSMENT[linha.acao] ?? "Self assessment atualizado";
     default:
       return `${ACAO[linha.acao] ?? linha.acao} em ${linha.tabela}`;
