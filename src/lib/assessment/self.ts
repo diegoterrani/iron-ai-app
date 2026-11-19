@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import pacoteJson from "./dados/food_service.json";
 import modeloJson from "./dados/modelo_comum.json";
-import { MAX_UNIDADES, candidatasQ6, pesosQ6 } from "./motor";
+import { MAX_UNIDADES, NAO_SE_APLICA, candidatasQ6, pesosQ6 } from "./motor";
 import {
   OPCOES_MARGEM,
   OPCOES_OBJETIVO,
@@ -58,12 +58,13 @@ export function montarQuestionario(): Questionario {
   const pu = (pacote as unknown as { perguntas_unidades: Record<"U1" | "I1", PerguntaSetorial> }).perguntas_unidades;
   const ps = pacote.perguntas_self as Record<string, PerguntaSetorial>;
   const dist = pacote.areas.distribuicao_tipica_pessoas;
+  const escopo = (pacote.areas.escopo ?? {}) as Record<string, string>;
   const peso = (a: string) => (typeof dist[a] === "number" ? (dist[a] as number) : 0);
   // Pergunta 5: áreas que mais pesam no setor primeiro (regra do framework).
   const areasQ5 = candidatasQ6(modelo)
     .map((id, i) => ({ id, i }))
     .sort((a, b) => peso(b.id) - peso(a.id) || a.i - b.i)
-    .map(({ id }) => ({ id, nome: modelo.areas[id] ?? id }));
+    .map(({ id }) => ({ id, nome: modelo.areas[id] ?? id, ...(Object.hasOwn(escopo, id) ? { escopo: escopo[id] } : {}) }));
   const setorial = (k: string) => ({ texto: ps[k].texto, orientacao: ps[k].orientacao ?? {} });
 
   return {
@@ -82,7 +83,8 @@ export function montarQuestionario(): Questionario {
       q10: chaves(s.nota_q10),
       q11: chaves(s.nota_q11),
       q12: OPCOES_OBJETIVO,
-      cobertura: chaves(s.cobertura_fonte),
+      // 0.5.0: "não se aplica" (ex.: delivery numa empresa sem delivery) tira a fonte da cobertura.
+      cobertura: [...chaves(s.cobertura_fonte), NAO_SE_APLICA],
     },
     areasQ5,
     q6: {
@@ -90,6 +92,8 @@ export function montarQuestionario(): Questionario {
       pesos: pesosQ6(pacote, modelo),
       notaQ5: s.nota_q5,
       quantidade: s.areas_no_calculo,
+      faixasTotal: s.faixas_pessoas_total,
+      faixasArea: s.faixas_pessoas_area,
     },
     setoriais: { S1: setorial("S1"), S2: setorial("S2"), S3: setorial("S3") },
     dados: {

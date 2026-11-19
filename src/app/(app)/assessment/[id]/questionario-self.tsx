@@ -10,6 +10,7 @@ import {
   alternarOpcao,
   areasQ6,
   pendencias,
+  pessoasPassamDoTotal,
   somaFecha,
   somaParticipacao,
   type EmpresaSelf,
@@ -186,6 +187,7 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
   const faltas = pendencias(q, r, emp);
   const ultimoPasso = passo === PASSOS.length - 1;
   const nomeArea = (id: string) => q.areasQ5.find((a) => a.id === id)?.nome ?? id;
+  const escopoArea = (id: string) => q.areasQ5.find((a) => a.id === id)?.escopo;
   const areas6 = areasQ6(q, r.grade_q5);
 
   return (
@@ -457,6 +459,7 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
                   key={a.id}
                   nome={`q5-${a.id}`}
                   legenda={a.nome}
+                  dica={a.escopo}
                   opcoes={q.opcoes.nivelQ5}
                   valor={r.grade_q5?.[a.id]}
                   aoMudar={(o, m) => marcarQ5(a.id, o, m)}
@@ -484,7 +487,17 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
                   {areas6.map((a) => (
                     <div className="field" key={a}>
                       <label htmlFor={`q6-${a}`}>{nomeArea(a)}</label>
-                      <select id={`q6-${a}`} value={r.pessoas_q6?.[a] ?? ""} onChange={(e) => setMapa("pessoas_q6", a, e.target.value)}>
+                      {escopoArea(a) && (
+                        <p id={`q6-${a}-dica`} className="field-hint">
+                          {escopoArea(a)}
+                        </p>
+                      )}
+                      <select
+                        id={`q6-${a}`}
+                        value={r.pessoas_q6?.[a] ?? ""}
+                        onChange={(e) => setMapa("pessoas_q6", a, e.target.value)}
+                        aria-describedby={escopoArea(a) ? `q6-${a}-dica` : undefined}
+                      >
                         <option value="" disabled>
                           Escolha…
                         </option>
@@ -497,6 +510,12 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
                     </div>
                   ))}
                 </div>
+                {pessoasPassamDoTotal(q, r) && (
+                  <p className="notice" role="status">
+                    A soma das pessoas destas áreas passa do total da empresa informado na etapa 2. Confira os números:
+                    cada pessoa entra em uma área só.
+                  </p>
+                )}
               </>
             )}
             <div className="field pergunta">
@@ -528,7 +547,10 @@ export function QuestionarioSelf({ assessmentId, questionario: q, inicial, inici
               aoMudar={marcar("q8", q.opcoes.q8)}
             />
             <p className="pergunta-titulo">{q.dados.texto}</p>
-            <p className="field-hint">Marque só o que é registrado de forma regular. Se não souber, escolha “não sei”.</p>
+            <p className="field-hint">
+              Marque só o que é registrado de forma regular. Se não souber, escolha “não sei”. Se a atividade não existe na
+              empresa (por exemplo, não há delivery), escolha “não se aplica”.
+            </p>
             <div className="grade">
               {q.dados.itens.map((i) => (
                 <div className="field" key={i.id}>
@@ -670,14 +692,17 @@ interface EscolhaMultiplaProps {
   aoMudar: (opcao: string, marcada: boolean) => void;
   /** Versão em coluna, para a grade de áreas. */
   compacta?: boolean;
+  /** Texto curto abaixo do título (ex.: o que a área abrange). */
+  dica?: string;
 }
 
 /** Pergunta de escolha múltipla: fieldset + caixas de seleção. */
-function EscolhaMultipla({ nome, legenda, opcoes, valor, aoMudar, compacta }: EscolhaMultiplaProps) {
+function EscolhaMultipla({ nome, legenda, opcoes, valor, aoMudar, compacta, dica }: EscolhaMultiplaProps) {
   const marcadas = new Set(valor ?? []);
   return (
     <fieldset className="pergunta">
       <legend className={compacta ? "pergunta-area" : "pergunta-titulo"}>{legenda}</legend>
+      {dica && <p className="field-hint">{dica}</p>}
       {!compacta && <p className="field-hint">Marque todas que se aplicam.</p>}
       <div className={compacta ? "opcoes opcoes-coluna" : "opcoes"}>
         {opcoes.map((o) => (

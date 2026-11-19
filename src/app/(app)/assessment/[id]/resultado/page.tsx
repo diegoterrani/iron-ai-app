@@ -18,7 +18,20 @@ const pp = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
 const nota = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "long", timeZone: "America/Sao_Paulo" });
 
-const SITUACAO: Record<string, string> = { tem: "Registra", parcial: "Parcial", "não tem": "Não registra", "não sei": "A verificar" };
+const SITUACAO: Record<string, string> = {
+  tem: "Registra",
+  parcial: "Parcial",
+  "não tem": "Não registra",
+  "não sei": "A verificar",
+  "não se aplica": "Não se aplica",
+};
+
+/**
+ * Score em % sem arredondar para cima: o nível usa o valor exato (Estruturado
+ * começa em 50%), então 49,8% aparece como 49%, nunca como "50% Exploratório".
+ * O 1e-9 só absorve erro de ponto flutuante (0,5 × 100 = 49,999…).
+ */
+const pctScore = (v: number) => pct.format(Math.floor(v * 100 + 1e-9));
 
 /**
  * Resultado do Self assessment. Os números vêm prontos do motor (gravados por
@@ -52,7 +65,21 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
   const cons = r.retorno.conservador;
   const base = r.retorno.base;
   const destrava = r.o_que_destrava[0];
-  const lacunas = r.mapa_de_dados.filter((m) => m.situacao !== "tem");
+  const aplicaveis = r.mapa_de_dados.filter((m) => m.situacao !== "não se aplica");
+  const registradas = aplicaveis.filter((m) => m.situacao === "tem");
+  // 0.5.0: alertas com texto próprio. Resultados anteriores só têm `avisos` (receita por pessoa).
+  const alertas =
+    r.alertas ??
+    (r.avisos.length > 0
+      ? [
+          {
+            codigo: "receita_por_pessoa",
+            texto:
+              "A receita por pessoa ficou fora do padrão do setor. Vale conferir o faturamento e o número de pessoas informados.",
+          },
+        ]
+      : []);
+  const objetivos = r.contexto?.objetivos ?? [];
 
   return (
     <main className="resultado">
@@ -80,7 +107,7 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
       <div className="resultado-numeros">
         <div>
           <p className="field-hint">Score de sucesso na implantação</p>
-          <p className="resultado-numero">{pct.format(r.score.valor * 100)}%</p>
+          <p className="resultado-numero">{pctScore(r.score.valor)}%</p>
           <p>
             Nível {r.score.nivel} · prontidão {nota.format(r.score.nota_prontidao)} de 5
           </p>
@@ -93,6 +120,11 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
               ? "Informe o faturamento em número para ver o efeito na margem."
               : `${pp.format(cons.delta_margem_pp)} p.p. de margem`}
           </p>
+          {typeof cons.pct_lucro === "number" && r.contexto?.margem && (
+            <p className="field-hint">
+              Cerca de {pct.format(cons.pct_lucro)}% do lucro líquido anual, pela margem informada ({r.contexto.margem}).
+            </p>
+          )}
         </div>
       </div>
 
@@ -103,14 +135,23 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
       {r.precisao_receita !== "informada" && (
         <p className="field-hint">O faturamento veio por faixa; o cálculo usa o limite inferior da faixa.</p>
       )}
-      {r.avisos.length > 0 && (
-        <p className="notice" role="note">
-          A receita por pessoa ficou fora do padrão do setor. Vale conferir o faturamento e o número de pessoas informados.
+      {alertas.map((a) => (
+        <p key={a.codigo} className="notice" role="note">
+          {a.texto}
         </p>
-      )}
+      ))}
       <p className="field-hint">
-        Referência: com prontidão maior, o mesmo potencial chega a {brl.format(base.P)} por ano (cenário base).
+        Referência: no cenário base, com o meio das faixas informadas e os ganhos típicos do setor (em vez dos mínimos), o
+        retorno estimado é de {brl.format(base.P)} por ano, com a mesma prontidão de hoje.
       </p>
+
+      {objetivos.length > 0 && (
+        <section className="secao" aria-labelledby="sec-objetivos">
+          <h2 id="sec-objetivos">Objetivos informados</h2>
+          <p>{objetivos.join("; ")}.</p>
+          <p className="field-hint">O Deep dive prioriza as iniciativas que atendem a esses objetivos.</p>
+        </section>
+      )}
 
       <section className="secao" aria-labelledby="sec-top3">
         <h2 id="sec-top3">Onde está o maior potencial</h2>
@@ -130,7 +171,7 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
           <h2 id="sec-destrava">O que destrava mais valor</h2>
           <p>
             Subir um nível em <strong>{ROTULO_DIMENSAO[destrava.dimensao] ?? destrava.dimensao}</strong> leva o score para{" "}
-            {pct.format(destrava.score_novo * 100)}% (+{pp.format(destrava.ganho_score_pp)} p.p.) e acrescenta{" "}
+            {pctScore(destrava.score_novo)}% (+{pp.format(destrava.ganho_score_pp)} p.p.) e acrescenta{" "}
             {brl.format(destrava.ganho_retorno)} por ano ao retorno conservador.
           </p>
         </section>
@@ -162,7 +203,11 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
       <section className="secao" aria-labelledby="sec-dados">
         <h2 id="sec-dados">Mapa de dados</h2>
         <p className="field-hint">
-          {r.mapa_de_dados.length - lacunas.length} de {r.mapa_de_dados.length} informações registradas de forma regular.
+          {registradas.length} de {aplicaveis.length} informações registradas de forma regular
+          {aplicaveis.length < r.mapa_de_dados.length
+            ? ` (${r.mapa_de_dados.length - aplicaveis.length} não se aplicam ao negócio)`
+            : ""}
+          .
         </p>
         <div className="tabela-rolagem">
           <table className="tabela">

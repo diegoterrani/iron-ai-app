@@ -63,6 +63,8 @@ export interface Pacote {
   areas: {
     distribuicao_tipica_pessoas: Record<string, number | string>;
     e_a_ajustado?: Record<string, Record<string, number>>;
+    /** 0.5.0: o que cada área abrange, para o agente e a tela. */
+    escopo?: Record<string, string>;
     [k: string]: unknown;
   };
   perguntas_self: Record<string, unknown>;
