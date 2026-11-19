@@ -23,6 +23,8 @@ export interface Modelo {
     nota_q10: Record<string, number>;
     nota_q11: Record<string, number>;
     cobertura_fonte: Record<string, number>;
+    /** 0.5.0: margem líquida da pergunta 4, para o retorno sobre o lucro. */
+    faixas_margem: Record<string, Faixa>;
     areas_no_calculo: number;
     receita_por_pessoa_plausivel: Faixa;
   };
@@ -69,7 +71,15 @@ export interface Pacote {
   alavancas: Record<string, Alavanca>;
   self_alavancas_max: number;
   self_ordem_alavancas: string[];
-  casos_de_uso?: { id: string; nome: string; area: string; alavanca: string }[];
+  casos_de_uso?: {
+    id: string;
+    nome: string;
+    area: string;
+    alavanca: string;
+    /** Fonte que o caso cria; 0.5.0: não é sugerido se a fonte já existe. */
+    criar_fonte?: string;
+    depende_de?: string[];
+  }[];
 }
 
 /** 0.4.0: um tipo de unidade de negócio (todas as unidades daquele tipo somadas). */
@@ -109,6 +119,8 @@ export interface Respostas {
 interface Cenario {
   receita_usada: number;
   pessoas: { area: string; fte: number; e_a: number; valor: number }[];
+  /** 0.5.0: fator (≤ 1) que limitou as pessoas das áreas ao total da empresa no cenário. */
+  ajuste_pessoas?: number;
   alavancas: {
     alavanca: string;
     nome: string;
@@ -122,12 +134,24 @@ interface Cenario {
   R: number;
   P: number;
   delta_margem_pp: number | null;
+  /** 0.5.0: retorno em % do lucro líquido (margem da pergunta 4); null sem margem positiva. */
+  pct_lucro?: number | null;
+}
+
+/** 0.5.0: alerta mostrado na tela, com texto próprio. Não muda score nem retorno. */
+export interface AlertaSelf {
+  codigo: "receita_por_pessoa" | "ia_sem_politica" | "pessoas_acima_do_total";
+  texto: string;
 }
 
 export interface ResultadoSelf {
   versoes: { motor: string; modelo: string; pacote: string };
   hash_respostas: string;
   avisos: string[];
+  /** 0.5.0 (ausente em resultados anteriores). */
+  alertas?: AlertaSelf[];
+  /** 0.5.0: margem e objetivos declarados, para o relatório. */
+  contexto?: { margem: string | null; objetivos: string[] };
   precisao_receita: string;
   score: {
     valor: number;

@@ -29,10 +29,12 @@ import operator
 import sys
 from pathlib import Path
 
-MOTOR_VERSAO = "0.4.0"
+MOTOR_VERSAO = "0.5.0"
 MAX_UNIDADES = 10  # tipos de unidade por empresa; cada tipo soma todas as lojas daquele tipo
 CENARIOS = ("conservador", "base")  # o otimista nunca é mostrado ao cliente
 DIMENSOES = ("estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas")
+# 0.5.0: fonte que não existe no negócio (ex.: delivery numa empresa sem delivery) sai da cobertura.
+NAO_SE_APLICA = "não se aplica"
 
 log = logging.getLogger("motor")
 
@@ -135,8 +137,10 @@ def notas_dimensoes(r: dict, pacote: dict, modelo: dict) -> tuple[dict, dict, fl
         raise RespostaInvalida(f"pergunta 5 sem resposta para: {sorted(faltando)}")
 
     itens = pacote["pergunta_dados_D"]["itens"]
-    cob = [_opcao(s["cobertura_fonte"], r["dados_D"].get(f, "não sei"), f"pergunta D ({f})") for f in itens]
-    cobertura = sum(cob) / len(itens)
+    cob = [_opcao(s["cobertura_fonte"], r["dados_D"].get(f, "não sei"), f"pergunta D ({f})")
+           for f in itens if r["dados_D"].get(f) != NAO_SE_APLICA]
+    # 0.5.0: a cobertura conta só as fontes que existem no negócio; nenhuma aplicável = cobertura 0.
+    cobertura = sum(cob) / len(cob) if cob else 0.0
     nota_q8 = _media_marcadas(s["nota_q8"], r.get("q8"), "pergunta 8")
     notas = {
         "estrategia": _opcao(s["nota_q11"], r["q11"], "pergunta 11"),
@@ -186,9 +190,17 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
     receita_c = receita(r, modelo, cenario)
     C = pacote["parametros_padrao"]["C_custo_anual_por_pessoa"]["valor"]
 
+    # 0.5.0: as pessoas das áreas não passam do total da empresa no cenário. O limite é a faixa da
+    # pergunta 3 no cenário, mas nunca abaixo da soma dos mínimos das áreas (que o cliente afirmou).
+    ftes = {area: _faixa(_opcao(s["faixas_pessoas_area"], faixa, f"pergunta 6 ({area})"), cenario)
+            for area, faixa in r["pessoas_q6"].items()}
+    soma_lo = sum(s["faixas_pessoas_area"][f][0] for f in r["pessoas_q6"].values())
+    limite = max(_faixa(s["faixas_pessoas_total"][r["q3"]], cenario), soma_lo)
+    soma_fte = sum(ftes.values())
+    ajuste = limite / soma_fte if soma_fte > limite else 1.0
     pessoas = []
-    for area, faixa in r["pessoas_q6"].items():
-        fte = _faixa(_opcao(s["faixas_pessoas_area"], faixa, f"pergunta 6 ({area})"), cenario)
+    for area, fte in ftes.items():
+        fte = fte * ajuste
         ea = e_a(area, pacote, modelo)[cenario]
         pessoas.append({"area": area, "fte": fte, "e_a": ea, "valor": fte * C * ea})
 
@@ -202,10 +214,14 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
     bruto_pessoas = sum(p["valor"] for p in pessoas)
     bruto_alavancas = sum(a["valor"] for a in alavancas)
     P = R * (bruto_pessoas + bruto_alavancas)
-    return {"receita_usada": receita_c, "pessoas": pessoas, "alavancas": alavancas,
+    # 0.5.0: retorno sobre o lucro líquido, pela margem da pergunta 4 (ponto médio da faixa).
+    margem = s["faixas_margem"].get(r.get("q4")) if isinstance(r.get("q4"), str) else None
+    lucro = receita_c * _faixa(margem, "base") if margem else 0.0
+    return {"receita_usada": receita_c, "pessoas": pessoas, "ajuste_pessoas": ajuste, "alavancas": alavancas,
             "potencial_bruto": bruto_pessoas + bruto_alavancas, "R": R, "P": P,
             # 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
-            "delta_margem_pp": P / receita_c * 100 if receita_c > 0 else None}
+            "delta_margem_pp": P / receita_c * 100 if receita_c > 0 else None,
+            "pct_lucro": P / lucro * 100 if lucro > 0 else None}
 
 
 def _locais(a: dict, cenario: str) -> dict:
@@ -336,6 +352,26 @@ def validar_coerencia(r: dict, pacote: dict, modelo: dict) -> list[str]:
     return avisos
 
 
+# ---------------------------------------------------------------- alertas
+def alertas_do_resultado(avisos: list[str], notas: dict, cen: dict) -> list[dict]:
+    """0.5.0: alertas para a tela, cada um com código e texto próprio (antes a tela mostrava
+    qualquer aviso como receita fora do padrão). Não mudam o score nem o retorno."""
+    alertas = []
+    if avisos:
+        alertas.append({"codigo": "receita_por_pessoa",
+                        "texto": "A receita por pessoa ficou fora do padrão do setor. "
+                                 "Vale conferir o faturamento e o número de pessoas informados."})
+    if notas["governanca"] <= 1 and notas["pessoas"] >= 2:
+        alertas.append({"codigo": "ia_sem_politica",
+                        "texto": "A empresa já usa IA sem uma política de IA e dados. Isso expõe dados de "
+                                 "clientes e da empresa e é o primeiro ponto a resolver, antes de ampliar o uso."})
+    if cen["base"]["ajuste_pessoas"] < 1:
+        alertas.append({"codigo": "pessoas_acima_do_total",
+                        "texto": "As pessoas informadas nas áreas somam mais do que o total da empresa no "
+                                 "cenário base; o cálculo limitou as áreas ao total. Vale conferir os números."})
+    return alertas
+
+
 # ---------------------------------------------------------------- orquestração
 def calcular_self(r: dict, pacote: dict, modelo: dict) -> dict:
     if r.get("setor") != pacote["pacote"]:
@@ -359,13 +395,24 @@ def calcular_self(r: dict, pacote: dict, modelo: dict) -> dict:
 
     # Top 3 oportunidades, com exemplo concreto do pacote do setor.
     casos = pacote.get("casos_de_uso", [])
+    dados = r["dados_D"]
+
+    def aplicavel(c: dict) -> bool:
+        """0.5.0: não sugere criar uma fonte que já existe nem caso que depende de algo que não existe."""
+        criar = c.get("criar_fonte")
+        if criar and dados.get(criar) in ("tem", NAO_SE_APLICA):
+            return False
+        return not any(dados.get(f) == NAO_SE_APLICA for f in c.get("depende_de", []))
+
     comps = [(p["area"], "e_a", p["valor"] * R) for p in cen["conservador"]["pessoas"]] + \
             [(a["alavanca"], a["alavanca"], a["valor"] * R) for a in cen["conservador"]["alavancas"] if a["valor"] > 0]
     top = []
     for chave, tipo, valor in sorted(comps, key=lambda c: c[2], reverse=True)[:3]:
-        ex = next((c["nome"] for c in casos if (c["area"] == chave and c["alavanca"] == "e_a")
-                   or c["alavanca"] == chave), None)
+        ex = next((c["nome"] for c in casos if ((c["area"] == chave and c["alavanca"] == "e_a")
+                   or c["alavanca"] == chave) and aplicavel(c)), None)
         top.append({"origem": chave, "valor_conservador": valor, "exemplo": ex})
+
+    alertas = alertas_do_resultado(avisos, notas, cen)
 
     mapa = []
     for fid in pacote["pergunta_dados_D"]["itens"]:
@@ -381,6 +428,10 @@ def calcular_self(r: dict, pacote: dict, modelo: dict) -> dict:
         "versoes": {"motor": MOTOR_VERSAO, "modelo": modelo["versao"], "pacote": f"{pacote['pacote']} {pacote['versao']}"},
         "hash_respostas": hashlib.sha256(json.dumps(r, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16],
         "avisos": avisos,
+        "alertas": alertas,
+        "contexto": {"margem": r.get("q4") if isinstance(r.get("q4"), str) else None,
+                     "objetivos": [o for o in ([r["q12"]] if isinstance(r.get("q12"), str) else r.get("q12") or [])
+                                   if isinstance(o, str)]},
         "precisao_receita": "informada" if r.get("q2_valor") is not None else "faixa (menor precisão)",
         "score": {"valor": S, "teto_aplicado": teto, "nivel": nivel(S, modelo["niveis"]),
                   "nota_prontidao": sum(modelo["pesos_dimensoes"][d] * notas[d] for d in DIMENSOES),

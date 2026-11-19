@@ -1,6 +1,6 @@
 {
   "modelo": "comum",
-  "versao": "0.4.0",
+  "versao": "0.5.0",
   "origem": "Doc IRON AI — Frameworks de Assessment v0.4 (02/11/2026)",
   "pesos_dimensoes": {"estrategia": 0.25, "dados": 0.25, "processos": 0.15, "tecnologia": 0.15, "governanca": 0.10, "pessoas": 0.10},
   "travas": [
@@ -39,6 +39,7 @@
     "nota_q10": {"não": 1, "informal": 2, "formal": 3, "formal e auditada": 4},
     "nota_q11": {"ninguém definido": 1, "gestor de área": 2, "diretoria": 3, "CEO/conselho com orçamento": 4},
     "cobertura_fonte": {"tem": 1.0, "parcial": 0.5, "não tem": 0.0, "não sei": 0.0},
+    "faixas_margem": {"até 5%": [0.0, 0.05], "5 a 10%": [0.05, 0.10], "10 a 20%": [0.10, 0.20], "acima de 20%": [0.20, 0.30]},
     "areas_no_calculo": 3,
     "receita_por_pessoa_plausivel": [40000, 2000000]
   }
