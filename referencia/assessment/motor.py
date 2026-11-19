@@ -35,6 +35,10 @@ CENARIOS = ("conservador", "base")  # o otimista nunca é mostrado ao cliente
 DIMENSOES = ("estrategia", "dados", "processos", "tecnologia", "governanca", "pessoas")
 # 0.5.0: fonte que não existe no negócio (ex.: delivery numa empresa sem delivery) sai da cobertura.
 NAO_SE_APLICA = "não se aplica"
+# 0.5.0: uma camada só de conservadorismo. Faixas de pessoas e de ticket usam sempre o ponto médio;
+# conservador e base diferem só nas taxas de ganho. A receita em faixa segue com o limite inferior no
+# conservador, porque o cliente escolheu não informar o valor.
+MEIO = "base"
 
 log = logging.getLogger("motor")
 
@@ -192,10 +196,10 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
 
     # 0.5.0: as pessoas das áreas não passam do total da empresa no cenário. O limite é a faixa da
     # pergunta 3 no cenário, mas nunca abaixo da soma dos mínimos das áreas (que o cliente afirmou).
-    ftes = {area: _faixa(_opcao(s["faixas_pessoas_area"], faixa, f"pergunta 6 ({area})"), cenario)
+    ftes = {area: _faixa(_opcao(s["faixas_pessoas_area"], faixa, f"pergunta 6 ({area})"), MEIO)
             for area, faixa in r["pessoas_q6"].items()}
     soma_lo = sum(s["faixas_pessoas_area"][f][0] for f in r["pessoas_q6"].values())
-    limite = max(_faixa(s["faixas_pessoas_total"][r["q3"]], cenario), soma_lo)
+    limite = max(_faixa(s["faixas_pessoas_total"][r["q3"]], MEIO), soma_lo)
     soma_fte = sum(ftes.values())
     ajuste = limite / soma_fte if soma_fte > limite else 1.0
     pessoas = []
@@ -221,7 +225,11 @@ def retorno(r: dict, pacote: dict, modelo: dict, R: float, cenario: str) -> dict
             "potencial_bruto": bruto_pessoas + bruto_alavancas, "R": R, "P": P,
             # 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
             "delta_margem_pp": P / receita_c * 100 if receita_c > 0 else None,
-            "pct_lucro": P / lucro * 100 if lucro > 0 else None}
+            "pct_lucro": P / lucro * 100 if lucro > 0 else None,
+            # 0.5.0: ano 1 = potencial × R (prontidão de hoje); regime = potencial pleno, depois da implantação.
+            "regime": {"P": bruto_pessoas + bruto_alavancas,
+                       "delta_margem_pp": (bruto_pessoas + bruto_alavancas) / receita_c * 100 if receita_c > 0 else None,
+                       "pct_lucro": (bruto_pessoas + bruto_alavancas) / lucro * 100 if lucro > 0 else None}}
 
 
 def _locais(a: dict, cenario: str) -> dict:
@@ -234,7 +242,7 @@ def _alavancas_formato_antigo(r: dict, pacote: dict, s: dict, variaveis: dict, r
     variaveis.update({
         "receita_salao_delivery": receita_c,
         "lugares_total": r["setoriais"]["lugares_total"],
-        "ticket_pessoa": _faixa(_opcao(s["faixas_ticket"], r["setoriais"]["ticket_pessoa"], "pergunta S2"), cenario),
+        "ticket_pessoa": _faixa(_opcao(s["faixas_ticket"], r["setoriais"]["ticket_pessoa"], "pergunta S2"), MEIO),
     })
     alavancas = []
     for nome in pacote["self_ordem_alavancas"][: pacote["self_alavancas_max"]]:
@@ -273,7 +281,7 @@ def _alavancas_por_unidade(us: list, pacote: dict, s: dict, variaveis: dict, rec
             if "lugares_total" in u:
                 v["lugares_total"] = u["lugares_total"]
             if "ticket_pessoa" in u:
-                v["ticket_pessoa"] = _faixa(s["faixas_ticket"][u["ticket_pessoa"]], cenario)
+                v["ticket_pessoa"] = _faixa(s["faixas_ticket"][u["ticket_pessoa"]], MEIO)
             partes.append({"segmento": seg, "valor": calcular_formula(a["formula"], {**v, **_locais(a, cenario)})})
         item = {"alavanca": nome, "nome": a["nome"], "linha_dre": a["linha_dre"],
                 "valor": sum((x["valor"] for x in partes), 0.0), "por_unidade": partes}
@@ -410,7 +418,7 @@ def calcular_self(r: dict, pacote: dict, modelo: dict) -> dict:
     for chave, tipo, valor in sorted(comps, key=lambda c: c[2], reverse=True)[:3]:
         ex = next((c["nome"] for c in casos if ((c["area"] == chave and c["alavanca"] == "e_a")
                    or c["alavanca"] == chave) and aplicavel(c)), None)
-        top.append({"origem": chave, "valor_conservador": valor, "exemplo": ex})
+        top.append({"origem": chave, "valor_conservador": valor, "valor_regime": valor / R, "exemplo": ex})
 
     alertas = alertas_do_resultado(avisos, notas, cen)
 

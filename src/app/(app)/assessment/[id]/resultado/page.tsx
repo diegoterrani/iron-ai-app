@@ -80,6 +80,8 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
         ]
       : []);
   const objetivos = r.contexto?.objetivos ?? [];
+  // 0.5.0: o destaque é o retorno em regime; resultados anteriores só têm o do ano 1.
+  const destaque = cons.regime ?? cons;
 
   return (
     <main className="resultado">
@@ -113,16 +115,22 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
           </p>
         </div>
         <div>
-          <p className="field-hint">Retorno anual conservador</p>
-          <p className="resultado-numero">{brl.format(cons.P)}</p>
+          <p className="field-hint">{cons.regime ? "Retorno anual conservador, em regime" : "Retorno anual conservador"}</p>
+          <p className="resultado-numero">{brl.format(destaque.P)}</p>
           <p>
-            {cons.delta_margem_pp === null
+            {destaque.delta_margem_pp === null
               ? "Informe o faturamento em número para ver o efeito na margem."
-              : `${pp.format(cons.delta_margem_pp)} p.p. de margem`}
+              : `${pp.format(destaque.delta_margem_pp)} p.p. de margem`}
           </p>
-          {typeof cons.pct_lucro === "number" && r.contexto?.margem && (
+          {typeof destaque.pct_lucro === "number" && r.contexto?.margem && (
             <p className="field-hint">
-              Cerca de {pct.format(cons.pct_lucro)}% do lucro líquido anual, pela margem informada ({r.contexto.margem}).
+              Cerca de {pct.format(destaque.pct_lucro)}% do lucro líquido anual, pela margem informada ({r.contexto.margem}).
+            </p>
+          )}
+          {cons.regime && (
+            <p className="field-hint">
+              No primeiro ano: {brl.format(cons.P)}. Com a prontidão de hoje, a empresa captura cerca de{" "}
+              {pct.format(cons.R * 100)}% do potencial em 12 meses; o regime vem depois da implantação.
             </p>
           )}
         </div>
@@ -141,8 +149,9 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
         </p>
       ))}
       <p className="field-hint">
-        Referência: no cenário base, com o meio das faixas informadas e os ganhos típicos do setor (em vez dos mínimos), o
-        retorno estimado é de {brl.format(base.P)} por ano, com a mesma prontidão de hoje.
+        Referência: no cenário base, com os ganhos típicos do setor em vez dos mínimos, o
+        retorno estimado é de {brl.format(base.regime?.P ?? base.P)} por ano{base.regime ? " em regime" : ""}, com as mesmas
+        respostas.
       </p>
 
       {objetivos.length > 0 && (
@@ -159,7 +168,10 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
           {r.top3.map((t) => (
             <li key={t.origem}>
               <strong>{nomeOrigem(t.origem)}</strong>
-              <span>{brl.format(t.valor_conservador)} por ano (conservador)</span>
+              <span>
+                {brl.format(t.valor_regime ?? t.valor_conservador)} por ano (conservador
+                {t.valor_regime !== undefined ? ", em regime" : ""})
+              </span>
               {t.exemplo && <span className="field-hint">Exemplo: {t.exemplo}</span>}
             </li>
           ))}
@@ -172,7 +184,7 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
           <p>
             Subir um nível em <strong>{ROTULO_DIMENSAO[destrava.dimensao] ?? destrava.dimensao}</strong> leva o score para{" "}
             {pctScore(destrava.score_novo)}% (+{pp.format(destrava.ganho_score_pp)} p.p.) e acrescenta{" "}
-            {brl.format(destrava.ganho_retorno)} por ano ao retorno conservador.
+            {brl.format(destrava.ganho_retorno)} ao retorno conservador do primeiro ano.
           </p>
         </section>
       )}

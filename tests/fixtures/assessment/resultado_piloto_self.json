@@ -63,24 +63,24 @@
       "pessoas": [
         {
           "area": "06_operacoes",
-          "fte": 151.0,
+          "fte": 286.42093704245974,
           "e_a": 0.01,
-          "valor": 59645.0
+          "valor": 113136.2701317716
         },
         {
           "area": "08_atendimento",
-          "fte": 1.0,
+          "fte": 2.6398243045387995,
           "e_a": 0.14,
-          "valor": 5530.000000000001
+          "valor": 14598.228404099564
         },
         {
           "area": "04_financas",
-          "fte": 6.0,
+          "fte": 11.439238653001464,
           "e_a": 0.05,
-          "valor": 11850.0
+          "valor": 22592.49633967789
         }
       ],
-      "ajuste_pessoas": 1.0,
+      "ajuste_pessoas": 0.8799414348462665,
       "alavancas": [
         {
           "alavanca": "L_cmv",
@@ -92,14 +92,19 @@
           "alavanca": "L_giro",
           "nome": "Giro de mesas no pico",
           "linha_dre": "receita_bruta",
-          "valor": 179150.40000000002
+          "valor": 257528.7
         }
       ],
-      "potencial_bruto": 565295.4,
+      "potencial_bruto": 716975.6948755491,
       "R": 0.5115097402597403,
-      "P": 289154.103224026,
-      "delta_margem_pp": 0.2993313697971283,
-      "pct_lucro": null
+      "P": 366740.0514583389,
+      "delta_margem_pp": 0.379648086395796,
+      "pct_lucro": null,
+      "regime": {
+        "P": 716975.6948755491,
+        "delta_margem_pp": 0.7422108642604027,
+        "pct_lucro": null
+      }
     },
     "base": {
       "receita_usada": 96600000.0,
@@ -142,23 +147,31 @@
       "R": 0.5115097402597403,
       "P": 792417.1407827693,
       "delta_margem_pp": 0.8203075991540055,
-      "pct_lucro": null
+      "pct_lucro": null,
+      "regime": {
+        "P": 1549173.1210834552,
+        "delta_margem_pp": 1.603698883109167,
+        "pct_lucro": null
+      }
     }
   },
   "top3": [
     {
       "origem": "L_cmv",
       "valor_conservador": 158117.8909090909,
+      "valor_regime": 309120.0,
       "exemplo": "Alerta de variação de preço de insumo e apoio à cotação"
     },
     {
       "origem": "L_giro",
-      "valor_conservador": 91637.17457142858,
+      "valor_conservador": 131728.43844642857,
+      "valor_regime": 257528.69999999998,
       "exemplo": "Lista de espera e aviso de mesa livre pelo WhatsApp"
     },
     {
       "origem": "06_operacoes",
-      "valor_conservador": 30508.998457792208,
+      "valor_conservador": 57870.304149058305,
+      "valor_regime": 113136.2701317716,
       "exemplo": "Escala de pessoal pela demanda prevista"
     }
   ],
@@ -167,7 +180,7 @@
       "dimensao": "estrategia",
       "score_novo": 0.41501623376623376,
       "ganho_score_pp": 6.25,
-      "ganho_retorno": 21198.577500000014
+      "ganho_retorno": 26886.58855783305
     }
   ],
   "mapa_de_dados": [

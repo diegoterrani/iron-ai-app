@@ -60,11 +60,12 @@ describe("alertas do resultado", () => {
 describe("pessoas das áreas contra o total da empresa", () => {
   const exagero: Respostas = { ...base, q3: "101 a 500", pessoas_q6: { "06_operacoes": "151 a 500", "08_atendimento": "51 a 150" } };
 
-  it("limita o cenário base ao total e avisa; o conservador não muda", () => {
+  it("limita as áreas ao total da empresa nos dois cenários e avisa", () => {
     const r = calcularSelf(exagero, P, M);
-    const fteBase = r.retorno.base.pessoas.reduce((s, p) => s + p.fte, 0);
-    expect(fteBase).toBeCloseTo(300.5, 6);
-    expect(r.retorno.conservador.ajuste_pessoas).toBe(1);
+    for (const c of [r.retorno.conservador, r.retorno.base]) {
+      expect(c.pessoas.reduce((s, p) => s + p.fte, 0)).toBeCloseTo(300.5, 6);
+      expect(c.ajuste_pessoas).toBeLessThan(1);
+    }
     expect(r.alertas?.map((a) => a.codigo)).toContain("pessoas_acima_do_total");
   });
 
@@ -114,6 +115,19 @@ describe("margem e objetivos no relatório", () => {
       "reduzir custo",
       "crescer sem contratar",
     ]);
+  });
+});
+
+describe("uma camada só de conservadorismo e retorno em regime", () => {
+  it("pessoas e ticket usam o ponto médio nos dois cenários; só as taxas mudam", () => {
+    const r = calcularSelf(base, P, M);
+    expect(r.retorno.conservador.pessoas.map((p) => p.fte)).toEqual(r.retorno.base.pessoas.map((p) => p.fte));
+  });
+
+  it("regime é o potencial pleno e o ano 1 é o regime vezes R", () => {
+    const c = calcularSelf(base, P, M).retorno.conservador;
+    expect(c.regime?.P).toBe(c.potencial_bruto);
+    expect(c.P).toBeCloseTo((c.regime?.P ?? 0) * c.R, 6);
   });
 });
 

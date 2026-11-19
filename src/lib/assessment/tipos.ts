@@ -138,6 +138,8 @@ interface Cenario {
   delta_margem_pp: number | null;
   /** 0.5.0: retorno em % do lucro líquido (margem da pergunta 4); null sem margem positiva. */
   pct_lucro?: number | null;
+  /** 0.5.0: potencial pleno, depois da implantação (sem o fator R). */
+  regime?: { P: number; delta_margem_pp: number | null; pct_lucro: number | null };
 }
 
 /** 0.5.0: alerta mostrado na tela, com texto próprio. Não muda score nem retorno. */
@@ -167,7 +169,8 @@ export interface ResultadoSelf {
   score_por_area: Record<string, number>;
   areas_sugeridas_q6: string[];
   retorno: { conservador: Cenario; base: Cenario };
-  top3: { origem: string; valor_conservador: number; exemplo: string | null }[];
+  /** valor_conservador é o do ano 1; valor_regime (0.5.0) é o potencial pleno. */
+  top3: { origem: string; valor_conservador: number; valor_regime?: number; exemplo: string | null }[];
   o_que_destrava: { dimensao: string; score_novo: number; ganho_score_pp: number; ganho_retorno: number }[];
   mapa_de_dados: { fonte: string; nome: string; situacao: string; como_criar?: string; criar_fonte_com_ia?: boolean }[];
 }

@@ -19,6 +19,17 @@ versões do motor, do modelo e do pacote, mais o hash das respostas.
 
 ## Histórico
 
+- 0.5.0 (19/11/2026): correções do primeiro teste real do Self e parte da métrica 0.5,
+  por decisão do Terrani. Uma camada só de conservadorismo (faixas de pessoas e
+  ticket pelo ponto médio; conservador e base diferem só nas taxas de ganho; receita
+  em faixa segue pelo limite inferior no conservador). Retorno em regime (potencial
+  pleno) ao lado do ano 1 (× R) e em % do lucro pela margem da pergunta 4. Fontes
+  com "não se aplica" saem da cobertura. Pessoas das áreas limitadas ao total da
+  empresa. Campo `alertas` (IA sem política, receita por pessoa, pessoas acima do
+  total) e `contexto` (margem e objetivos). Exemplos do top 3 não sugerem criar
+  fonte que já existe. Pacote food_service 0.3.0: segmento `eventos`, escopo das
+  áreas e casos de uso para todas as áreas. Piloto: conservador ano 1 de R$ 289 mil
+  para R$ 367 mil; regime R$ 717 mil.
 - 0.4.0 (03/11/2026): tipos de unidade de negócio, depois do teste de mesa com
   um cliente que tem 7 restaurantes e 8 cozinhas de hospital. As respostas
   podem trazer `unidades` (segmento, quantidade, parte do faturamento e as

@@ -24,6 +24,13 @@ export { soma } from "./areas";
 export const MOTOR_VERSAO = "0.5.0";
 /** 0.5.0: fonte que não existe no negócio (ex.: delivery numa empresa sem delivery) sai da cobertura. */
 export const NAO_SE_APLICA = "não se aplica";
+/**
+ * 0.5.0: uma camada só de conservadorismo. Faixas de pessoas e de ticket usam
+ * sempre o ponto médio; conservador e base diferem só nas taxas de ganho. A
+ * receita em faixa segue com o limite inferior no conservador, porque o
+ * cliente escolheu não informar o valor.
+ */
+const MEIO: Cenario = "base";
 /** Tipos de unidade por empresa; cada tipo soma todas as unidades daquele tipo. */
 export const MAX_UNIDADES = 10;
 /** O otimista nunca é mostrado ao cliente. */
@@ -208,9 +215,9 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
   // 0.5.0: as pessoas das áreas não passam do total da empresa no cenário. O limite é a faixa da
   // pergunta 3 no cenário, mas nunca abaixo da soma dos mínimos das áreas (que o cliente afirmou).
   const q6 = Object.entries(r.pessoas_q6 ?? {});
-  const ftes = q6.map(([area, f]) => [area, faixa(opcao(s.faixas_pessoas_area, f, `pergunta 6 (${area})`), cenario)] as const);
+  const ftes = q6.map(([area, f]) => [area, faixa(opcao(s.faixas_pessoas_area, f, `pergunta 6 (${area})`), MEIO)] as const);
   const somaLo = soma(q6.map(([, f]) => s.faixas_pessoas_area[f][0]));
-  const limite = Math.max(faixa(opcao(s.faixas_pessoas_total, r.q3, "pergunta 3"), cenario), somaLo);
+  const limite = Math.max(faixa(opcao(s.faixas_pessoas_total, r.q3, "pergunta 3"), MEIO), somaLo);
   const somaFte = soma(ftes.map(([, fte]) => fte));
   const ajuste = somaFte > limite ? limite / somaFte : 1;
   const pessoas = ftes.map(([area, bruto]) => {
@@ -243,6 +250,12 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
     // 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
     delta_margem_pp: receitaC > 0 ? (P / receitaC) * 100 : null,
     pct_lucro: lucro > 0 ? (P / lucro) * 100 : null,
+    // 0.5.0: ano 1 = potencial × R (prontidão de hoje); regime = potencial pleno, depois da implantação.
+    regime: {
+      P: brutoPessoas + brutoAlavancas,
+      delta_margem_pp: receitaC > 0 ? ((brutoPessoas + brutoAlavancas) / receitaC) * 100 : null,
+      pct_lucro: lucro > 0 ? ((brutoPessoas + brutoAlavancas) / lucro) * 100 : null,
+    },
   };
 }
 
@@ -274,7 +287,7 @@ function alavancasFormatoAntigo(
   const variaveis = { ...base };
   variaveis.receita_salao_delivery = receitaC;
   variaveis.lugares_total = numeroNaoNegativo(setoriais.lugares_total, "pergunta S1 (lugares)");
-  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), cenario);
+  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), MEIO);
 
   return pacote.self_ordem_alavancas.slice(0, pacote.self_alavancas_max).map((nome) => {
     const a = pacote.alavancas[nome];
@@ -325,7 +338,7 @@ function alavancasPorUnidade(
       for (const [k, p] of Object.entries(proprios)) v[k] = p.valor;
       v.receita_salao_delivery = receitaC * (u.participacao_receita / 100);
       if (u.lugares_total !== undefined) v.lugares_total = u.lugares_total;
-      if (u.ticket_pessoa !== undefined) v.ticket_pessoa = faixa(opcao(s.faixas_ticket, u.ticket_pessoa, "ticket"), cenario);
+      if (u.ticket_pessoa !== undefined) v.ticket_pessoa = faixa(opcao(s.faixas_ticket, u.ticket_pessoa, "ticket"), MEIO);
       partes.push({ segmento: seg, valor: calcularFormula(a.formula, { ...v, ...locaisDe(a, cenario) }) });
     }
     const item: ItemAlavanca = {
@@ -499,7 +512,7 @@ export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): Resu
       const ex = casos.find(
         (c) => ((c.area === chave && c.alavanca === "e_a") || c.alavanca === chave) && aplicavel(c),
       );
-      return { origem: chave, valor_conservador: valor, exemplo: ex ? ex.nome : null };
+      return { origem: chave, valor_conservador: valor, valor_regime: valor / R, exemplo: ex ? ex.nome : null };
     });
 
   const alertas = alertasDoResultado(avisos, notas, cen.base.ajuste_pessoas);
