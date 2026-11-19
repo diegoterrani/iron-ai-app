@@ -23,6 +23,8 @@ export interface Modelo {
     nota_q10: Record<string, number>;
     nota_q11: Record<string, number>;
     cobertura_fonte: Record<string, number>;
+    /** 0.5.0: margem líquida da pergunta 4, para o retorno sobre o lucro. */
+    faixas_margem: Record<string, Faixa>;
     areas_no_calculo: number;
     receita_por_pessoa_plausivel: Faixa;
   };
@@ -61,6 +63,8 @@ export interface Pacote {
   areas: {
     distribuicao_tipica_pessoas: Record<string, number | string>;
     e_a_ajustado?: Record<string, Record<string, number>>;
+    /** 0.5.0: o que cada área abrange, para o agente e a tela. */
+    escopo?: Record<string, string>;
     [k: string]: unknown;
   };
   perguntas_self: Record<string, unknown>;
@@ -69,7 +73,15 @@ export interface Pacote {
   alavancas: Record<string, Alavanca>;
   self_alavancas_max: number;
   self_ordem_alavancas: string[];
-  casos_de_uso?: { id: string; nome: string; area: string; alavanca: string }[];
+  casos_de_uso?: {
+    id: string;
+    nome: string;
+    area: string;
+    alavanca: string;
+    /** Fonte que o caso cria; 0.5.0: não é sugerido se a fonte já existe. */
+    criar_fonte?: string;
+    depende_de?: string[];
+  }[];
 }
 
 /** 0.4.0: um tipo de unidade de negócio (todas as unidades daquele tipo somadas). */
@@ -109,6 +121,8 @@ export interface Respostas {
 interface Cenario {
   receita_usada: number;
   pessoas: { area: string; fte: number; e_a: number; valor: number }[];
+  /** 0.5.0: fator (≤ 1) que limitou as pessoas das áreas ao total da empresa no cenário. */
+  ajuste_pessoas?: number;
   alavancas: {
     alavanca: string;
     nome: string;
@@ -122,12 +136,26 @@ interface Cenario {
   R: number;
   P: number;
   delta_margem_pp: number | null;
+  /** 0.5.0: retorno em % do lucro líquido (margem da pergunta 4); null sem margem positiva. */
+  pct_lucro?: number | null;
+  /** 0.5.0: potencial pleno, depois da implantação (sem o fator R). */
+  regime?: { P: number; delta_margem_pp: number | null; pct_lucro: number | null };
+}
+
+/** 0.5.0: alerta mostrado na tela, com texto próprio. Não muda score nem retorno. */
+export interface AlertaSelf {
+  codigo: "receita_por_pessoa" | "ia_sem_politica" | "pessoas_acima_do_total";
+  texto: string;
 }
 
 export interface ResultadoSelf {
   versoes: { motor: string; modelo: string; pacote: string };
   hash_respostas: string;
   avisos: string[];
+  /** 0.5.0 (ausente em resultados anteriores). */
+  alertas?: AlertaSelf[];
+  /** 0.5.0: margem e objetivos declarados, para o relatório. */
+  contexto?: { margem: string | null; objetivos: string[] };
   precisao_receita: string;
   score: {
     valor: number;
@@ -141,7 +169,8 @@ export interface ResultadoSelf {
   score_por_area: Record<string, number>;
   areas_sugeridas_q6: string[];
   retorno: { conservador: Cenario; base: Cenario };
-  top3: { origem: string; valor_conservador: number; exemplo: string | null }[];
+  /** valor_conservador é o do ano 1; valor_regime (0.5.0) é o potencial pleno. */
+  top3: { origem: string; valor_conservador: number; valor_regime?: number; exemplo: string | null }[];
   o_que_destrava: { dimensao: string; score_novo: number; ganho_score_pp: number; ganho_retorno: number }[];
   mapa_de_dados: { fonte: string; nome: string; situacao: string; como_criar?: string; criar_fonte_com_ia?: boolean }[];
 }

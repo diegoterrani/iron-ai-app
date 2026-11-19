@@ -46,6 +46,9 @@ def sortear(rng: random.Random, pacote: dict, modelo: dict) -> dict:
     r: dict = {"setor": pacote["pacote"], "q3": escolha(s["faixas_pessoas_total"]), "q4": "prefiro não dizer"}
     if rng.random() < 0.8:
         r["q2_valor"] = rng.choice([rng.randint(500_000, 600_000_000), round(rng.uniform(1e6, 3e8), 2)])
+        if isinstance(r["q2_valor"], float) and r["q2_valor"].is_integer():
+            # JSON do Python grava "123.0" e o do JS "123": o hash das respostas divergiria só no teste.
+            r["q2_valor"] = int(r["q2_valor"])
     else:
         r["q2"] = escolha(s["faixas_receita"])
     r["setoriais"] = {
@@ -64,6 +67,13 @@ def sortear(rng: random.Random, pacote: dict, modelo: dict) -> dict:
     for q in ("q10", "q11"):
         r[q] = escolha(s[f"nota_{q}"])
     r["q12"] = varias(["reduzir custo", "crescer sem contratar", "melhorar qualidade/atendimento", "ainda explorando"])
+    # 0.5.0: margem (retorno sobre o lucro) e fontes que não existem no negócio.
+    r["q4"] = rng.choice([*s["faixas_margem"], "negativa", "prefiro não dizer"])
+    for f in list(r["dados_D"]):
+        if rng.random() < 0.12:
+            r["dados_D"][f] = motor.NAO_SE_APLICA
+    if rng.random() < 0.03:
+        r["dados_D"] = dict.fromkeys(pacote["pergunta_dados_D"]["itens"], motor.NAO_SE_APLICA)
     # Alguns casos inválidos de propósito: o TypeScript precisa recusar igual.
     sorteio = rng.random()
     if sorteio < 0.03:
@@ -87,13 +97,21 @@ def sortear_unidades(rng: random.Random, pacote: dict, modelo: dict) -> dict:
                    "fila_pico": rng.choice(filas)}
     institucional = {"segmento": "institucional", "quantidade": rng.randint(1, 40),
                      "refeicoes_dia": rng.randint(100, 40_000)}
+    eventos = {"segmento": "eventos", "quantidade": rng.randint(1, 10)}
     tipo = rng.random()
-    if tipo < 0.25:
+    if tipo < 0.2:
         us = [dict(restaurante, participacao_receita=100)]
-    elif tipo < 0.45:
+    elif tipo < 0.35:
         us = [dict(institucional, participacao_receita=100)]
+    elif tipo < 0.45:
+        us = [dict(eventos, participacao_receita=100)]
+    elif tipo < 0.6:
+        a, b = rng.randint(5, 60), rng.randint(5, 30)
+        us = [dict(restaurante, participacao_receita=a), dict(institucional, participacao_receita=b),
+              dict(eventos, participacao_receita=100 - a - b)]
     else:
         parte = rng.choice([rng.randint(5, 95), round(rng.uniform(5, 95), 1)])
+        parte = int(parte) if float(parte).is_integer() else parte  # mesmo motivo do q2_valor
         us = [dict(restaurante, participacao_receita=parte), dict(institucional, participacao_receita=100 - parte)]
         if rng.random() < 0.5:
             us.reverse()
@@ -107,7 +125,7 @@ def sortear_unidades(rng: random.Random, pacote: dict, modelo: dict) -> dict:
         us.append({"segmento": "hotelaria", "quantidade": 1, "participacao_receita": 1})
     elif sorteio < 0.10:
         us.append(dict(us[0]))
-    elif sorteio < 0.13:
+    elif sorteio < 0.13 and us[0]["segmento"] != "eventos":
         us[0].pop("lugares_total" if us[0]["segmento"] == "restaurantes" else "refeicoes_dia")
     elif sorteio < 0.15:
         us = []

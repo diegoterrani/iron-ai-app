@@ -4,7 +4,7 @@
  * sem levar o motor nem os JSON do modelo para o navegador.
  */
 import { cnpjValido } from "@/lib/validation/cnpj";
-import { mediaMarcadas, ordenarAreasQ6 } from "./areas";
+import { mediaMarcadas, ordenarAreasQ6, soma } from "./areas";
 
 export interface Orientacao {
   por_que?: string;
@@ -34,9 +34,17 @@ export interface Questionario {
   versaoPacote: string;
   opcoes: Opcoes;
   /** Áreas avaliadas na pergunta 5, na ordem de peso no setor. */
-  areasQ5: { id: string; nome: string }[];
+  areasQ5: { id: string; nome: string; /** 0.5.0: o que entra na área (ex.: garçons ficam em Operações). */ escopo?: string }[];
   /** Dados para escolher as áreas da pergunta 6 (mesma função do motor). */
-  q6: { candidatas: string[]; pesos: Record<string, number>; notaQ5: Record<string, number>; quantidade: number };
+  q6: {
+    candidatas: string[];
+    pesos: Record<string, number>;
+    notaQ5: Record<string, number>;
+    quantidade: number;
+    /** 0.5.0: faixas numéricas para conferir a soma das áreas contra o total da empresa. */
+    faixasTotal: Record<string, [number, number]>;
+    faixasArea: Record<string, [number, number]>;
+  };
   setoriais: {
     S1: { texto: string; orientacao: Orientacao };
     S2: { texto: string; orientacao: Orientacao };
@@ -204,6 +212,22 @@ export type PassoId = (typeof PASSOS)[number]["id"];
  * Áreas da pergunta 6 a partir da grade da pergunta 5. Enquanto a grade
  * estiver incompleta, devolve lista vazia (a pergunta 6 espera a 5).
  */
+/**
+ * 0.5.0: as pessoas das áreas (pontos médios) passam do total da empresa?
+ * Mesma regra do motor no cenário base: o limite é o ponto médio da faixa
+ * total, mas nunca abaixo da soma dos mínimos das áreas. Não bloqueia; serve
+ * para a tela e o agente pedirem confirmação antes de concluir.
+ */
+export function pessoasPassamDoTotal(q: Questionario, r: Pick<RespostasSelf, "q3" | "pessoas_q6">): boolean {
+  const total = r.q3 && Object.hasOwn(q.q6.faixasTotal, r.q3) ? q.q6.faixasTotal[r.q3] : undefined;
+  const faixas = Object.values(r.pessoas_q6 ?? {})
+    .filter((f) => Object.hasOwn(q.q6.faixasArea, f))
+    .map((f) => q.q6.faixasArea[f]);
+  if (!total || faixas.length === 0) return false;
+  const somaMeio = soma(faixas.map(([lo, hi]) => (lo + hi) / 2));
+  return somaMeio > Math.max((total[0] + total[1]) / 2, soma(faixas.map(([lo]) => lo)));
+}
+
 export function areasQ6(q: Questionario, grade: Record<string, string[]> | undefined): string[] {
   const notas: Record<string, number> = {};
   for (const a of q.q6.candidatas) {

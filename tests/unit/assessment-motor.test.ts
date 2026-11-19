@@ -41,13 +41,15 @@ describe("motor do Self assessment", () => {
     expect(casos.motor).toBe(MOTOR_VERSAO);
   });
 
-  it("reproduz o piloto Rede Piloto Alfa (score 35%, R$ 289 mil/ano conservador)", () => {
+  it("reproduz o piloto Rede Piloto Alfa (score 35%, R$ 367 mil no ano 1 e R$ 717 mil em regime, conservador)", () => {
     const r = calcularSelf(respostasPiloto as unknown as Respostas, P, M);
-    // O resultado do piloto foi gerado na versão 0.2.0; só as versões do motor e do pacote mudam.
+    // Resultado regerado pelo Python no motor 0.5.0 (era R$ 289.154 até 0.4.0, com faixas pelo
+    // limite inferior); as versões gravadas no arquivo ficaram as antigas.
     const esperado = { ...resultadoPiloto, versoes: r.versoes };
     expect(comparar(r, esperado)).toEqual([]);
     expect(Math.round(r.score.valor * 100)).toBe(35);
-    expect(Math.round(r.retorno.conservador.P)).toBe(289154);
+    expect(Math.round(r.retorno.conservador.P)).toBe(366740);
+    expect(Math.round(r.retorno.conservador.regime?.P ?? 0)).toBe(716976);
   });
 
   it(`bate com o Python nos ${casos.casos.length} casos sorteados, inclusive nos inválidos`, () => {

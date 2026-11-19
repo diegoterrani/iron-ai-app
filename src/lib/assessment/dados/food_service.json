@@ -1,7 +1,7 @@
 {
   "pacote": "food_service",
-  "versao": "0.2.0",
-  "data": "2026-11-03",
+  "versao": "0.3.0",
+  "data": "2026-11-19",
   "status": "rascunho para o piloto",
   "segmentos": {
     "restaurantes": {
@@ -24,6 +24,14 @@
         "refeicoes_dia"
       ],
       "nota": "Sem salão, ticket ou fila: no Self entra só pela receita (CMV) e pelas pessoas. Refeições por dia alimentam o Deep dive (previsão de demanda e sobra por dieta)."
+    },
+    "eventos": {
+      "status": "completo nesta versão",
+      "nome": "Eventos e bufê",
+      "abrange": "eventos sociais e corporativos, bufê e catering servidos fora de um salão próprio",
+      "no_self": true,
+      "campos_self": [],
+      "nota": "Sem salão, ticket ou fila: no Self entra pela receita (CMV, com o CMV padrão do pacote) e pelas pessoas. Volume e tipo de evento ficam para o Deep dive."
     },
     "hotelaria": {
       "status": "a construir",
@@ -109,6 +117,16 @@
         "origem": "benchmark comum (McKinsey 2023, NBER w31161)",
         "observacao": "Vale para SAC, reservas e pedidos remotos. Caixa e recepção presencial ficam em Operações."
       }
+    },
+    "escopo": {
+      "06_operacoes": "Todo o trabalho presencial nas unidades: cozinha, produção, salão (garçons, caixa, recepção, bar), limpeza, delivery e expedição, montagem e serviço de eventos.",
+      "05_compras": "Cotação, pedidos de compra, cadastro de fornecedores, recebimento e controle de estoque.",
+      "08_atendimento": "Só o atendimento remoto ao cliente: SAC, reservas, pedidos e dúvidas por telefone, WhatsApp, e-mail ou redes sociais. Garçons, caixa e recepção presencial ficam em Operações.",
+      "04_financas": "Contas a pagar e a receber, conciliação, fechamento contábil, DRE e controladoria.",
+      "09_rh": "Recrutamento, admissão, folha, benefícios, treinamento e controle de ponto.",
+      "07_comercial": "Vendas, marketing, propostas e contratos com clientes (inclusive eventos e contratos de refeição), canais próprios.",
+      "11_ti_seguranca": "Sistemas, suporte aos usuários, acessos, infraestrutura e segurança da informação.",
+      "10_juridico": "Contratos, questões trabalhistas, regulatório e sanitário (documentação)."
     }
   },
   "perguntas_self": {
@@ -297,7 +315,8 @@
       "nota": "Uma alavanca só para CMV evita contar duas vezes o mesmo real economizado em compra e em desperdício. O Deep dive abre em componentes, com soma limitada à reducao_cmv medida.",
       "segmentos": [
         "restaurantes",
-        "institucional"
+        "institucional",
+        "eventos"
       ]
     },
     "L_giro": {
@@ -410,7 +429,7 @@
   "casos_de_uso": [
     {
       "id": "U01",
-      "nome": "Alerta de preço de insumo e sugestão de substituição",
+      "nome": "Alerta de variação de preço de insumo e apoio à cotação",
       "area": "05_compras",
       "alavanca": "L_cmv"
     },
@@ -438,6 +457,12 @@
         "F01",
         "F08"
       ]
+    },
+    {
+      "id": "U13",
+      "nome": "Lista de espera e aviso de mesa livre pelo WhatsApp",
+      "area": "06_operacoes",
+      "alavanca": "L_giro"
     },
     {
       "id": "U05",
@@ -489,6 +514,42 @@
       "id": "U12",
       "nome": "DRE por loja automático com alertas de desvio",
       "area": "04_financas",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U14",
+      "nome": "Agente de atendimento remoto (WhatsApp, telefone e e-mail) para reservas, pedidos e dúvidas",
+      "area": "08_atendimento",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U15",
+      "nome": "Cotação e pedido de compra preparados automaticamente para aprovação",
+      "area": "05_compras",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U16",
+      "nome": "Triagem de candidatos e integração de novos funcionários",
+      "area": "09_rh",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U17",
+      "nome": "Propostas comerciais e de eventos montadas a partir do pedido do cliente",
+      "area": "07_comercial",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U18",
+      "nome": "Revisão de contratos com fornecedores e clientes",
+      "area": "10_juridico",
+      "alavanca": "e_a"
+    },
+    {
+      "id": "U19",
+      "nome": "Suporte de TI e pedidos de acesso resolvidos por agente",
+      "area": "11_ti_seguranca",
       "alavanca": "e_a"
     }
   ],

@@ -16,12 +16,21 @@ import { createHash } from "node:crypto";
 import { RespostaInvalida } from "./erros";
 import { listaMarcadas, ordenarAreasQ6, soma } from "./areas";
 import { calcularFormula } from "./formula";
-import type { Alavanca, Modelo, Pacote, Respostas, ResultadoSelf, Unidade } from "./tipos";
+import type { AlertaSelf, Alavanca, Modelo, Pacote, Respostas, ResultadoSelf, Unidade } from "./tipos";
 
 export { RespostaInvalida } from "./erros";
 export { soma } from "./areas";
 
-export const MOTOR_VERSAO = "0.4.0";
+export const MOTOR_VERSAO = "0.5.0";
+/** 0.5.0: fonte que não existe no negócio (ex.: delivery numa empresa sem delivery) sai da cobertura. */
+export const NAO_SE_APLICA = "não se aplica";
+/**
+ * 0.5.0: uma camada só de conservadorismo. Faixas de pessoas e de ticket usam
+ * sempre o ponto médio; conservador e base diferem só nas taxas de ganho. A
+ * receita em faixa segue com o limite inferior no conservador, porque o
+ * cliente escolheu não informar o valor.
+ */
+const MEIO: Cenario = "base";
 /** Tipos de unidade por empresa; cada tipo soma todas as unidades daquele tipo. */
 export const MAX_UNIDADES = 10;
 /** O otimista nunca é mostrado ao cliente. */
@@ -130,10 +139,11 @@ function notasDimensoes(r: Respostas, pacote: Pacote, modelo: Modelo) {
 
   const itens = pacote.pergunta_dados_D.itens;
   const dadosD = r.dados_D ?? {};
-  const cob = itens.map((f) =>
-    opcao(s.cobertura_fonte, Object.hasOwn(dadosD, f) ? dadosD[f] : "não sei", `pergunta D (${f})`),
-  );
-  const cobertura = soma(cob) / itens.length;
+  const cob = itens
+    .filter((f) => !(Object.hasOwn(dadosD, f) && dadosD[f] === NAO_SE_APLICA))
+    .map((f) => opcao(s.cobertura_fonte, Object.hasOwn(dadosD, f) ? dadosD[f] : "não sei", `pergunta D (${f})`));
+  // 0.5.0: a cobertura conta só as fontes que existem no negócio; nenhuma aplicável = cobertura 0.
+  const cobertura = cob.length > 0 ? soma(cob) / cob.length : 0;
   const notaQ8 = mediaMarcadasMotor(s.nota_q8, r.q8, "pergunta 8");
   const notas: Notas = {
     estrategia: opcao(s.nota_q11, r.q11, "pergunta 11"),
@@ -202,8 +212,16 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
   const receitaC = receita(r, modelo, cenario);
   const C = pacote.parametros_padrao.C_custo_anual_por_pessoa.valor;
 
-  const pessoas = Object.entries(r.pessoas_q6 ?? {}).map(([area, f]) => {
-    const fte = faixa(opcao(s.faixas_pessoas_area, f, `pergunta 6 (${area})`), cenario);
+  // 0.5.0: as pessoas das áreas não passam do total da empresa no cenário. O limite é a faixa da
+  // pergunta 3 no cenário, mas nunca abaixo da soma dos mínimos das áreas (que o cliente afirmou).
+  const q6 = Object.entries(r.pessoas_q6 ?? {});
+  const ftes = q6.map(([area, f]) => [area, faixa(opcao(s.faixas_pessoas_area, f, `pergunta 6 (${area})`), MEIO)] as const);
+  const somaLo = soma(q6.map(([, f]) => s.faixas_pessoas_area[f][0]));
+  const limite = Math.max(faixa(opcao(s.faixas_pessoas_total, r.q3, "pergunta 3"), MEIO), somaLo);
+  const somaFte = soma(ftes.map(([, fte]) => fte));
+  const ajuste = somaFte > limite ? limite / somaFte : 1;
+  const pessoas = ftes.map(([area, bruto]) => {
+    const fte = bruto * ajuste;
     const ea = eA(area, pacote, modelo)[cenario];
     return { area, fte, e_a: ea, valor: fte * C * ea };
   });
@@ -218,15 +236,26 @@ function retorno(r: Respostas, pacote: Pacote, modelo: Modelo, R: number, cenari
   const brutoPessoas = soma(pessoas.map((p) => p.valor));
   const brutoAlavancas = soma(alavancas.map((a) => a.valor));
   const P = R * (brutoPessoas + brutoAlavancas);
+  // 0.5.0: retorno sobre o lucro líquido, pela margem da pergunta 4 (ponto médio da faixa).
+  const margem = typeof r.q4 === "string" && Object.hasOwn(s.faixas_margem, r.q4) ? s.faixas_margem[r.q4] : null;
+  const lucro = margem ? receitaC * faixa(margem, "base") : 0;
   return {
     receita_usada: receitaC,
     pessoas,
+    ajuste_pessoas: ajuste,
     alavancas,
     potencial_bruto: brutoPessoas + brutoAlavancas,
     R,
     P,
     // 0.2.1: faixa "até 4,8 mi" tem limite inferior 0; sem receita não há margem a mostrar.
     delta_margem_pp: receitaC > 0 ? (P / receitaC) * 100 : null,
+    pct_lucro: lucro > 0 ? (P / lucro) * 100 : null,
+    // 0.5.0: ano 1 = potencial × R (prontidão de hoje); regime = potencial pleno, depois da implantação.
+    regime: {
+      P: brutoPessoas + brutoAlavancas,
+      delta_margem_pp: receitaC > 0 ? ((brutoPessoas + brutoAlavancas) / receitaC) * 100 : null,
+      pct_lucro: lucro > 0 ? ((brutoPessoas + brutoAlavancas) / lucro) * 100 : null,
+    },
   };
 }
 
@@ -258,7 +287,7 @@ function alavancasFormatoAntigo(
   const variaveis = { ...base };
   variaveis.receita_salao_delivery = receitaC;
   variaveis.lugares_total = numeroNaoNegativo(setoriais.lugares_total, "pergunta S1 (lugares)");
-  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), cenario);
+  variaveis.ticket_pessoa = faixa(opcao(s.faixas_ticket, setoriais.ticket_pessoa, "pergunta S2"), MEIO);
 
   return pacote.self_ordem_alavancas.slice(0, pacote.self_alavancas_max).map((nome) => {
     const a = pacote.alavancas[nome];
@@ -309,7 +338,7 @@ function alavancasPorUnidade(
       for (const [k, p] of Object.entries(proprios)) v[k] = p.valor;
       v.receita_salao_delivery = receitaC * (u.participacao_receita / 100);
       if (u.lugares_total !== undefined) v.lugares_total = u.lugares_total;
-      if (u.ticket_pessoa !== undefined) v.ticket_pessoa = faixa(opcao(s.faixas_ticket, u.ticket_pessoa, "ticket"), cenario);
+      if (u.ticket_pessoa !== undefined) v.ticket_pessoa = faixa(opcao(s.faixas_ticket, u.ticket_pessoa, "ticket"), MEIO);
       partes.push({ segmento: seg, valor: calcularFormula(a.formula, { ...v, ...locaisDe(a, cenario) }) });
     }
     const item: ItemAlavanca = {
@@ -402,6 +431,41 @@ function validarCoerencia(r: Respostas, pacote: Pacote, modelo: Modelo): string[
   return avisos;
 }
 
+// ---------------------------------------------------------------- alertas
+
+/**
+ * 0.5.0: alertas para a tela, cada um com código e texto próprio (antes a tela
+ * mostrava qualquer aviso como receita fora do padrão). Não mudam score nem retorno.
+ */
+function alertasDoResultado(avisos: string[], notas: Notas, ajusteBase: number): AlertaSelf[] {
+  const alertas: AlertaSelf[] = [];
+  if (avisos.length > 0) {
+    alertas.push({
+      codigo: "receita_por_pessoa",
+      texto:
+        "A receita por pessoa ficou fora do padrão do setor. " +
+        "Vale conferir o faturamento e o número de pessoas informados.",
+    });
+  }
+  if (notas.governanca <= 1 && notas.pessoas >= 2) {
+    alertas.push({
+      codigo: "ia_sem_politica",
+      texto:
+        "A empresa já usa IA sem uma política de IA e dados. Isso expõe dados de " +
+        "clientes e da empresa e é o primeiro ponto a resolver, antes de ampliar o uso.",
+    });
+  }
+  if (ajusteBase < 1) {
+    alertas.push({
+      codigo: "pessoas_acima_do_total",
+      texto:
+        "As pessoas informadas nas áreas somam mais do que o total da empresa no " +
+        "cenário base; o cálculo limitou as áreas ao total. Vale conferir os números.",
+    });
+  }
+  return alertas;
+}
+
 // ---------------------------------------------------------------- orquestração
 
 export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): ResultadoSelf {
@@ -428,6 +492,13 @@ export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): Resu
 
   // Top 3 oportunidades, com exemplo concreto do pacote do setor.
   const casos = pacote.casos_de_uso ?? [];
+  const dados = r.dados_D ?? {};
+  const situacao = (f: string) => (Object.hasOwn(dados, f) ? dados[f] : undefined);
+  /** 0.5.0: não sugere criar uma fonte que já existe nem caso que depende de algo que não existe. */
+  const aplicavel = (c: (typeof casos)[number]) => {
+    if (c.criar_fonte && ["tem", NAO_SE_APLICA].includes(situacao(c.criar_fonte) as string)) return false;
+    return !(c.depende_de ?? []).some((f) => situacao(f) === NAO_SE_APLICA);
+  };
   const comps: [string, string, number][] = [
     ...cen.conservador.pessoas.map((p): [string, string, number] => [p.area, "e_a", p.valor * R]),
     ...cen.conservador.alavancas
@@ -438,9 +509,14 @@ export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): Resu
     .sort((a, b) => b[2] - a[2])
     .slice(0, 3)
     .map(([chave, , valor]) => {
-      const ex = casos.find((c) => (c.area === chave && c.alavanca === "e_a") || c.alavanca === chave);
-      return { origem: chave, valor_conservador: valor, exemplo: ex ? ex.nome : null };
+      const ex = casos.find(
+        (c) => ((c.area === chave && c.alavanca === "e_a") || c.alavanca === chave) && aplicavel(c),
+      );
+      return { origem: chave, valor_conservador: valor, valor_regime: valor / R, exemplo: ex ? ex.nome : null };
     });
+
+  const alertas = alertasDoResultado(avisos, notas, cen.base.ajuste_pessoas);
+  const objetivos = typeof r.q12 === "string" ? [r.q12] : Array.isArray(r.q12) ? r.q12 : [];
 
   const dadosD = r.dados_D ?? {};
   const mapa = pacote.pergunta_dados_D.itens.map((fid) => {
@@ -458,6 +534,11 @@ export function calcularSelf(r: Respostas, pacote: Pacote, modelo: Modelo): Resu
     versoes: { motor: MOTOR_VERSAO, modelo: modelo.versao, pacote: `${pacote.pacote} ${pacote.versao}` },
     hash_respostas: hashRespostas(r),
     avisos,
+    alertas,
+    contexto: {
+      margem: typeof r.q4 === "string" ? r.q4 : null,
+      objetivos: objetivos.filter((o): o is string => typeof o === "string"),
+    },
     precisao_receita: r.q2_valor !== undefined && r.q2_valor !== null ? "informada" : "faixa (menor precisão)",
     score: {
       valor: S,

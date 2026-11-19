@@ -6,6 +6,22 @@
   },
   "hash_respostas": "39c20b1543cf85da",
   "avisos": [],
+  "alertas": [
+    {
+      "codigo": "ia_sem_politica",
+      "texto": "A empresa já usa IA sem uma política de IA e dados. Isso expõe dados de clientes e da empresa e é o primeiro ponto a resolver, antes de ampliar o uso."
+    },
+    {
+      "codigo": "pessoas_acima_do_total",
+      "texto": "As pessoas informadas nas áreas somam mais do que o total da empresa no cenário base; o cálculo limitou as áreas ao total. Vale conferir os números."
+    }
+  ],
+  "contexto": {
+    "margem": "prefiro não dizer",
+    "objetivos": [
+      "reduzir custo"
+    ]
+  },
   "precisao_receita": "informada",
   "score": {
     "valor": 0.35251623376623376,
@@ -16,7 +32,7 @@
       "estrategia": 3,
       "dados": 2.9545454545454546,
       "processos": 2.142857142857143,
-      "tecnologia": 2,
+      "tecnologia": 2.0,
       "governanca": 1,
       "pessoas": 2
     },
@@ -24,14 +40,14 @@
     "ressalva": "Índice fundamentado, não probabilidade estatística, até calibrar com projetos reais."
   },
   "score_por_area": {
-    "04_financas": 2,
-    "05_compras": 2,
-    "06_operacoes": 2,
-    "07_comercial": 2,
-    "08_atendimento": 3,
-    "09_rh": 3,
-    "10_juridico": 1,
-    "11_ti_seguranca": 2,
+    "04_financas": 2.0,
+    "05_compras": 2.0,
+    "06_operacoes": 2.0,
+    "07_comercial": 2.0,
+    "08_atendimento": 3.0,
+    "09_rh": 3.0,
+    "10_juridico": 1.0,
+    "11_ti_seguranca": 2.0,
     "01_estrategia": 3,
     "02_dados": 2.9545454545454546,
     "03_pessoas": 2
@@ -47,23 +63,24 @@
       "pessoas": [
         {
           "area": "06_operacoes",
-          "fte": 151,
+          "fte": 286.42093704245974,
           "e_a": 0.01,
-          "valor": 59645.0
+          "valor": 113136.2701317716
         },
         {
           "area": "08_atendimento",
-          "fte": 1,
+          "fte": 2.6398243045387995,
           "e_a": 0.14,
-          "valor": 5530.000000000001
+          "valor": 14598.228404099564
         },
         {
           "area": "04_financas",
-          "fte": 6,
+          "fte": 11.439238653001464,
           "e_a": 0.05,
-          "valor": 11850.0
+          "valor": 22592.49633967789
         }
       ],
+      "ajuste_pessoas": 0.8799414348462665,
       "alavancas": [
         {
           "alavanca": "L_cmv",
@@ -75,36 +92,43 @@
           "alavanca": "L_giro",
           "nome": "Giro de mesas no pico",
           "linha_dre": "receita_bruta",
-          "valor": 179150.40000000002
+          "valor": 257528.7
         }
       ],
-      "potencial_bruto": 565295.4,
+      "potencial_bruto": 716975.6948755491,
       "R": 0.5115097402597403,
-      "P": 289154.103224026,
-      "delta_margem_pp": 0.2993313697971283
+      "P": 366740.0514583389,
+      "delta_margem_pp": 0.379648086395796,
+      "pct_lucro": null,
+      "regime": {
+        "P": 716975.6948755491,
+        "delta_margem_pp": 0.7422108642604027,
+        "pct_lucro": null
+      }
     },
     "base": {
       "receita_usada": 96600000.0,
       "pessoas": [
         {
           "area": "06_operacoes",
-          "fte": 325.5,
+          "fte": 286.42093704245974,
           "e_a": 0.03,
-          "valor": 385717.5
+          "valor": 339408.81039531477
         },
         {
           "area": "08_atendimento",
-          "fte": 3.0,
+          "fte": 2.6398243045387995,
           "e_a": 0.3,
-          "valor": 35550.0
+          "valor": 31281.918008784774
         },
         {
           "area": "04_financas",
-          "fte": 13.0,
+          "fte": 11.439238653001464,
           "e_a": 0.1,
-          "valor": 51350.0
+          "valor": 45184.99267935578
         }
       ],
+      "ajuste_pessoas": 0.8799414348462665,
       "alavancas": [
         {
           "alavanca": "L_cmv",
@@ -119,26 +143,35 @@
           "valor": 515057.4
         }
       ],
-      "potencial_bruto": 1605914.9,
+      "potencial_bruto": 1549173.1210834552,
       "R": 0.5115097402597403,
-      "P": 821441.1133782468,
-      "delta_margem_pp": 0.8503531194391789
+      "P": 792417.1407827693,
+      "delta_margem_pp": 0.8203075991540055,
+      "pct_lucro": null,
+      "regime": {
+        "P": 1549173.1210834552,
+        "delta_margem_pp": 1.603698883109167,
+        "pct_lucro": null
+      }
     }
   },
   "top3": [
     {
       "origem": "L_cmv",
       "valor_conservador": 158117.8909090909,
-      "exemplo": "Alerta de preço de insumo e sugestão de substituição"
+      "valor_regime": 309120.0,
+      "exemplo": "Alerta de variação de preço de insumo e apoio à cotação"
     },
     {
       "origem": "L_giro",
-      "valor_conservador": 91637.17457142858,
-      "exemplo": "Medição de tempo de mesa por câmera"
+      "valor_conservador": 131728.43844642857,
+      "valor_regime": 257528.69999999998,
+      "exemplo": "Lista de espera e aviso de mesa livre pelo WhatsApp"
     },
     {
       "origem": "06_operacoes",
-      "valor_conservador": 30508.998457792208,
+      "valor_conservador": 57870.304149058305,
+      "valor_regime": 113136.2701317716,
       "exemplo": "Escala de pessoal pela demanda prevista"
     }
   ],
@@ -147,7 +180,7 @@
       "dimensao": "estrategia",
       "score_novo": 0.41501623376623376,
       "ganho_score_pp": 6.25,
-      "ganho_retorno": 21198.577500000014
+      "ganho_retorno": 26886.58855783305
     }
   ],
   "mapa_de_dados": [

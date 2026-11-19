@@ -1,6 +1,13 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
-import { areasQ6, pendencias, type EmpresaSelf, type Questionario, type RespostasSelf } from "@/lib/assessment/questionario";
+import {
+  areasQ6,
+  pendencias,
+  pessoasPassamDoTotal,
+  type EmpresaSelf,
+  type Questionario,
+  type RespostasSelf,
+} from "@/lib/assessment/questionario";
 import { normalizarEmpresa, normalizarRascunho } from "@/lib/assessment/self";
 
 /**
@@ -169,7 +176,23 @@ export function estadoParaAgente(q: Questionario, e: EstadoAgente) {
     empresa: { ...empresa, cnpj_preenchido: Boolean(cnpj), telefone_preenchido: Boolean(contato_telefone) },
     areas_da_pergunta_6: areasQ6(q, e.respostas.grade_q5),
     pendencias: pendencias(q, e.respostas, e.empresa).map((p) => p.texto),
+    conferir: conferencias(q, e),
   };
+}
+
+/**
+ * 0.5.0: pontos que não impedem concluir, mas o agente confirma com o cliente
+ * antes do resumo (o motor limita o cálculo e mostra alerta se ficarem assim).
+ */
+function conferencias(q: Questionario, e: EstadoAgente): string[] {
+  const c: string[] = [];
+  if (pessoasPassamDoTotal(q, e.respostas)) {
+    c.push(
+      "A soma das pessoas por área (pergunta 6) passa do total da empresa (pergunta 3). Confirme os números com o cliente; " +
+        "cada pessoa entra em uma área só, e garçons, caixa e recepção contam em Operações.",
+    );
+  }
+  return c;
 }
 
 function falha(estado: EstadoAgente, mensagem: string): ResultadoFerramenta {
@@ -208,6 +231,7 @@ export function executarFerramenta(q: Questionario, nome: string, entrada: unkno
         ...(ignorados.length ? { campos_ignorados: ignorados } : {}),
         areas_da_pergunta_6: visao.areas_da_pergunta_6,
         pendencias: visao.pendencias,
+        ...(visao.conferir.length ? { conferir: visao.conferir } : {}),
       }, novo);
     }
     case "registrar_empresa": {
