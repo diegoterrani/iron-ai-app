@@ -2,7 +2,7 @@
   "pacote": "food_service",
   "versao": "0.4.0",
   "data": "2026-11-20",
-  "status": "Self 0.6: roteiro curto (skill do Self). Taxas são hipóteses IRON a calibrar no Deep, as mesmas do relatório executivo do Capim (20/11/2026).",
+  "status": "Self 0.6: roteiro curto (skill do Self). Taxas são hipóteses IRON a calibrar no Deep (20/11/2026).",
   "segmentos": [
     { "id": "restaurantes", "nome": "Restaurantes" },
     { "id": "institucional", "nome": "Cozinhas institucionais (escolas, empresas, hospitais)" },
