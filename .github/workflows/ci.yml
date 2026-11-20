@@ -78,3 +78,34 @@ jobs:
         run: supabase/tests/run.sh
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/iron_test
+
+  escuta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: escuta
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: escuta/package-lock.json
+
+      - name: Instalar dependências (lockfile exato)
+        run: npm ci
+
+      - name: Auditoria de dependências
+        run: npm audit --audit-level=high
+
+      - name: Tipos e testes unitários
+        run: npm run check
+
+      - name: Empacotar o Worker sem publicar
+        run: npx wrangler deploy --dry-run --outdir /tmp/escuta
+        env:
+          WRANGLER_SEND_METRICS: "false"

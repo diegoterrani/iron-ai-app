@@ -1,0 +1,7 @@
+body { font-family: system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+.aviso { border-left: 4px solid #b45309; padding: 0.5rem 0.75rem; background: #fff7ed; }
+.botoes { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0; }
+button { padding: 0.5rem 0.9rem; }
+.parcial { min-height: 3rem; color: #555; }
+#blocos li { white-space: pre-wrap; margin-bottom: 0.75rem; padding: 0.5rem; background: #f4f4f5; }
+#blocos small { display: block; color: #666; }
