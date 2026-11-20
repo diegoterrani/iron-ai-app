@@ -28,10 +28,30 @@ export interface Uso {
   cacheEscrita: number;
 }
 
-export interface ResultadoTurno {
+/**
+ * Um agente do Self: prompt, ferramentas e quem executa as ferramentas.
+ * 0.6 (20/11/2026): o Self curto tem o seu agente (agente/v06.ts); o formato
+ * 0.5 continua montado do questionário antigo.
+ */
+export interface AgenteSelf<E = EstadoAgente> {
+  sistema: string;
+  ferramentas: Anthropic.Beta.BetaTool[];
+  executar: (nome: string, entrada: unknown, estado: E) => { conteudo: string; erro: boolean; estado: E; sinal?: Sinal; alterou: boolean };
+}
+
+/** Agente do formato 0.5, montado do questionário. */
+export function agenteDoQuestionario(q: Questionario): AgenteSelf<EstadoAgente> {
+  return {
+    sistema: montarPromptSistema(q),
+    ferramentas: definirFerramentas(q),
+    executar: (nome, entrada, estado) => executarFerramenta(q, nome, entrada, estado),
+  };
+}
+
+export interface ResultadoTurno<E = EstadoAgente> {
   /** Histórico completo para gravar (só cresce: nada do que já existia muda). */
   historico: Anthropic.Beta.BetaMessageParam[];
-  estado: EstadoAgente;
+  estado: E;
   alterou: boolean;
   /** Textos do agente neste turno, na ordem. */
   textos: string[];
@@ -78,17 +98,18 @@ export function detalheErroApi(err: unknown) {
 }
 
 /** Monta a chamada: prompt e ferramentas fixos primeiro, para o cache de prompt valer entre turnos. */
-export function parametros(
-  q: Questionario,
+export function parametros<E>(
+  qOuAgente: Questionario | AgenteSelf<E>,
   mensagens: Anthropic.Beta.BetaMessageParam[],
   opcoes: { descartarRaciocinioInvalido?: boolean } = {},
 ): Anthropic.Beta.MessageCreateParamsNonStreaming {
   const descartar = opcoes.descartarRaciocinioInvalido === true;
+  const agente = "sistema" in qOuAgente ? qOuAgente : agenteDoQuestionario(qOuAgente);
   return {
     model: MODELO_AGENTE,
     max_tokens: MAX_TOKENS_RESPOSTA,
-    system: [{ type: "text", text: montarPromptSistema(q), cache_control: { type: "ephemeral" } }],
-    tools: definirFerramentas(q),
+    system: [{ type: "text", text: agente.sistema, cache_control: { type: "ephemeral" } }],
+    tools: agente.ferramentas,
     messages: mensagens,
     // Conversa guiada: esforço baixo responde rápido e gasta menos (custo do doc de proposta).
     output_config: { effort: "low" },
@@ -110,15 +131,20 @@ function somarUso(u: Uso, r: Anthropic.Beta.BetaMessage): Uso {
   };
 }
 
-export async function executarTurno(args: {
-  q: Questionario;
+export async function executarTurno<E = EstadoAgente>(args: {
+  /** Formato 0.5: o agente é montado do questionário. */
+  q?: Questionario;
+  /** 0.6: agente pronto (prompt da skill do Self). */
+  agente?: AgenteSelf<E>;
   historico: Anthropic.Beta.BetaMessageParam[];
   /** Texto do cliente ou aviso do app ("[Aviso do app] ..."). */
   entrada: string;
-  estado: EstadoAgente;
+  estado: E;
   chamar: ChamarLLM;
-}): Promise<ResultadoTurno> {
-  const { q, chamar } = args;
+}): Promise<ResultadoTurno<E>> {
+  const { chamar } = args;
+  const q = args.agente ?? (args.q ? (agenteDoQuestionario(args.q) as unknown as AgenteSelf<E>) : undefined);
+  if (!q) throw new Error("executarTurno sem agente");
   const mensagens: Anthropic.Beta.BetaMessageParam[] = [...args.historico, { role: "user", content: args.entrada }];
   let estado = args.estado;
   let alterou = false;
@@ -127,7 +153,7 @@ export async function executarTurno(args: {
   let uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
   let descartar = false;
   let descartes = 0;
-  const fechar = (fim: ResultadoTurno["fim"]): ResultadoTurno => ({ historico: mensagens, estado, alterou, textos, sinais, uso, fim, descartes });
+  const fechar = (fim: ResultadoTurno["fim"]): ResultadoTurno<E> => ({ historico: mensagens, estado, alterou, textos, sinais, uso, fim, descartes });
 
   for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
     let resposta: Anthropic.Beta.BetaMessage;
@@ -159,7 +185,7 @@ export async function executarTurno(args: {
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const b of resposta.content) {
       if (b.type !== "tool_use") continue;
-      const r = executarFerramenta(q, b.name, b.input, estado);
+      const r = q.executar(b.name, b.input, estado);
       estado = r.estado;
       alterou ||= r.alterou;
       if (r.sinal) sinais.push(r.sinal);

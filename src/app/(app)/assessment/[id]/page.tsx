@@ -8,7 +8,10 @@ import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
 import { MAX_TEXTO_CLIENTE } from "@/lib/assessment/agente/conversa";
 import { agenteConfigurado } from "@/lib/env";
+import { eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
+import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { ConversaSelf } from "./conversa-self";
+import { Formulario06 } from "./formulario-06";
 import { QuestionarioSelf } from "./questionario-self";
 
 export const metadata: Metadata = { title: "Self assessment" };
@@ -66,11 +69,49 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
     empresa = { contato_nome: perfil.nome, contato_email: auth.user?.email ?? undefined };
   }
 
-  const inicial = paraUnidades(paraEscolhaMultipla(linha.respostas ?? {}));
-  const questionario = montarQuestionario();
   // Conversa é o padrão (03/11/2026); o formulário fica como alternativa e
   // como reserva se a chave da API não estiver configurada.
   const conversa = modo !== "formulario" && agenteConfigurado();
+
+  // 0.6 (20/11/2026): rascunho novo segue o roteiro curto da skill do Self.
+  if (eFormato06(linha.respostas)) {
+    const q06 = montarQuestionario06();
+    const inicial06 = (linha.respostas ?? {}) as Rascunho06;
+    return (
+      <main>
+        <p className="eyebrow">
+          <Link href="/assessment">Self assessment</Link> / Food service
+        </p>
+        <h1 className="title">Self Assessment</h1>
+        {conversa ? (
+          <ConversaSelf
+            formato="0.6"
+            assessmentId={id}
+            questionario={q06}
+            inicial={inicial06}
+            inicialEmpresa={empresa}
+            versaoInicial={linha.atualizado_em}
+            maxTexto={MAX_TEXTO_CLIENTE}
+          />
+        ) : (
+          <>
+            <p className="field-hint">
+              Cerca de 10 minutos. As respostas são salvas automaticamente; você pode sair e voltar depois.
+            </p>
+            {agenteConfigurado() && (
+              <p className="modo-troca">
+                <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
+              </p>
+            )}
+            <Formulario06 assessmentId={id} questionario={q06} inicial={inicial06} inicialEmpresa={empresa} versaoInicial={linha.atualizado_em} />
+          </>
+        )}
+      </main>
+    );
+  }
+
+  const inicial = paraUnidades(paraEscolhaMultipla(linha.respostas ?? {}));
+  const questionario = montarQuestionario();
 
   return (
     <main>
@@ -80,6 +121,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       <h1 className="title">{conversa ? "Self Assessment" : "Responder"}</h1>
       {conversa ? (
         <ConversaSelf
+          formato="0.5"
           assessmentId={id}
           questionario={questionario}
           inicial={inicial}

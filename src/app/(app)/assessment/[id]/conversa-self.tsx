@@ -13,6 +13,8 @@ import {
 } from "@/lib/assessment/agente/digitacao";
 import type { CampoSeguro } from "@/lib/assessment/agente/ferramentas";
 import type { EmpresaSelf, Questionario, RespostasSelf } from "@/lib/assessment/questionario";
+import type { Questionario06, Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { Resumo06 } from "./resumo-06";
 import { cnpjValido, formatarCnpj } from "@/lib/validation/cnpj";
 import { concluirSelf, conversarSelf, lerConversa, salvarRascunho, type EntradaConversa } from "../actions";
 
@@ -23,25 +25,27 @@ import { concluirSelf, conversarSelf, lerConversa, salvarRascunho, type EntradaC
  * As respostas ficam no mesmo rascunho do formulário.
  */
 
-interface Props {
+/** 0.6 (roteiro curto da skill do Self) ou 0.5 (rascunhos antigos): muda só o resumo. */
+type Formato = { formato: "0.5"; questionario: Questionario; inicial: RespostasSelf } | { formato: "0.6"; questionario: Questionario06; inicial: Rascunho06 };
+
+type Props = Formato & {
   assessmentId: string;
-  questionario: Questionario;
-  inicial: RespostasSelf;
   inicialEmpresa: EmpresaSelf;
   /** Versão do rascunho ao abrir (atualizado_em); protege a edição de colegas da empresa. */
   versaoInicial: string;
   /** Limite de caracteres por mensagem (o servidor confere de novo). */
   maxTexto: number;
-}
+};
 
 const ROTULO_SEGURO: Record<CampoSeguro, string> = { cnpj: "CNPJ da empresa", contato_telefone: "Telefone do contato" };
 
-export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEmpresa, versaoInicial, maxTexto }: Props) {
+export function ConversaSelf(props: Props) {
+  const { assessmentId, inicial, inicialEmpresa, versaoInicial, maxTexto } = props;
   const [falas, setFalas] = useState<FalaTela[]>([]);
   const [texto, setTexto] = useState("");
   const [aguardando, setAguardando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [respostas, setRespostas] = useState<RespostasSelf>(inicial);
+  const [respostas, setRespostas] = useState<RespostasSelf | Rascunho06>(inicial);
   const [empresa, setEmpresa] = useState<EmpresaSelf>(inicialEmpresa);
   const [campoSeguro, setCampoSeguro] = useState<CampoSeguro | null>(null);
   const [mostrarResumo, setMostrarResumo] = useState(false);
@@ -203,7 +207,11 @@ export function ConversaSelf({ assessmentId, questionario: q, inicial, inicialEm
         {mostrarResumo && !digitando && (
           <div className="resumo-conversa">
             <h2 className="pergunta-titulo">Confira o que foi registrado</h2>
-            <Resumo q={q} r={respostas} e={empresa} />
+            {props.formato === "0.6" ? (
+              <Resumo06 q={props.questionario} r={respostas as Rascunho06} e={empresa} />
+            ) : (
+              <Resumo q={props.questionario} r={respostas as RespostasSelf} e={empresa} />
+            )}
             <p className="field-hint">Se algo estiver errado, escreva abaixo o que corrigir. Se estiver tudo certo, confirme.</p>
             <form action={concluir}>
               <input type="hidden" name="assessmentId" value={assessmentId} />

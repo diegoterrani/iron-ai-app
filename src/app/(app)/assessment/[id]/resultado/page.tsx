@@ -8,7 +8,9 @@ import type { ResultadoSelf } from "@/lib/assessment/tipos";
 import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
 import { formatarCnpj } from "@/lib/validation/cnpj";
+import type { Resultado06 } from "@/lib/assessment/v06/tipos";
 import { BotaoImprimir } from "./imprimir";
+import { Relatorio06 } from "./relatorio-06";
 
 export const metadata: Metadata = { title: "Resultado do Self assessment" };
 
@@ -58,10 +60,32 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
     .eq("assessment_id", id)
     .order("criado_em", { ascending: false })
     .limit(1)
-    .maybeSingle<{ resultado: ResultadoSelf; criado_em: string }>();
+    .maybeSingle<{ resultado: ResultadoSelf | Resultado06; criado_em: string }>();
   if (!res) notFound();
-  const r = res.resultado;
   const emp: EmpresaSelf = linha.empresa ?? {};
+
+  // 0.6 (20/11/2026): relatório em 8 seções da skill do Self.
+  if ("formato" in res.resultado && res.resultado.formato === "0.6") {
+    const r6 = res.resultado;
+    return (
+      <main className="resultado">
+        <p className="eyebrow">
+          <Link href="/assessment">Self assessment</Link> / resultado
+        </p>
+        <h1 className="title">{emp.nome ? `Resultado: ${emp.nome}` : "Resultado"}</h1>
+        <p className="field-hint">
+          {[emp.cidade && emp.uf ? `${emp.cidade}/${emp.uf}` : null, "Food service", `calculado em ${dataHora.format(new Date(res.criado_em))}`]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        <Relatorio06 r={r6} />
+        <p className="field-hint">
+          Motor {r6.versoes.motor} · modelo {r6.versoes.modelo} · pacote {r6.versoes.pacote} · código {r6.hash_respostas}
+        </p>
+      </main>
+    );
+  }
+  const r = res.resultado as ResultadoSelf;
   const cons = r.retorno.conservador;
   const base = r.retorno.base;
   const destrava = r.o_que_destrava[0];

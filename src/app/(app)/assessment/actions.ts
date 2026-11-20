@@ -26,6 +26,11 @@ import type { CampoSeguro, Sinal } from "@/lib/assessment/agente/ferramentas";
 import type { RespostasSelf } from "@/lib/assessment/questionario";
 import { cnpjValido } from "@/lib/validation/cnpj";
 import { agenteConfigurado, llmEnv } from "@/lib/env";
+import { agente06 } from "@/lib/assessment/agente/v06";
+import { calcularSelf06 } from "@/lib/assessment/v06/motor";
+import { eFormato06, faltasParaConcluir06, montarQuestionario06, normalizarRascunho06, pacote06 } from "@/lib/assessment/v06/self";
+import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
+import type { Respostas06 } from "@/lib/assessment/v06/tipos";
 import { descarteRascunhoSchema, mensagemErroBanco } from "@/lib/validation/admin";
 
 /**
@@ -118,13 +123,16 @@ export async function salvarRascunho(
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("setor, status, atualizado_em")
+    .select("setor, status, atualizado_em, respostas")
     .eq("id", id)
-    .maybeSingle<{ setor: string; status: string; atualizado_em: string }>();
+    .maybeSingle<{ setor: string; status: string; atualizado_em: string; respostas: unknown }>();
   if (!linha) return { ok: false, erro: "Assessment não encontrado." };
   if (linha.status !== "rascunho") return { ok: false, erro: "Este assessment já foi concluído." };
 
-  const norm = normalizarRascunho(entrada?.respostas ?? {}, linha.setor);
+  // 0.6: rascunho novo ou marcado segue o roteiro curto; os antigos seguem no 0.5.
+  const norm = eFormato06(linha.respostas)
+    ? normalizarRascunho06(entrada?.respostas ?? {}, linha.setor)
+    : normalizarRascunho(entrada?.respostas ?? {}, linha.setor);
   if (!norm.ok) return { ok: false, erro: norm.erro };
   const emp = normalizarEmpresa(entrada?.empresa ?? {});
   if (!emp.ok) return { ok: false, erro: emp.erro };
@@ -187,12 +195,17 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
     return { message: "Seu acesso ao Self assessment não está liberado." };
   }
 
-  const faltas = faltasParaConcluir(linha.respostas, linha.empresa ?? {});
-  if (faltas.length > 0) return { message: `Faltam respostas: ${faltas.join(" ")}` };
+  const formato06 = eFormato06(linha.respostas);
+  const faltas = formato06
+    ? faltasParaConcluir06(linha.respostas as unknown as Rascunho06, linha.empresa ?? {})
+    : faltasParaConcluir(linha.respostas, linha.empresa ?? {});
+  if (faltas.length > 0) return { message: `Faltam respostas: ${faltas.join("; ")}.` };
 
   let resultado;
   try {
-    resultado = calcularSelf(linha.respostas, pacote, modelo);
+    resultado = formato06
+      ? calcularSelf06(linha.respostas as unknown as Respostas06, pacote06, modelo)
+      : calcularSelf(linha.respostas, pacote, modelo);
   } catch (err) {
     if (err instanceof RespostaInvalida) {
       // Mensagem do motor descreve a incoerência (ex.: pessoas por área acima do total).
@@ -231,7 +244,7 @@ export interface RespostaConversa {
   erro?: string;
   falas?: FalaTela[];
   sinais?: Sinal[];
-  respostas?: RespostasSelf;
+  respostas?: RespostasSelf | Rascunho06;
   empresa?: EmpresaSelf;
   /** Versão do rascunho depois do turno (atualizado_em). */
   versao?: string;
@@ -329,15 +342,27 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
 
   const empresa = linha.empresa ?? {};
   const inicio = Date.now();
+  const historico = reserva.historico as Anthropic.Beta.BetaMessageParam[];
+  const entradaAgente = textoParaAgente(e.data, empresa);
+  const chamar = chamarAnthropic(llmEnv().ANTHROPIC_API_KEY);
   let turno;
   try {
-    turno = await executarTurno({
-      q: montarQuestionario(),
-      historico: reserva.historico as Anthropic.Beta.BetaMessageParam[],
-      entrada: textoParaAgente(e.data, empresa),
-      estado: { setor: linha.setor, respostas: linha.respostas ?? {}, empresa },
-      chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY),
-    });
+    // 0.6: agente guiado pela skill do Self (roteiro curto); 0.5 para rascunhos antigos.
+    turno = eFormato06(linha.respostas)
+      ? await executarTurno({
+          agente: agente06(montarQuestionario06()),
+          historico,
+          entrada: entradaAgente,
+          estado: { setor: linha.setor, respostas: (linha.respostas ?? {}) as Rascunho06, empresa },
+          chamar,
+        })
+      : await executarTurno({
+          q: montarQuestionario(),
+          historico,
+          entrada: entradaAgente,
+          estado: { setor: linha.setor, respostas: linha.respostas ?? {}, empresa },
+          chamar,
+        });
   } catch (err) {
     log("error", "self.conversa.llm_erro", { trace, ator: userId, ...detalheErroApi(err) });
     return { ok: false, erro: `O assistente não respondeu agora. Tente de novo em instantes. (código ${trace})` };

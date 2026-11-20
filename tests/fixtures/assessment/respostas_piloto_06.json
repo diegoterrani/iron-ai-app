@@ -1,0 +1,17 @@
+{
+  "formato": "0.6",
+  "setor": "food_service",
+  "linhas_vermelhas": ["receitas", "preparo", "fornecedores"],
+  "receita_valor": 110000000,
+  "pessoas": "101 a 500",
+  "divisao": { "restaurantes": 60, "institucional": 40 },
+  "folha_exata": 24,
+  "custo_exato": 35.2,
+  "contratacoes": "30 a 50% do quadro",
+  "margem": "5 a 10%",
+  "dor": "desperdicio",
+  "nucleo": { "sobra": "não medimos", "cotacao": "planilha ou cotação manual", "escala": "planilha", "reservas": "WhatsApp ou telefone, respondidos à mão", "fila": "toda semana" },
+  "uso_ia": "pilotos",
+  "politica": "não",
+  "patrocinio": "diretoria, com orçamento"
+}

@@ -1,0 +1,156 @@
+{
+  "pacote": "food_service",
+  "versao": "0.4.0",
+  "data": "2026-11-20",
+  "status": "Self 0.6: roteiro curto (skill do Self). Taxas são hipóteses IRON a calibrar no Deep, as mesmas do relatório executivo do Capim (20/11/2026).",
+  "segmentos": [
+    { "id": "restaurantes", "nome": "Restaurantes" },
+    { "id": "institucional", "nome": "Cozinhas institucionais (escolas, empresas, hospitais)" },
+    { "id": "eventos", "nome": "Eventos e bufê" },
+    { "id": "delivery", "nome": "Delivery e venda para levar" }
+  ],
+  "custo_principal": { "nome": "insumos (CMV)", "pergunta": "Quanto os insumos (CMV) pesam na receita?" },
+  "faixas": {
+    "folha": { "até 15%": [0.1, 0.15], "15 a 20%": [0.15, 0.2], "20 a 25%": [0.2, 0.25], "25 a 30%": [0.25, 0.3], "mais de 30%": [0.3, 0.38] },
+    "custo": { "até 25%": [0.2, 0.25], "25 a 30%": [0.25, 0.3], "30 a 35%": [0.3, 0.35], "mais de 35%": [0.35, 0.45] },
+    "margem": { "negativa": [-0.05, 0], "até 5%": [0, 0.05], "5 a 10%": [0.05, 0.1], "10 a 15%": [0.1, 0.15], "mais de 15%": [0.15, 0.25] },
+    "contratacoes": { "menos de 10% do quadro": 0.5, "10 a 30% do quadro": 1, "30 a 50% do quadro": 1, "mais de 50% do quadro": 1.5 }
+  },
+  "referencias": {
+    "folha_pct": 0.28,
+    "margem": 0.075,
+    "retaguarda_pct_folha": 0.2,
+    "custo_pct_por_segmento": { "restaurantes": 0.32, "institucional": 0.4, "eventos": 0.35, "delivery": 0.32 },
+    "nota": "Usadas só quando o cliente responde 'não sei'; a linha correspondente vira hipótese."
+  },
+  "linhas_vermelhas": [
+    { "id": "receitas", "nome": "Receitas e cardápio", "bloqueia": [] },
+    { "id": "preparo", "nome": "Modo de preparo", "bloqueia": [] },
+    { "id": "presencial", "nome": "Atendimento olho no olho no salão", "bloqueia": [] },
+    { "id": "fornecedores", "nome": "Escolha e troca de fornecedores", "bloqueia": [] },
+    { "id": "conversa_remota", "nome": "Conversa com o cliente por WhatsApp e telefone", "bloqueia": ["reservas"] },
+    { "id": "quadro", "nome": "Quadro de pessoas: não deixar de repor vagas", "bloqueia": ["retaguarda"] },
+    { "id": "nenhuma", "nome": "Nada específico", "bloqueia": [] }
+  ],
+  "dores": [
+    { "id": "desperdicio", "nome": "Desperdício e sobra", "alavanca": "desperdicio",
+      "piloto": { "titulo": "Previsão de refeições e registro de sobra em uma unidade", "meta": "Reduzir a sobra da unidade piloto em 20% em 6 semanas", "kpi": "Sobra em kg por refeição servida" } },
+    { "id": "escala", "nome": "Escala e hora extra", "alavanca": "escala",
+      "piloto": { "titulo": "Escala pela demanda prevista em uma unidade", "meta": "Reduzir a hora extra da unidade piloto em 15% em 6 semanas", "kpi": "Horas extras por semana" } },
+    { "id": "contratar", "nome": "Contratar e treinar", "alavanca": "rotatividade",
+      "piloto": { "titulo": "Alerta de risco de saída e trilha de integração digital", "meta": "Encurtar em 30% o tempo até o novo contratado render sozinho", "kpi": "Dias até a primeira escala completa" } },
+    { "id": "compras", "nome": "Compras e preço de insumo", "alavanca": "compras",
+      "piloto": { "titulo": "Alerta de preço e cotação nos 30 insumos de maior gasto", "meta": "Pagar menos que a média dos últimos 3 meses em 30 insumos, com os mesmos fornecedores", "kpi": "Preço pago contra a média por insumo" } },
+    { "id": "reservas", "nome": "Reservas e atendimento remoto", "alavanca": "reservas",
+      "piloto": { "titulo": "Agente de reservas no WhatsApp, com a equipe aprovando cada resposta", "meta": "Responder 90% dos pedidos em até 5 minutos", "kpi": "Tempo de resposta e no-show" } },
+    { "id": "eventos", "nome": "Orçamento de eventos", "alavanca": "eventos",
+      "piloto": { "titulo": "Orçamento de evento montado em horas a partir do histórico", "meta": "Enviar 80% dos orçamentos no mesmo dia", "kpi": "Horas até o envio e taxa de fechamento" } }
+  ],
+  "alavancas": {
+    "desperdicio": {
+      "nome": "Desperdício e produção: previsão de demanda, registro de sobra e ficha técnica digital (a receita não muda)",
+      "linha_dre": "CMV", "base": "cmv_por_segmento",
+      "taxa_por_segmento": { "restaurantes": [0.0125, 0.025], "institucional": [0.02, 0.035], "eventos": [0.0125, 0.025], "delivery": [0.0125, 0.025] },
+      "pergunta": "sobra", "dado_deep": "Pesagem de sobra e descarte por 2 semanas em uma unidade piloto e fichas técnicas atuais"
+    },
+    "compras": {
+      "nome": "Compras: alerta de preço e cotação, com os mesmos insumos e fornecedores",
+      "linha_dre": "CMV", "base": "cmv_total", "taxa": [0.0075, 0.0125],
+      "pergunta": "cotacao", "dado_deep": "12 meses de compras por insumo e fornecedor"
+    },
+    "escala": {
+      "nome": "Escala pela demanda prevista: menos hora extra e ociosidade",
+      "linha_dre": "Mão de obra da operação", "base": "folha_operacao", "taxa": [0.02, 0.04],
+      "pergunta": "escala", "dado_deep": "Escala, ponto e folha por unidade dos últimos 6 meses"
+    },
+    "rotatividade": {
+      "nome": "Rotatividade: alerta de risco de saída e reposição planejada",
+      "linha_dre": "Mão de obra da operação", "base": "folha_operacao", "taxa": [0.01, 0.02],
+      "fator_contratacoes": true, "dado_deep": "Admissões e desligamentos dos últimos 12 meses"
+    },
+    "retaguarda": {
+      "nome": "Retaguarda: horas liberadas em finanças, compras, RH e TI",
+      "linha_dre": "Despesas de apoio", "base": "folha_retaguarda", "taxa": [0.05, 0.095],
+      "depende_de_vagas": true, "dado_deep": "Folha da retaguarda por área e as tarefas que mais tomam tempo"
+    },
+    "reservas": {
+      "nome": "Reservas e pedidos de orçamento respondidos por agente, com a equipe aprovando",
+      "linha_dre": "Despesas de atendimento", "base": "receita_segmentos", "segmentos": ["restaurantes", "eventos"], "taxa": [0.0015, 0.003],
+      "pergunta": "reservas", "depende_de_vagas": true, "dado_deep": "Volume de pedidos por canal e tempo de resposta de 4 semanas"
+    },
+    "giro": {
+      "nome": "Lugares a mais no pico: reserva confirmada, fila organizada e mesa preparada mais rápido, sem apressar o cliente",
+      "linha_dre": "Receita (pela margem)", "base": "receita_segmentos", "segmentos": ["restaurantes"], "taxa": [0.00215, 0.0043],
+      "pergunta": "fila", "dado_deep": "Ocupação e fila por turno nas sextas e sábados de 4 semanas"
+    },
+    "eventos": {
+      "nome": "Orçamento de evento em horas, não em dias, a partir do histórico",
+      "linha_dre": "Receita (pela margem)", "base": "receita_segmentos", "segmentos": ["eventos"], "taxa": [0.006, 0.012],
+      "taxa_sem_referencia": true, "pergunta": "orcamento", "dado_deep": "Orçamentos enviados e fechados nos últimos 12 meses, com o tempo de resposta"
+    }
+  },
+  "perguntas": {
+    "sobra": { "alavanca": "desperdicio", "texto": "Vocês medem quanto do que é produzido vira sobra ou lixo?",
+      "opcoes": [
+        { "texto": "medimos e é menos de 5%", "fator": 0.6, "registro": true },
+        { "texto": "medimos e passa de 5%", "fator": 1, "registro": true },
+        { "texto": "não medimos", "fator": 1, "registro": false, "hipotese": true }
+      ] },
+    "cotacao": { "alavanca": "compras", "texto": "Como as compras são cotadas hoje?",
+      "opcoes": [
+        { "texto": "sistema com histórico de preço", "fator": 0.5, "registro": true },
+        { "texto": "planilha ou cotação manual", "fator": 1, "registro": false },
+        { "texto": "não sei", "fator": 1, "registro": false, "hipotese": true }
+      ] },
+    "escala": { "alavanca": "escala", "texto": "Como a escala da equipe é feita?",
+      "opcoes": [
+        { "texto": "sistema que cruza com a demanda", "fator": 0.5, "registro": true },
+        { "texto": "planilha", "fator": 1, "registro": true },
+        { "texto": "de cabeça ou no papel", "fator": 1, "registro": false },
+        { "texto": "não sei", "fator": 1, "registro": false, "hipotese": true }
+      ] },
+    "reservas": { "alavanca": "reservas", "texto": "Como chegam as reservas e os pedidos de orçamento?",
+      "opcoes": [
+        { "texto": "sistema de reservas", "fator": 0.3, "registro": true },
+        { "texto": "WhatsApp ou telefone, respondidos à mão", "fator": 1, "registro": false },
+        { "texto": "não trabalhamos com reservas", "fator": 0, "registro": false },
+        { "texto": "não sei", "fator": 1, "registro": false, "hipotese": true }
+      ] },
+    "fila": { "alavanca": "giro", "texto": "Há fila ou mesa recusada nos horários de pico?",
+      "opcoes": [
+        { "texto": "toda semana", "fator": 1, "registro": false },
+        { "texto": "só em datas especiais", "fator": 0.3, "registro": false },
+        { "texto": "não temos fila", "fator": 0, "registro": false },
+        { "texto": "não sei", "fator": 0.5, "registro": false, "hipotese": true }
+      ] },
+    "orcamento": { "alavanca": "eventos", "texto": "Quanto tempo leva para montar e enviar um orçamento de evento?",
+      "opcoes": [
+        { "texto": "no mesmo dia", "fator": 0.3, "registro": true },
+        { "texto": "de 1 a 3 dias", "fator": 1, "registro": false },
+        { "texto": "mais de 3 dias", "fator": 1.5, "registro": false },
+        { "texto": "não sei", "fator": 1, "registro": false, "hipotese": true }
+      ] }
+  },
+  "aprofundar_max": 3,
+  "prontidao": {
+    "uso_ia": { "nenhum": 1, "pessoas usam por conta própria": 2, "pilotos": 3, "em produção": 4 },
+    "politica": { "não": 1, "em construção": 2.5, "sim": 4 },
+    "patrocinio": { "ninguém ainda": 1, "diretoria, sem orçamento": 2.5, "diretoria, com orçamento": 4 },
+    "pesos": { "estrategia": 0.3, "dados": 0.3, "governanca": 0.2, "pessoas": 0.2 },
+    "dados_sem_resposta": 2
+  },
+  "regua": {
+    "nota": "Hipóteses IRON para a régua do relatório (sem tabela de preço aprovada): investimento de 24 meses proporcional à receita, custo de mudança proporcional ao investimento e ganho de 24 meses equivalente a 16 meses de regime (implantação em ondas com rampa).",
+    "investimento_minimo_24m": 250000,
+    "investimento_por_receita": 0.0064,
+    "custo_mudanca_por_investimento": 0.42,
+    "meses_efetivos_24m": 16,
+    "retorno_minimo_x": 3,
+    "retorno_deep_x": 2
+  },
+  "riscos": [
+    "Boas práticas de manipulação de alimentos (ANVISA RDC 216/2004): nenhuma solução pode afrouxar controle sanitário.",
+    "LGPD: soluções com imagem de clientes ou funcionários exigem revisão de segurança, relatório de impacto e decisão final humana.",
+    "Escala e jornada: CLT e convenção coletiva limitam mudanças; RH e jurídico validam antes."
+  ]
+}
