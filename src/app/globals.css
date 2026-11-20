@@ -1476,3 +1476,142 @@ a {
     animation: none;
   }
 }
+
+/* ------------------------------------------------- Deep (modo analista) */
+.field textarea {
+  min-height: var(--control-height);
+  resize: vertical;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  background: var(--paper);
+  color: var(--text);
+}
+
+.deep-detalhe {
+  display: block;
+}
+
+.deep-id {
+  font-family: var(--font-mono, ui-monospace), monospace;
+  font-size: 12px;
+  color: var(--subtle);
+  margin-right: var(--space-1);
+}
+
+.deep-area {
+  margin: var(--space-2) 0;
+}
+
+.deep-area summary,
+.deep-corrigir summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.deep-resumo {
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.reuniao-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.conversa-reuniao {
+  min-height: 0;
+}
+
+.reuniao-painel {
+  position: sticky;
+  top: var(--space-2);
+  max-height: calc(100dvh - var(--space-4));
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  padding-left: var(--space-3);
+}
+
+.reuniao-painel h2 {
+  font-size: 18px;
+  margin: 0 0 var(--space-2);
+}
+
+.deep-perguntas {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-2);
+}
+
+.deep-pergunta {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.deep-pergunta-respondida .deep-pergunta-texto {
+  color: var(--subtle);
+}
+
+.deep-pergunta-texto,
+.deep-valor {
+  margin: 0;
+}
+
+.deep-pergunta .selo {
+  margin-right: var(--space-1);
+}
+
+.deep-trecho {
+  display: block;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.deep-corrigir {
+  margin-top: var(--space-1);
+}
+
+.deep-opcoes {
+  border: 1px solid var(--line);
+  padding: var(--space-1) var(--space-2);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.deep-check {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: 14px;
+}
+
+.deep-aviso {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #2f6b3a;
+}
+
+.deep-fala-bloco {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 900px) {
+  .reuniao-grade {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .reuniao-painel {
+    position: static;
+    max-height: none;
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-3);
+  }
+}
