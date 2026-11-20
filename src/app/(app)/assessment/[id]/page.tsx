@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
 import { MAX_TEXTO_CLIENTE } from "@/lib/assessment/agente/conversa";
 import { agenteConfigurado } from "@/lib/env";
-import { eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
+import { aprofundamentoParaProgresso, eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { ConversaSelf } from "./conversa-self";
 import { Formulario06 } from "./formulario-06";
@@ -77,6 +77,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
   if (eFormato06(linha.respostas)) {
     const q06 = montarQuestionario06();
     const inicial06 = (linha.respostas ?? {}) as Rascunho06;
+    const aprofundamento06 = aprofundamentoParaProgresso(inicial06);
     return (
       <main>
         <p className="eyebrow">
@@ -89,6 +90,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
             assessmentId={id}
             questionario={q06}
             inicial={inicial06}
+            aprofundamentoInicial={aprofundamento06}
             inicialEmpresa={empresa}
             versaoInicial={linha.atualizado_em}
             maxTexto={MAX_TEXTO_CLIENTE}
@@ -103,7 +105,14 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
                 <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
               </p>
             )}
-            <Formulario06 assessmentId={id} questionario={q06} inicial={inicial06} inicialEmpresa={empresa} versaoInicial={linha.atualizado_em} />
+            <Formulario06
+              assessmentId={id}
+              questionario={q06}
+              inicial={inicial06}
+              inicialEmpresa={empresa}
+              versaoInicial={linha.atualizado_em}
+              aprofundamentoInicial={aprofundamento06}
+            />
           </>
         )}
       </main>

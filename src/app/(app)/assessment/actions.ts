@@ -28,7 +28,14 @@ import { cnpjValido } from "@/lib/validation/cnpj";
 import { agenteConfigurado, llmEnv } from "@/lib/env";
 import { agente06 } from "@/lib/assessment/agente/v06";
 import { calcularSelf06 } from "@/lib/assessment/v06/motor";
-import { eFormato06, faltasParaConcluir06, montarQuestionario06, normalizarRascunho06, pacote06 } from "@/lib/assessment/v06/self";
+import {
+  aprofundamentoParaProgresso,
+  eFormato06,
+  faltasParaConcluir06,
+  montarQuestionario06,
+  normalizarRascunho06,
+  pacote06,
+} from "@/lib/assessment/v06/self";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import type { Respostas06 } from "@/lib/assessment/v06/tipos";
 import { descarteRascunhoSchema, mensagemErroBanco } from "@/lib/validation/admin";
@@ -106,6 +113,8 @@ export interface SalvarResultado {
   salvoEm?: string;
   /** Outra pessoa salvou antes: a tela pede para recarregar em vez de sobrescrever. */
   conflito?: boolean;
+  /** 0.6: perguntas de aprofundamento escolhidas pelo motor (null: retrato incompleto), para o indicador de progresso. */
+  aprofundamento?: string[] | null;
 }
 
 /**
@@ -130,7 +139,8 @@ export async function salvarRascunho(
   if (linha.status !== "rascunho") return { ok: false, erro: "Este assessment já foi concluído." };
 
   // 0.6: rascunho novo ou marcado segue o roteiro curto; os antigos seguem no 0.5.
-  const norm = eFormato06(linha.respostas)
+  const formato06 = eFormato06(linha.respostas);
+  const norm = formato06
     ? normalizarRascunho06(entrada?.respostas ?? {}, linha.setor)
     : normalizarRascunho(entrada?.respostas ?? {}, linha.setor);
   if (!norm.ok) return { ok: false, erro: norm.erro };
@@ -152,7 +162,11 @@ export async function salvarRascunho(
     log("warn", "self.salvar.recusado", { trace, code: error?.code ?? "sem_linha" });
     return { ok: false, erro: `Não foi possível salvar agora. (código ${trace})` };
   }
-  return { ok: true, salvoEm: data.atualizado_em };
+  return {
+    ok: true,
+    salvoEm: data.atualizado_em,
+    ...(formato06 ? { aprofundamento: aprofundamentoParaProgresso(norm.respostas as Rascunho06) } : {}),
+  };
 }
 
 /**
@@ -248,6 +262,8 @@ export interface RespostaConversa {
   empresa?: EmpresaSelf;
   /** Versão do rascunho depois do turno (atualizado_em). */
   versao?: string;
+  /** 0.6: perguntas de aprofundamento escolhidas pelo motor (null: retrato incompleto). */
+  aprofundamento?: string[] | null;
 }
 
 const entradaSchema = z.discriminatedUnion("tipo", [
@@ -345,10 +361,11 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
   const historico = reserva.historico as Anthropic.Beta.BetaMessageParam[];
   const entradaAgente = textoParaAgente(e.data, empresa);
   const chamar = chamarAnthropic(llmEnv().ANTHROPIC_API_KEY);
+  const formato06 = eFormato06(linha.respostas);
   let turno;
   try {
     // 0.6: agente guiado pela skill do Self (roteiro curto); 0.5 para rascunhos antigos.
-    turno = eFormato06(linha.respostas)
+    turno = formato06
       ? await executarTurno({
           agente: agente06(montarQuestionario06()),
           historico,
@@ -421,5 +438,6 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
     respostas: turno.estado.respostas,
     empresa: turno.estado.empresa,
     versao,
+    ...(formato06 ? { aprofundamento: aprofundamentoParaProgresso(turno.estado.respostas as Rascunho06) } : {}),
   };
 }

@@ -13,7 +13,8 @@ import {
 } from "@/lib/assessment/agente/digitacao";
 import type { CampoSeguro } from "@/lib/assessment/agente/ferramentas";
 import type { EmpresaSelf, Questionario, RespostasSelf } from "@/lib/assessment/questionario";
-import type { Questionario06, Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { progresso06, type Questionario06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { IndicadorProgresso06 } from "./progresso-06";
 import { Resumo06 } from "./resumo-06";
 import { cnpjValido, formatarCnpj } from "@/lib/validation/cnpj";
 import { concluirSelf, conversarSelf, lerConversa, salvarRascunho, type EntradaConversa } from "../actions";
@@ -26,7 +27,15 @@ import { concluirSelf, conversarSelf, lerConversa, salvarRascunho, type EntradaC
  */
 
 /** 0.6 (roteiro curto da skill do Self) ou 0.5 (rascunhos antigos): muda só o resumo. */
-type Formato = { formato: "0.5"; questionario: Questionario; inicial: RespostasSelf } | { formato: "0.6"; questionario: Questionario06; inicial: Rascunho06 };
+type Formato =
+  | { formato: "0.5"; questionario: Questionario; inicial: RespostasSelf }
+  | {
+      formato: "0.6";
+      questionario: Questionario06;
+      inicial: Rascunho06;
+      /** Perguntas de aprofundamento escolhidas pelo motor ao abrir (null: retrato incompleto). */
+      aprofundamentoInicial: string[] | null;
+    };
 
 type Props = Formato & {
   assessmentId: string;
@@ -49,6 +58,7 @@ export function ConversaSelf(props: Props) {
   const [empresa, setEmpresa] = useState<EmpresaSelf>(inicialEmpresa);
   const [campoSeguro, setCampoSeguro] = useState<CampoSeguro | null>(null);
   const [mostrarResumo, setMostrarResumo] = useState(false);
+  const [aprofundamento, setAprofundamento] = useState<string[] | null>(props.formato === "0.6" ? props.aprofundamentoInicial : null);
   const entrada = useRef<HTMLTextAreaElement>(null);
   const iniciou = useRef(false);
   const versao = useRef(versaoInicial);
@@ -101,6 +111,7 @@ export function ConversaSelf(props: Props) {
       if (r.respostas) setRespostas(r.respostas);
       if (r.empresa) setEmpresa(r.empresa);
       if (r.versao) versao.current = r.versao;
+      if (r.aprofundamento !== undefined) setAprofundamento(r.aprofundamento);
       for (const s of r.sinais ?? []) {
         if (s.tipo === "campo_seguro") setCampoSeguro(s.campo);
         if (s.tipo === "resumo") setMostrarResumo(true);
@@ -159,6 +170,9 @@ export function ConversaSelf(props: Props) {
 
   return (
     <section className="conversa" aria-label="Conversa do Self assessment">
+      {props.formato === "0.6" && (
+        <IndicadorProgresso06 p={progresso06(props.questionario, respostas as Rascunho06, empresa, aprofundamento)} />
+      )}
       <div className="conversa-falas" role="log" aria-live="polite" aria-relevant="additions">
         {falas.slice(0, exibidas + 1).map((f, i) => {
           const emDigitacao = i === exibidas;
@@ -195,6 +209,7 @@ export function ConversaSelf(props: Props) {
               const s = await salvarRascunho(assessmentId, { respostas, empresa: novaEmpresa }, versao.current);
               if (!s.ok) return s.erro ?? "Não foi possível salvar.";
               if (s.salvoEm) versao.current = s.salvoEm;
+              if (s.aprofundamento !== undefined) setAprofundamento(s.aprofundamento);
               setEmpresa(novaEmpresa);
               const campo = campoSeguro;
               setCampoSeguro(null);

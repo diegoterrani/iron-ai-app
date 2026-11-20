@@ -28,6 +28,12 @@ const securityHeaders = [
  */
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // react-pdf carrega yoga (wasm) e fontkit em tempo de execução: fica fora do bundle.
+  serverExternalPackages: ["@react-pdf/renderer"],
+  // As fontes do PDF são lidas do disco pela rota; precisam ir junto na função da Vercel.
+  outputFileTracingIncludes: {
+    "/assessment/[id]/resultado/pdf": ["./src/fonts/pdf/**"],
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
