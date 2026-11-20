@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { Segmentador, type Bloco, type Canal } from "./segmentador";
-import { conferirToken } from "./token";
+import { ARQUIVOS_TESTE, VALIDADE_TOKEN_TESTE_S, cabecalhosTeste, codigoConfere, modoTesteLigado } from "./teste";
+import { assinarToken, conferirToken } from "./token";
 
 /**
  * Escuta de reuniões da IRON AI (Fase 1: prova de áudio).
@@ -21,6 +22,10 @@ export interface Env {
   ORIGENS_PERMITIDAS: string;
   /** Segredo do token curto (wrangler secret). */
   ESCUTA_TOKEN_SECRET: string;
+  /** Arquivos da página de teste (escuta/teste). Só são servidos no modo de teste. */
+  ASSETS: Fetcher;
+  /** Código de acesso da página de teste. Cadastrado = modo de teste ligado. */
+  TESTE_CODIGO?: string;
 }
 
 /** Subprotocolo do WebSocket. O token vai como segundo subprotocolo, fora da URL (que cai em logs). */
@@ -49,9 +54,53 @@ const PARAMETROS_STT = {
   endpointing: "300",
 };
 
-function origemPermitida(env: Env, origem: string | null): boolean {
+function origemPermitida(env: Env, origem: string | null, origemDoWorker: string): boolean {
   if (!origem) return false;
+  // No modo de teste, a página servida pelo próprio Worker também pode abrir a escuta.
+  if (modoTesteLigado(env.TESTE_CODIGO) && origem === origemDoWorker) return true;
   return env.ORIGENS_PERMITIDAS.split(",").map((o) => o.trim()).filter(Boolean).includes(origem);
+}
+
+/** Página de teste e emissão do token de teste. Tudo responde 404 com o modo desligado. */
+async function atenderTeste(request: Request, env: Env, url: URL): Promise<Response> {
+  const naoEncontrado = new Response("Não encontrado", { status: 404 });
+  if (!modoTesteLigado(env.TESTE_CODIGO)) return naoEncontrado;
+  const cabecalhos = cabecalhosTeste(url.host);
+
+  if (url.pathname === "/teste") return Response.redirect(`${url.origin}/teste/`, 308);
+
+  if (url.pathname === "/teste/token") {
+    if (request.method !== "POST") return new Response("Método não permitido", { status: 405, headers: cabecalhos });
+    // Só a própria página pede token: outro site não consegue usar o código de alguém.
+    if (request.headers.get("Origin") !== url.origin) return new Response("Origem não autorizada", { status: 403, headers: cabecalhos });
+    let codigo: unknown;
+    try {
+      const corpo = await request.text();
+      if (corpo.length > 1024) throw new Error("grande");
+      codigo = (JSON.parse(corpo) as { codigo?: unknown }).codigo;
+    } catch {
+      return new Response("Pedido inválido", { status: 400, headers: cabecalhos });
+    }
+    if (typeof codigo !== "string" || !(await codigoConfere(codigo, env.TESTE_CODIGO))) {
+      log("teste.codigo_recusado");
+      return new Response("Código incorreto", { status: 401, headers: cabecalhos });
+    }
+    // Reunião fictícia nova a cada token: o teste nunca cai numa reunião real.
+    const token = await assinarToken(
+      { sessao: crypto.randomUUID(), sub: crypto.randomUUID(), exp: Math.floor(Date.now() / 1000) + VALIDADE_TOKEN_TESTE_S },
+      env.ESCUTA_TOKEN_SECRET,
+    );
+    log("teste.token_emitido");
+    return Response.json({ token }, { headers: cabecalhos });
+  }
+
+  const arquivo = ARQUIVOS_TESTE[url.pathname];
+  if (!arquivo || request.method !== "GET") return naoEncontrado;
+  const resposta = await env.ASSETS.fetch(new Request(new URL(arquivo, url.origin)));
+  if (!resposta.ok) return naoEncontrado;
+  const saida = new Response(resposta.body, resposta);
+  for (const [nome, valor] of Object.entries(cabecalhos)) saida.headers.set(nome, valor);
+  return saida;
 }
 
 function log(evento: string, dados: Record<string, string | number | boolean> = {}): void {
@@ -62,17 +111,22 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/saude") return Response.json({ ok: true });
+    // Falha fechado: sem segredo configurado, ninguém entra nem recebe token.
+    const configurado = !!env.ESCUTA_TOKEN_SECRET && env.ESCUTA_TOKEN_SECRET.length >= 32;
+    if (url.pathname === "/teste" || url.pathname.startsWith("/teste/")) {
+      if (!configurado) return new Response("Não encontrado", { status: 404 });
+      return atenderTeste(request, env, url);
+    }
     if (url.pathname !== "/escuta") return new Response("Não encontrado", { status: 404 });
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("Esperado WebSocket", { status: 426 });
     }
-    // Falha fechado: sem segredo configurado, ninguém entra.
-    if (!env.ESCUTA_TOKEN_SECRET || env.ESCUTA_TOKEN_SECRET.length < 32) {
+    if (!configurado) {
       log("escuta.sem_config");
       return new Response("Indisponível", { status: 503 });
     }
     // Navegador sempre manda Origin em WebSocket; outro site abrindo a conexão é barrado aqui.
-    if (!origemPermitida(env, request.headers.get("Origin"))) {
+    if (!origemPermitida(env, request.headers.get("Origin"), url.origin)) {
       log("escuta.origem_recusada");
       return new Response("Origem não autorizada", { status: 403 });
     }

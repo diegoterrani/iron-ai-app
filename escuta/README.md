@@ -6,7 +6,8 @@ e devolve a transcrição cortada em blocos. Na Fase 3, cada bloco vira uma fala
 automática para o agente do Deep.
 
 **Fase 1 (este pacote): prova de áudio.** Nada aqui toca o app nem a produção.
-A página de teste roda só na máquina do analista.
+A página de teste roda publicada no próprio Worker (modo de teste) ou na
+máquina do analista.
 
 ## Como funciona
 
@@ -33,14 +34,54 @@ Navegador ◀── parcial / final / bloco ────────────
 - Áudio e transcrição saem do Brasil (Cloudflare). O aviso de consentimento e
   o contrato com o cliente precisam cobrir isso antes de uma reunião real.
 
-## Rodar a prova de áudio
+## Prova de áudio publicada (sem instalar nada)
+
+O Worker serve a página de teste em `/teste/` enquanto o segredo
+`TESTE_CODIGO` existir. Apagar o segredo desliga a página e a emissão de
+token de teste (tudo volta a responder 404), sem novo deploy.
+
+Enquanto ligado, quem souber o código consegue transcrever áudio na conta.
+Use um código longo e aleatório e apague o segredo ao terminar.
+
+1. **Publicar**
+   - Comando: conectar o repositório ao Worker `iron-ai-escuta` no painel da
+     Cloudflare (Workers Builds), com diretório raiz `escuta` e comando de
+     deploy `npx wrangler deploy`
+   - Alvo: painel da Cloudflare, conta da IRON
+   - Validação: `https://<endereço do Worker>/saude` responde `{"ok":true}`
+
+2. **Segredo do token**
+   - Comando: cadastrar o segredo `ESCUTA_TOKEN_SECRET` (32+ caracteres aleatórios)
+   - Alvo: Worker `iron-ai-escuta`, Settings, Variables and Secrets
+   - Validação: `/teste/` ainda responde 404 (o modo de teste segue desligado)
+
+3. **Ligar o modo de teste**
+   - Comando: cadastrar o segredo `TESTE_CODIGO` (16+ caracteres aleatórios)
+   - Alvo: o mesmo Worker
+   - Validação: `/teste/` abre a página; código errado mostra "código de acesso incorreto"
+
+4. **Testar**
+   - Comando: abrir `/teste/` no Chrome ou Edge, digitar o código e seguir os
+     passos 5 e 6 da seção abaixo
+   - Alvo: navegador do analista
+   - Validação: transcrição em "Ao vivo" e blocos fechando após 6 s de silêncio
+
+5. **Desligar**
+   - Comando: apagar o segredo `TESTE_CODIGO`
+   - Alvo: o mesmo Worker
+   - Validação: `/teste/` responde 404
+
+O Workers AI tem cota diária no plano gratuito; para reuniões de mais de
+alguns minutos, a conta precisa do plano pago de Workers.
+
+## Prova de áudio local
 
 Cada passo: comando, onde rodar e como conferir.
 
 1. **Dependências**
    - Comando: `npm ci`
    - Alvo: pasta `escuta/`, na máquina do analista
-   - Validação: `npm run check` termina com `12 passed`
+   - Validação: `npm run check` termina com `16 passed`
 
 2. **Segredo local**
    - Comando: criar `escuta/.dev.vars` com `ESCUTA_TOKEN_SECRET=<32+ caracteres aleatórios>`
@@ -56,7 +97,7 @@ Cada passo: comando, onde rodar e como conferir.
    - Comando: `ESCUTA_TOKEN_SECRET=<o mesmo segredo> npm run teste:pagina`
      (PowerShell: `$env:ESCUTA_TOKEN_SECRET="<segredo>"; npm run teste:pagina`)
    - Alvo: outro terminal, pasta `escuta/`
-   - Validação: `http://localhost:8788` abre no Chrome ou Edge
+   - Validação: `http://localhost:8788` abre no Chrome ou Edge (o campo de código pode ficar vazio)
 
 5. **Teste presencial**
    - Comando: botão "Ativar microfone (sala)" e conversar por 2 minutos
@@ -80,4 +121,5 @@ Cada passo: comando, onde rodar e como conferir.
 
 O caminho até o Nova-3 (`env.AI.run(..., { websocket: true })`) segue a
 documentação da Cloudflare, mas não foi executado: precisa de credencial da
-conta. Autenticação, origem, token e segmentação foram testados localmente.
+conta. Autenticação, origem, token, modo de teste e segmentação foram
+testados localmente.

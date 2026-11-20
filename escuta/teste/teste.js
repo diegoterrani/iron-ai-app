@@ -3,6 +3,9 @@
 const PROTOCOLO = "escuta.v1";
 const CANAL = { microfone: 0, aba: 1 };
 
+// Servidor local (porta 8788) fala com o `wrangler dev`; publicado, a página fala com o próprio Worker.
+const ENDERECO_WORKER = location.port === "8788" ? "ws://localhost:8787/escuta" : `wss://${location.host}/escuta`;
+
 const el = (id) => document.getElementById(id);
 const estado = (texto) => (el("estado").textContent = texto);
 
@@ -13,12 +16,18 @@ const parciais = { microfone: "", aba: "" };
 
 async function conectar() {
   if (ws && ws.readyState <= WebSocket.OPEN) return ws;
-  // O servidor local de teste emite o token; na Fase 2 quem emite é o app, depois de conferir sessão e MFA.
-  const resposta = await fetch("/token");
+  // Aqui o token sai em troca do código de acesso; na Fase 2 quem emite é o app, depois de conferir sessão e MFA.
+  // Caminho relativo: /teste/token no Worker, /token no servidor local.
+  const resposta = await fetch("token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ codigo: el("codigo").value }),
+  });
+  if (resposta.status === 401) throw new Error("código de acesso incorreto");
   if (!resposta.ok) throw new Error("não foi possível obter o token de teste");
   const { token } = await resposta.json();
 
-  const conexao = new WebSocket(el("worker").value, [PROTOCOLO, token]);
+  const conexao = new WebSocket(ENDERECO_WORKER, [PROTOCOLO, token]);
   conexao.binaryType = "arraybuffer";
   conexao.addEventListener("message", (e) => receber(JSON.parse(e.data)));
   conexao.addEventListener("close", (e) => estado(`Conexão fechada (${e.code}).`));
