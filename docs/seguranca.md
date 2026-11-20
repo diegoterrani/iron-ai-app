@@ -156,6 +156,12 @@ O analista da IRON conduz reuniões com a empresa; os participantes não usam a 
 | CPF, CNPJ, cartão ou conta digitados chegarem ao modelo ou à transcrição | `mascararDadosSensiveis` troca por marcador antes de montar a mensagem; a fala gravada já vai mascarada | `deep-agente.test.ts` |
 | Modelo ler o banco ou outras reuniões | O agente recebe só o estado resumido e os resumos das reuniões encerradas; grava só pelas ferramentas, que chamam as funções `deep_*` com o analista da sessão | `deep-agente.test.ts` |
 | Deep aberto com um roteiro e conduzido com outro | `turnoDaReuniao` recusa quando `pacote_versao` do Deep difere do roteiro carregado | `deep-agente.test.ts` |
+| Quem não é analista abrir as telas `/deep` | Layout devolve 404 para quem não tem papel super-admin ou Equipe IRON; as leituras passam pelo RLS (`deep.conduzir` na empresa) e as ações pelas funções `deep_*`, que conferem permissão e MFA de novo | `auth.spec.ts` (sem login) e `deep_test.sql` |
+| Analista se passar pelo app nas mensagens ao agente | A Server Action tira o prefixo `[Aviso do app]` do texto digitado; avisos (abertura e pedido de encerramento) são montados só no servidor | `deep-tela.test.ts` |
+| Reabrir a tela gastar turno | A abertura automática da reunião só chama o agente quando a reunião não tem falas | revisão de código |
+| Falas da reunião no log | O log do turno leva ids, tamanho do texto, contagem de dados mascarados, itens gravados e tokens; nunca o texto | revisão de código |
+| Correção manual gravar valor fora do roteiro | `corrigirResposta` converte e valida com `validarValor` (mesmas regras do agente) antes de chamar `deep_registrar_respostas`; a versão anterior fica no histórico | `deep-tela.test.ts` |
+| Transcrição renderizada como HTML | Falas e resumo exibidos como texto puro pelo React (sem `dangerouslySetInnerHTML`) | revisão de código |
 
 ## Dependências e auditoria
 
