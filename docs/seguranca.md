@@ -135,6 +135,24 @@ O motor é determinístico (sem LLM), roda no servidor e tem a mesma saída do m
 | Tela e servidor com áreas diferentes na pergunta 6 | Mesma função (`ordenarAreasQ6`) no motor e na tela, comparada nos 200 casos-ouro | `assessment-questionario.test.ts` |
 | Respostas no log da Vercel | Actions registram só evento, código de rastreio e versão do motor | revisão de código |
 
+## Deep assessment no app (20/11/2026, banco)
+
+O analista da IRON conduz reuniões com a empresa; os participantes não usam a tela. Migração `20261120120000_deep_assessment.sql`.
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Cliente ou staff de outra empresa conduzir ou ler a condução | Permissão `deep.conduzir` (super-admin e Equipe IRON, ambos com MFA; Equipe IRON só nas empresas de `staff_assignments`), conferida no banco em cada função e em cada política de RLS | `deep_test.sql` |
+| Navegador gravar falas, respostas ou relatórios | Tabelas só com `select` para `authenticated`; toda escrita por funções `deep_*` executáveis só por `service_role`, que recebem o analista e o nível de MFA e conferem a permissão de novo | `deep_test.sql` |
+| Reescrever o que foi dito numa reunião | `deep_mensagens` só aceita inserção (gatilho bloqueia update e delete, inclusive do dono das tabelas) | `deep_test.sql` |
+| Perder a resposta anterior ao corrigir | Respostas e evidências versionadas: a nova substitui a vigente, a antiga fica como `substituida`; o gatilho só permite essa troca | `deep_test.sql` |
+| Alterar relatório depois de gerado | Relatório só pode ser publicado uma vez; nova versão gera outra linha | `deep_test.sql` |
+| Cliente ver rascunho de relatório | ADM-Cliente (`deep.relatorio_ver`) lê só relatórios publicados da própria empresa; RW e RO não leem | `deep_test.sql` |
+| Custo do LLM sem teto | 120 turnos por reunião e 3000 por Deep, reservados no banco antes de chamar o LLM | `deep_test.sql` |
+| Dado pessoal de participante | Participante só com nome e cargo (outras chaves recusadas) | `deep_test.sql` |
+| Respostas no log | Auditoria registra quem, quando e quais perguntas, sem os valores | `deep_test.sql` |
+| Guardar transcrição além do combinado | `deep_apagar_transcricoes_expiradas` apaga falas e trechos literais 12 meses após o fim do contrato (ou da conclusão/cancelamento, sem contrato); respostas, resumos e relatórios ficam. Agendar no pg_cron diário junto com `conversas_apagar_expiradas` | `deep_test.sql` |
+| Exclusão da conta do analista travar nos registros imutáveis | Vínculos de pessoa viram nulo (`on delete set null`) e os gatilhos aceitam só essa mudança | `deep_test.sql` |
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
