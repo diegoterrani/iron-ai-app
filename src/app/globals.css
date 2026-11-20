@@ -844,6 +844,36 @@ a {
   margin-left: var(--space-1);
 }
 
+/* Self 0.6: selo de certeza da base de cada conta. */
+.selo-medido {
+  border-color: #2f6b3a;
+  color: #2f6b3a;
+}
+
+.selo-estimado {
+  border-color: var(--subtle);
+  color: var(--muted);
+}
+
+.selo-hipotese {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* No celular a tabela rola de lado em vez de espremer as colunas. */
+.tabela-06 {
+  min-width: 640px;
+}
+
+.tabela-06 .num {
+  white-space: nowrap;
+}
+
+.field-hint.bloco {
+  display: block;
+  margin-top: 2px;
+}
+
 @media print {
   .app-header,
   .nao-imprimir {
