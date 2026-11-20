@@ -1,0 +1,165 @@
+{
+  "pacote": "food_service",
+  "versao": "0.3",
+  "data": "2026-11-20",
+  "status": "rascunho para o piloto; perguntas a validar com o especialista em food service antes da semana 0",
+  "convencoes": {
+    "ids": "Identificador em minúsculas: área, ponto, pilar e número (ex.: b.ev5). Nunca reaproveitar um id com outro sentido; pergunta retirada sai do roteiro e o id não volta.",
+    "nucleo": "Perguntas de núcleo precisam de resposta (ou de 'não se aplica' com motivo) para a área fechar. Aprofundamento é feito se houver tempo ou se o gatilho mandar.",
+    "valores": "O agente não calcula nem estima: registra o que foi dito. Número dito de cabeça tem confiança média ou baixa; número lido de relatório tem confiança alta.",
+    "dados_pessoais": "Nenhuma pergunta pede CPF, salário de pessoa identificada, dado de saúde ou de cliente final."
+  },
+  "areas": {
+    "A": { "nome": "Cozinha e supply", "pilares": ["cozinha", "supply"] },
+    "B": { "nome": "Salão e eventos", "pilares": ["salao", "eventos"] },
+    "C": { "nome": "Pessoas e financeiro", "pilares": ["pessoas", "financeiro"] },
+    "transversal": { "nome": "Diretoria, toque humano e medição", "pilares": ["diretoria", "toque_humano", "medicao"] }
+  },
+  "pilares": {
+    "cozinha": {
+      "nome": "Cozinha e inventário",
+      "area": "A",
+      "pergunta_central": "Quanto insumo vira sobra, quebra ou consumo fora da ficha?",
+      "fontes": ["F05", "F06", "F07", "F14"],
+      "fica_com_gente": "Receita, preparo, decisão de produzir"
+    },
+    "supply": {
+      "nome": "Supply chain",
+      "area": "A",
+      "pergunta_central": "Quanto se paga a mais por preço, cotação, falta e frete?",
+      "fontes": ["F04", "F13", "F20"],
+      "fica_com_gente": "Escolha do insumo e do fornecedor"
+    },
+    "salao": {
+      "nome": "Salão e atendimento",
+      "area": "B",
+      "pergunta_central": "Quanta venda se perde entre o pedido e a mesa?",
+      "fontes": ["F01", "F03", "F09"],
+      "fica_com_gente": "Receber, servir, alérgenos, reclamação séria"
+    },
+    "eventos": {
+      "nome": "Eventos",
+      "area": "B",
+      "pergunta_central": "Quantos orçamentos viram contrato, em quanto tempo, e com que margem real?",
+      "fontes": ["F12", "F13", "F16"],
+      "fica_com_gente": "Cardápio do evento, fechamento com o cliente"
+    },
+    "pessoas": {
+      "nome": "Pessoas e RH",
+      "area": "C",
+      "pergunta_central": "Quanto custam rotatividade, hora extra e escala fora da demanda?",
+      "fontes": ["F08", "F15", "F16"],
+      "fica_com_gente": "Entrevista final, cultura da brigada"
+    },
+    "financeiro": {
+      "nome": "Financeiro",
+      "area": "C",
+      "pergunta_central": "Quanto custa fechar tarde, pagar atrasado e conciliar à mão?",
+      "fontes": ["F11", "F17", "F18", "F19"],
+      "fica_com_gente": "Aprovar pagamento, negociar com bancos"
+    },
+    "diretoria": {
+      "nome": "Diretoria",
+      "area": "transversal",
+      "pergunta_central": "Onde a venda não vira lucro e quem é dono da mudança?",
+      "fontes": ["F11"],
+      "fica_com_gente": "Estratégia, marca, decisão de investir"
+    },
+    "toque_humano": {
+      "nome": "Toque humano",
+      "area": "transversal",
+      "pergunta_central": "O que não se toca e quanto custa mudar?",
+      "fontes": [],
+      "fica_com_gente": "Tudo o que for declarado inegociável"
+    },
+    "medicao": {
+      "nome": "Contrato de medição",
+      "area": "transversal",
+      "pergunta_central": "Como provar o ganho no DRE mês a mês?",
+      "fontes": ["F11", "F19"],
+      "fica_com_gente": "Assinatura mensal do financeiro"
+    }
+  },
+  "fontes_novas": {
+    "F12": { "nome": "Pedidos de orçamento de evento: entrada, canal, proposta, valor, status", "sistema_tipico": "Caixas de e-mail de eventos, planilha", "se_faltar": "Criar fonte: triagem automática dos e-mails (é o próprio quick win de B)", "criar_fonte": true },
+    "F13": { "nome": "Custo orçado × realizado por evento (comida, equipe, frete, locação)", "sistema_tipico": "Planilha de evento, contas a pagar", "se_faltar": "Montar com 6 meses de eventos, à mão, na semana 3" },
+    "F14": { "nome": "Refeições servidas e resto-ingesta no institucional", "sistema_tipico": "Nutricionista da unidade", "se_faltar": "Pesagem por 2 semanas na unidade piloto" },
+    "F15": { "nome": "Admissões e desligamentos por função, unidade e motivo", "sistema_tipico": "Folha, eSocial", "se_faltar": "Extrair do eSocial; não precisa de IA" },
+    "F16": { "nome": "Freelancers e terceiros por evento, com custo", "sistema_tipico": "Contas a pagar", "se_faltar": "Cruzar pagamentos com a agenda de eventos" },
+    "F17": { "nome": "Extratos bancários e recebíveis de cartão", "sistema_tipico": "Bancos, adquirentes", "se_faltar": "Exportar OFX e relatórios das adquirentes" },
+    "F18": { "nome": "Contas a pagar com vencimento e data de pagamento", "sistema_tipico": "ERP financeiro", "se_faltar": "Montar com 6 meses do financeiro" },
+    "F19": { "nome": "Fechamento mensal por empresa do grupo e dia em que fechou", "sistema_tipico": "Contabilidade", "se_faltar": "Pedir os 12 últimos fechamentos" },
+    "F20": { "nome": "Recebimento conferido contra pedido de compra", "sistema_tipico": "ERP ou planilha de recebimento", "se_faltar": "Amostra de 4 semanas na cozinha de produção" }
+  },
+  "gate": {
+    "_sobre": "O que cada área precisa para fechar (seção Cronograma e gates do doc do Deep). Cada item vira um critério de evidência 'gate.<area>.<item>'.",
+    "itens": {
+      "linha_base": "Linha de base assinada pelo financeiro: indicador, valor, período de 12 meses, fonte e regra de cálculo",
+      "achados": "Achados com número, fonte e confiança",
+      "quick_wins": "Quick wins especificados: o que muda, dono, custo, risco e como o ganho será medido",
+      "inegociaveis": "Inegociáveis da área confirmados e alavancas excluídas por eles registradas",
+      "regua": "Notas da régua de evidência da área, com a prova de cada critério"
+    }
+  },
+  "perguntas": [
+    { "id": "t.di1", "area": "transversal", "pilar": "diretoria", "nucleo": true, "tipo": "texto", "texto": "Quais três números do DRE mais incomodam hoje?", "fontes": ["F11"] },
+    { "id": "t.di2", "area": "transversal", "pilar": "diretoria", "nucleo": true, "tipo": "texto", "texto": "Em que unidades ou linhas de negócio a venda não vira lucro, e por quê, na sua leitura?" },
+    { "id": "t.di3", "area": "transversal", "pilar": "diretoria", "nucleo": true, "tipo": "multipla", "texto": "Que tipos de operação entram no escopo do Deep?", "opcoes": ["restaurantes", "institucional", "eventos", "cozinha_central"] },
+    { "id": "t.di4", "area": "transversal", "pilar": "diretoria", "nucleo": true, "tipo": "texto", "texto": "Quem será o dono interno do projeto e quem assina as linhas de base pelo financeiro? (nome e cargo)" },
+    { "id": "t.di5", "area": "transversal", "pilar": "diretoria", "nucleo": false, "tipo": "texto", "texto": "Que decisões hoje são tomadas no feeling e deveriam ter dado?" },
+
+    { "id": "t.th1", "area": "transversal", "pilar": "toque_humano", "nucleo": true, "tipo": "texto", "texto": "O que não pode mudar de jeito nenhum, mesmo que dê ganho (marca, receita, atendimento, equipe)?" },
+    { "id": "t.th2", "area": "transversal", "pilar": "toque_humano", "nucleo": true, "tipo": "opcao", "texto": "Como a equipe costuma reagir a uma mudança de processo ou de sistema?", "opcoes": ["adota_rapido", "adota_com_treino", "resiste_mas_adota", "resiste_e_volta_atras"] },
+    { "id": "t.th3", "area": "transversal", "pilar": "toque_humano", "nucleo": false, "tipo": "texto", "texto": "Qual foi a última mudança grande que não pegou, e por quê?" },
+
+    { "id": "t.me1", "area": "transversal", "pilar": "medicao", "nucleo": true, "tipo": "sim_nao", "texto": "Existem 12 meses de DRE fechados por empresa do grupo?", "fontes": ["F11", "F19"] },
+    { "id": "t.me2", "area": "transversal", "pilar": "medicao", "nucleo": true, "tipo": "numero", "unidade": "dias", "min": 0, "max": 90, "inteiro": true, "texto": "Em quantos dias depois do fim do mês o DRE fica fechado?", "fontes": ["F19"] },
+    { "id": "t.me3", "area": "transversal", "pilar": "medicao", "nucleo": false, "tipo": "texto", "texto": "Que mudanças previstas para os próximos 12 meses (cardápio, contrato, reajuste) devem entrar na lista de exceções?" },
+
+    { "id": "a.cz1", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "texto", "texto": "Como a produção do dia é planejada, e quem decide quanto produzir?" },
+    { "id": "a.cz2", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "opcao", "texto": "O que acontece com a sobra de produção?", "opcoes": ["descartada", "reaproveitada_no_dia", "reaproveitada_depois", "doada", "nao_ha_controle"] },
+    { "id": "a.cz3", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "sim_nao", "texto": "O desperdício é registrado (peso ou quantidade, por item ou turno)?", "fontes": ["F06"] },
+    { "id": "a.cz4", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "percentual", "texto": "Quanto das compras vira sobra ou quebra, em %, pelo que vocês medem ou estimam?", "gatilho": { "pergunta": "a.cz3", "igual": true } },
+    { "id": "a.cz5", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "opcao", "texto": "A ficha técnica dos pratos está atualizada?", "opcoes": ["todos_os_pratos", "maioria", "poucos", "nao_existe"], "fontes": ["F07"] },
+    { "id": "a.cz6", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "opcao", "texto": "Com que frequência se faz inventário?", "opcoes": ["diario", "semanal", "quinzenal", "mensal", "raramente"], "fontes": ["F05"] },
+    { "id": "a.cz7", "area": "A", "pilar": "cozinha", "nucleo": true, "tipo": "numero", "unidade": "refeições/dia", "min": 0, "max": 1000000, "inteiro": true, "texto": "Quantas refeições por dia o institucional serve, somando as unidades?", "fontes": ["F14"], "gatilho": { "pergunta": "t.di3", "contem": "institucional" } },
+    { "id": "a.cz8", "area": "A", "pilar": "cozinha", "nucleo": false, "tipo": "sim_nao", "texto": "O resto-ingesta é pesado no institucional?", "fontes": ["F14"], "gatilho": { "pergunta": "t.di3", "contem": "institucional" } },
+    { "id": "a.cz9", "area": "A", "pilar": "cozinha", "nucleo": false, "tipo": "texto", "texto": "Quantas unidades a cozinha central abastece, e como é feito o pedido delas?", "gatilho": { "pergunta": "t.di3", "contem": "cozinha_central" } },
+
+    { "id": "a.sc1", "area": "A", "pilar": "supply", "nucleo": true, "tipo": "texto", "texto": "Como se decide quanto comprar e de quem?" },
+    { "id": "a.sc2", "area": "A", "pilar": "supply", "nucleo": true, "tipo": "opcao", "texto": "As compras são feitas por um sistema ou por planilha?", "opcoes": ["erp", "planilha", "whatsapp_e_telefone", "misto"], "fontes": ["F04"] },
+    { "id": "a.sc3", "area": "A", "pilar": "supply", "nucleo": true, "tipo": "opcao", "texto": "Com que frequência se faz cotação com mais de um fornecedor?", "opcoes": ["toda_compra", "itens_principais", "raramente", "nunca"] },
+    { "id": "a.sc4", "area": "A", "pilar": "supply", "nucleo": true, "tipo": "sim_nao", "texto": "O recebimento é conferido contra o pedido de compra (quantidade e preço)?", "fontes": ["F20"] },
+    { "id": "a.sc5", "area": "A", "pilar": "supply", "nucleo": true, "tipo": "moeda", "unidade": "R$/mês", "min": 0, "texto": "Quanto se gasta por mês com frete e locação de equipamento?", "fontes": ["F13"] },
+    { "id": "a.sc6", "area": "A", "pilar": "supply", "nucleo": false, "tipo": "texto", "texto": "Como uma alta de preço é percebida e tratada?" },
+    { "id": "a.sc7", "area": "A", "pilar": "supply", "nucleo": false, "tipo": "numero", "unidade": "fornecedores", "min": 0, "max": 5000, "inteiro": true, "texto": "Quantos fornecedores ativos existem?" },
+
+    { "id": "b.sa1", "area": "B", "pilar": "salao", "nucleo": true, "tipo": "opcao", "texto": "Como as reservas chegam?", "opcoes": ["sistema_de_reservas", "whatsapp", "telefone", "misto", "nao_trabalha_com_reserva"], "fontes": ["F03"], "gatilho": { "pergunta": "t.di3", "contem": "restaurantes" } },
+    { "id": "b.sa2", "area": "B", "pilar": "salao", "nucleo": true, "tipo": "percentual", "texto": "Qual o no-show das reservas, em %?", "fontes": ["F03"], "gatilho": { "pergunta": "b.sa1", "diferente": "nao_trabalha_com_reserva" } },
+    { "id": "b.sa3", "area": "B", "pilar": "salao", "nucleo": true, "tipo": "sim_nao", "texto": "Há fila de espera no pico (cliente que desiste ou espera mais de 20 minutos)?", "fontes": ["F01"], "gatilho": { "pergunta": "t.di3", "contem": "restaurantes" } },
+    { "id": "b.sa4", "area": "B", "pilar": "salao", "nucleo": true, "tipo": "percentual", "texto": "Quanto do volume de mensagens e ligações é repetitivo (horário, cardápio, status)?", "fontes": ["F09"] },
+    { "id": "b.sa5", "area": "B", "pilar": "salao", "nucleo": false, "tipo": "numero", "unidade": "horas", "min": 0, "max": 720, "texto": "Quanto tempo leva, em horas, para responder uma reclamação?" },
+
+    { "id": "b.ev1", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "numero", "unidade": "orçamentos/mês", "min": 0, "max": 100000, "inteiro": true, "texto": "Quantos pedidos de orçamento de evento chegam por mês?", "fontes": ["F12"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+    { "id": "b.ev2", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "multipla", "texto": "Por quais canais os pedidos de orçamento chegam?", "opcoes": ["email", "whatsapp", "telefone", "site", "indicacao"], "fontes": ["F12"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+    { "id": "b.ev3", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "numero", "unidade": "dias", "min": 0, "max": 90, "texto": "Quantos dias leva, em média, até a primeira proposta?", "fontes": ["F12"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+    { "id": "b.ev4", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "percentual", "texto": "Quantos orçamentos viram contrato, em %?", "fontes": ["F12"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+    { "id": "b.ev5", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "sim_nao", "texto": "O custo orçado de cada evento é comparado com o realizado depois?", "fontes": ["F13"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+    { "id": "b.ev6", "area": "B", "pilar": "eventos", "nucleo": true, "tipo": "percentual", "texto": "Em média, quanto o custo realizado passa do orçado, em %?", "fontes": ["F13"], "gatilho": { "pergunta": "b.ev5", "igual": true } },
+    { "id": "b.ev7", "area": "B", "pilar": "eventos", "nucleo": false, "tipo": "texto", "texto": "Como freelancers e terceiros são escalados e pagos por evento?", "fontes": ["F16"], "gatilho": { "pergunta": "t.di3", "contem": "eventos" } },
+
+    { "id": "c.rh1", "area": "C", "pilar": "pessoas", "nucleo": true, "tipo": "percentual", "texto": "Qual a rotatividade anual da operação, em %?", "fontes": ["F15"] },
+    { "id": "c.rh2", "area": "C", "pilar": "pessoas", "nucleo": true, "tipo": "texto", "texto": "Em que funções e unidades a rotatividade é maior?", "fontes": ["F15"] },
+    { "id": "c.rh3", "area": "C", "pilar": "pessoas", "nucleo": true, "tipo": "moeda", "unidade": "R$ por contratação", "min": 0, "texto": "Quanto custa contratar e treinar uma pessoa da operação (garçom, cozinheiro)?" },
+    { "id": "c.rh4", "area": "C", "pilar": "pessoas", "nucleo": true, "tipo": "percentual", "texto": "Quanto a hora extra representa sobre a folha da operação, em %?", "fontes": ["F08"] },
+    { "id": "c.rh5", "area": "C", "pilar": "pessoas", "nucleo": true, "tipo": "texto", "texto": "Como a escala é montada e quem decide as mudanças?", "fontes": ["F08"] },
+    { "id": "c.rh6", "area": "C", "pilar": "pessoas", "nucleo": false, "tipo": "moeda", "unidade": "R$/mês", "min": 0, "texto": "Quanto se gasta por mês com freelancers e terceiros?", "fontes": ["F16"] },
+
+    { "id": "c.fi1", "area": "C", "pilar": "financeiro", "nucleo": true, "tipo": "opcao", "texto": "Como é feita a conciliação de banco e cartão?", "opcoes": ["automatica", "parcial", "manual", "nao_e_feita"], "fontes": ["F17"] },
+    { "id": "c.fi2", "area": "C", "pilar": "financeiro", "nucleo": true, "tipo": "moeda", "unidade": "R$/ano", "min": 0, "texto": "Quanto se pagou de juros, multas e tarifas nos últimos 12 meses?", "fontes": ["F17", "F18"] },
+    { "id": "c.fi3", "area": "C", "pilar": "financeiro", "nucleo": true, "tipo": "percentual", "texto": "Quantas contas são pagas depois do vencimento, em %?", "fontes": ["F18"] },
+    { "id": "c.fi4", "area": "C", "pilar": "financeiro", "nucleo": true, "tipo": "numero", "unidade": "pessoas", "min": 0, "max": 1000, "inteiro": true, "texto": "Quantas pessoas trabalham na retaguarda financeira (contas, conciliação, fechamento)?" },
+    { "id": "c.fi5", "area": "C", "pilar": "financeiro", "nucleo": true, "tipo": "texto", "texto": "Quais rateios entram no resultado de cada unidade e empresa?", "fontes": ["F11"] },
+    { "id": "c.fi6", "area": "C", "pilar": "financeiro", "nucleo": false, "tipo": "texto", "texto": "Onde o fechamento do mês trava?", "fontes": ["F19"] }
+  ]
+}
