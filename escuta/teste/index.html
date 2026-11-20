@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Escuta IRON AI: prova de áudio</title>
+    <link rel="stylesheet" href="teste.css" />
+  </head>
+  <body>
+    <h1>Escuta IRON AI: prova de áudio</h1>
+    <p class="aviso">Página só para teste local. Avise todos os presentes antes de ativar: o áudio é enviado para transcrição.</p>
+
+    <label>Endereço do Worker <input id="worker" value="ws://localhost:8787/escuta" size="40" /></label>
+    <div class="botoes">
+      <button id="mic" type="button">Ativar microfone (sala)</button>
+      <button id="aba" type="button">Adicionar áudio de uma aba (reunião online)</button>
+      <button id="parar" type="button" disabled>Parar</button>
+    </div>
+    <p id="estado" role="status">Parado.</p>
+
+    <h2>Ao vivo</h2>
+    <p id="parcial" class="parcial"></p>
+
+    <h2>Blocos fechados (o que iria para o agente)</h2>
+    <ol id="blocos"></ol>
+
+    <script type="module" src="teste.js"></script>
+  </body>
+</html>

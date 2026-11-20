@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "iron-ai-escuta",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  // Transcrição em tempo real (Deepgram Nova-3) roda no Workers AI.
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [{ "name": "REUNIAO", "class_name": "ReuniaoEscuta" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReuniaoEscuta"] }],
+  "vars": {
+    // Origens que podem abrir a escuta, separadas por vírgula. Nunca curinga.
+    // Fase 1 (prova de áudio): só a página de teste local.
+    "ORIGENS_PERMITIDAS": "http://localhost:8788"
+  }
+  // Segredo (nunca aqui): ESCUTA_TOKEN_SECRET, via `wrangler secret put`.
+}

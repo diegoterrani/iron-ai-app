@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Worker da escuta: pacote próprio, com tipos de Workers (ver escuta/README.md).
+    "escuta/**",
   ]),
 ]);
 
