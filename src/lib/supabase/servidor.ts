@@ -159,3 +159,60 @@ export async function deepRegistrarPendencia(
   });
   return { id: data as string | null, error: erroBanco(error) };
 }
+
+/** Abre o Deep da empresa ou devolve o que já está em andamento. */
+export async function deepAbrir(
+  a: AnalistaDeep,
+  d: { orgId: string; setor: string; pacoteVersao: string; selfAssessmentId: string | null },
+) {
+  const { data, error } = await clienteServidor().rpc("deep_abrir", {
+    p_org: d.orgId,
+    p_setor: d.setor,
+    p_pacote_versao: d.pacoteVersao,
+    p_escopo: {},
+    p_self_assessment: d.selfAssessmentId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+  });
+  return { id: data as string | null, error: erroBanco(error) };
+}
+
+/** Começa uma reunião da área (ou devolve a que já está aberta). */
+export async function deepAbrirSessao(
+  deepId: string,
+  a: AnalistaDeep,
+  s: { area: string; titulo: string; participantes: { nome: string; cargo?: string }[] },
+) {
+  const { data, error } = await clienteServidor().rpc("deep_abrir_sessao", {
+    p_deep: deepId,
+    p_area: s.area,
+    p_titulo: s.titulo,
+    p_participantes: s.participantes,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+  });
+  return { id: data as string | null, error: erroBanco(error) };
+}
+
+/** Encerra a reunião com o resumo revisado pelo analista. */
+export async function deepEncerrarSessao(sessaoId: string, a: AnalistaDeep, resumo: string) {
+  const { error } = await clienteServidor().rpc("deep_encerrar_sessao", {
+    p_sessao: sessaoId,
+    p_resumo: resumo,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+  });
+  return { error: erroBanco(error) };
+}
+
+/** Marca uma pendência como recebida ou cancelada. */
+export async function deepFecharPendencia(pendenciaId: string, a: AnalistaDeep, status: "recebida" | "cancelada", nota: string | null) {
+  const { error } = await clienteServidor().rpc("deep_fechar_pendencia", {
+    p_pendencia: pendenciaId,
+    p_status: status,
+    p_nota: nota,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+  });
+  return { error: erroBanco(error) };
+}
