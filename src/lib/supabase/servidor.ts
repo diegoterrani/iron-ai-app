@@ -79,3 +79,83 @@ export async function gravarConversa(assessmentId: string, userId: string, histo
   });
   return { error: error ? { code: error.code, message: error.message } : null };
 }
+
+// ------------------------------------------------------------ Deep assessment
+// Funções deep_* da migração 20261120120000: todas recebem o analista e o MFA
+// da sessão, e o banco confere deep.conduzir de novo.
+
+export interface ErroBanco {
+  code: string;
+  message: string;
+}
+const erroBanco = (error: { code: string; message: string } | null): ErroBanco | null =>
+  error ? { code: error.code, message: error.message } : null;
+
+export interface AnalistaDeep {
+  userId: string;
+  aal2: boolean;
+}
+
+/** Reserva um turno da reunião (tetos no banco) e devolve as falas dela. */
+export async function deepReservarTurno(sessaoId: string, a: AnalistaDeep) {
+  const { data, error } = await clienteServidor().rpc("deep_reservar_turno", { p_sessao: sessaoId, p_user: a.userId, p_aal2: a.aal2 });
+  return { falas: (data ?? []) as unknown[], error: erroBanco(error) };
+}
+
+/** Estado do Deep para o agente: resumos das reuniões, respostas, evidências e pendências. */
+export async function deepEstado(deepId: string, a: AnalistaDeep) {
+  const { data, error } = await clienteServidor().rpc("deep_estado", { p_deep: deepId, p_user: a.userId, p_aal2: a.aal2 });
+  return { estado: data as unknown, error: erroBanco(error) };
+}
+
+/** Acrescenta as falas do turno à reunião e soma o uso de tokens. */
+export async function deepGravarMensagens(sessaoId: string, a: AnalistaDeep, falas: unknown[], uso: UsoConversa) {
+  const { data, error } = await clienteServidor().rpc("deep_gravar_mensagens", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_mensagens: falas,
+    p_tokens_entrada: uso.entrada,
+    p_tokens_saida: uso.saida,
+    p_tokens_cache_leitura: uso.cacheLeitura,
+    p_tokens_cache_escrita: uso.cacheEscrita,
+  });
+  return { ultimaOrdem: data as number | null, error: erroBanco(error) };
+}
+
+export async function deepRegistrarRespostas(sessaoId: string, a: AnalistaDeep, respostas: unknown[]) {
+  const { data, error } = await clienteServidor().rpc("deep_registrar_respostas", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_respostas: respostas,
+  });
+  return { resultado: data as { gravadas: number; inalteradas: number } | null, error: erroBanco(error) };
+}
+
+export async function deepRegistrarEvidencias(sessaoId: string, a: AnalistaDeep, evidencias: unknown[]) {
+  const { data, error } = await clienteServidor().rpc("deep_registrar_evidencias", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_evidencias: evidencias,
+  });
+  return { resultado: data as { gravadas: number; inalteradas: number } | null, error: erroBanco(error) };
+}
+
+export async function deepRegistrarPendencia(
+  sessaoId: string,
+  a: AnalistaDeep,
+  p: { fonte?: string; descricao: string; responsavel?: string; prazo?: string },
+) {
+  const { data, error } = await clienteServidor().rpc("deep_registrar_pendencia", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_fonte: p.fonte ?? null,
+    p_descricao: p.descricao,
+    p_responsavel: p.responsavel ?? null,
+    p_prazo: p.prazo ?? null,
+  });
+  return { id: data as string | null, error: erroBanco(error) };
+}
