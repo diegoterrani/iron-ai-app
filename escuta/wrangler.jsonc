@@ -5,6 +5,9 @@
   "compatibility_date": "2026-11-01",
   // Transcrição em tempo real (Deepgram Nova-3) roda no Workers AI.
   "ai": { "binding": "AI" },
+  // Página de teste (escuta/teste). O Worker roda antes dos arquivos e só os
+  // entrega no modo de teste; sem isso, a pasta ficaria pública.
+  "assets": { "directory": "./teste", "binding": "ASSETS", "run_worker_first": true },
   "durable_objects": {
     "bindings": [{ "name": "REUNIAO", "class_name": "ReuniaoEscuta" }]
   },
@@ -14,5 +17,7 @@
     // Fase 1 (prova de áudio): só a página de teste local.
     "ORIGENS_PERMITIDAS": "http://localhost:8788"
   }
-  // Segredo (nunca aqui): ESCUTA_TOKEN_SECRET, via `wrangler secret put`.
+  // Segredos (nunca aqui), cadastrados no painel ou com `wrangler secret put`:
+  // - ESCUTA_TOKEN_SECRET: assina o token curto (32+ caracteres);
+  // - TESTE_CODIGO: liga a página de teste (16+ caracteres). Apagar desliga.
 }

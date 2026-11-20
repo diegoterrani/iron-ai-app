@@ -34,11 +34,13 @@ function emitirToken() {
 
 createServer(async (req, res) => {
   const caminho = new URL(req.url ?? "/", "http://localhost").pathname;
-  if (req.method !== "GET") {
+  // A página pede o token por POST (igual ao Worker publicado); aqui, local, não há código a conferir.
+  if (req.method !== "GET" && !(req.method === "POST" && caminho === "/token")) {
     res.writeHead(405).end();
     return;
   }
   if (caminho === "/token") {
+    req.resume();
     res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(JSON.stringify({ token: emitirToken() }));
     return;
   }
