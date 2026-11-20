@@ -78,7 +78,7 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
             .filter(Boolean)
             .join(" · ")}
         </p>
-        <Relatorio06 r={r6} />
+        <Relatorio06 r={r6} assessmentId={id} />
         <p className="field-hint">
           Motor {r6.versoes.motor} · modelo {r6.versoes.modelo} · pacote {r6.versoes.pacote} · código {r6.hash_respostas}
         </p>

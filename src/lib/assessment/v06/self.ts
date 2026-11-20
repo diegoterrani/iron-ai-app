@@ -3,7 +3,7 @@ import { z } from "zod";
 import { modelo } from "../self";
 import pacoteJson from "./food_service.json";
 import { aprofundar06 } from "./motor";
-import { pendencias06, type Empresa06, type Questionario06, type Rascunho06 } from "./questionario";
+import { divisaoFecha, pendencias06, type Empresa06, type Questionario06, type Rascunho06 } from "./questionario";
 import { FORMATO_06, NAO_SEI, type Pacote06, type Respostas06 } from "./tipos";
 
 /**
@@ -24,6 +24,7 @@ export function montarQuestionario06(): Questionario06 {
     custoPrincipal: p.custo_principal,
     linhasVermelhas: p.linhas_vermelhas.map(({ id, nome }) => ({ id, nome })),
     dores: p.dores.map(({ id, nome }) => ({ id, nome })),
+    aprofundarMax: p.aprofundar_max,
     perguntas: Object.entries(p.perguntas).map(([id, q]) => ({ id, alavanca: q.alavanca, texto: q.texto, opcoes: q.opcoes.map((o) => o.texto) })),
     opcoes: {
       receita: chaves(modelo.self.faixas_receita),
@@ -131,6 +132,24 @@ export function faltasParaConcluir06(r: Rascunho06, e: Empresa06): string[] {
 /** Perguntas de aprofundamento que o agente deve fazer agora (as já respondidas também vêm). */
 export function aprofundar(r: Rascunho06): string[] {
   return aprofundar06({ formato: FORMATO_06, setor: pacote06.pacote, ...r } as Respostas06, pacote06, modelo);
+}
+
+/**
+ * Perguntas de aprofundamento para o indicador de progresso. null enquanto o
+ * retrato econômico estiver incompleto: o motor ainda não sabe quais linhas
+ * valem mais, e a tela reserva o máximo do pacote.
+ */
+export function aprofundamentoParaProgresso(r: Rascunho06): string[] | null {
+  const retratoCompleto =
+    (r.receita_valor !== undefined || r.receita_faixa !== undefined) &&
+    !!r.pessoas &&
+    !!r.divisao &&
+    divisaoFecha(r.divisao) &&
+    (r.folha !== undefined || r.folha_exata !== undefined) &&
+    (r.custo !== undefined || r.custo_exato !== undefined) &&
+    (r.margem !== undefined || r.margem_exata !== undefined) &&
+    !!r.contratacoes;
+  return retratoCompleto ? aprofundar(r) : null;
 }
 
 /**

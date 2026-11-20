@@ -3,9 +3,10 @@
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { AcaoState } from "@/lib/acao/tipos";
 import { UFS } from "@/lib/assessment/questionario";
-import { pendencias06, somaDivisao, type Empresa06, type Questionario06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { pendencias06, progresso06, somaDivisao, type Empresa06, type Questionario06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { formatarCnpj } from "@/lib/validation/cnpj";
 import { concluirSelf, salvarRascunho } from "../actions";
+import { IndicadorProgresso06 } from "./progresso-06";
 
 /**
  * Self 0.6 em formulário: as mesmas perguntas do roteiro curto, numa página.
@@ -20,6 +21,8 @@ interface Props {
   inicial: Rascunho06;
   inicialEmpresa: Empresa06;
   versaoInicial: string;
+  /** Perguntas de aprofundamento escolhidas pelo motor ao abrir (null: retrato incompleto). */
+  aprofundamentoInicial: string[] | null;
 }
 
 type Salvamento = { estado: "ocioso" | "pendente" | "salvando" | "salvo" | "erro"; texto?: string };
@@ -39,11 +42,12 @@ function lerPercentual(texto: string): number | undefined {
   return Number.isFinite(n) ? Math.min(100, Math.round(n * 10) / 10) : undefined;
 }
 
-export function Formulario06({ assessmentId, questionario: q, inicial, inicialEmpresa, versaoInicial }: Props) {
+export function Formulario06({ assessmentId, questionario: q, inicial, inicialEmpresa, versaoInicial, aprofundamentoInicial }: Props) {
   const [r, setR] = useState<Rascunho06>(inicial);
   const [emp, setEmp] = useState<Empresa06>(inicialEmpresa);
   const [usarFaixa, setUsarFaixa] = useState(inicial.receita_faixa !== undefined && inicial.receita_valor === undefined);
   const [salv, setSalv] = useState<Salvamento>({ estado: "ocioso" });
+  const [aprofundamento, setAprofundamento] = useState<string[] | null>(aprofundamentoInicial);
   const ultimo = useRef<{ respostas: Rascunho06; empresa: Empresa06 }>({ respostas: inicial, empresa: inicialEmpresa });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const versao = useRef(versaoInicial);
@@ -58,6 +62,7 @@ export function Formulario06({ assessmentId, questionario: q, inicial, inicialEm
       const res = await salvarRascunho(assessmentId, ultimo.current, versao.current);
       if (res.ok) {
         if (res.salvoEm) versao.current = res.salvoEm;
+        if (res.aprofundamento !== undefined) setAprofundamento(res.aprofundamento);
         setSalv({ estado: "salvo", texto: res.salvoEm ? `Salvo às ${hora.format(new Date(res.salvoEm))}` : "Salvo" });
       } else {
         setSalv({ estado: "erro", texto: res.erro ?? "Não foi possível salvar." });
@@ -122,8 +127,13 @@ export function Formulario06({ assessmentId, questionario: q, inicial, inicialEm
   const marcadas = new Set(r.linhas_vermelhas ?? []);
   const soma = somaDivisao(r.divisao);
 
+  // As perguntas que o motor escolheu sobem para o topo da seção e contam no progresso.
+  const escolhidas = new Set(aprofundamento ?? []);
+  const perguntas = [...q.perguntas].sort((a, b) => Number(escolhidas.has(b.id)) - Number(escolhidas.has(a.id)));
+
   return (
     <div className="questionario">
+      <IndicadorProgresso06 p={progresso06(q, r, emp, aprofundamento)} />
       <p className="field-hint" role="status" aria-live="polite">
         {salv.estado === "pendente" ? "Alterações não salvas" : salv.estado === "salvando" ? "Salvando…" : salv.texto ?? ""}
       </p>
@@ -259,12 +269,15 @@ export function Formulario06({ assessmentId, questionario: q, inicial, inicialEm
 
       <section className="secao" aria-labelledby="f-nucleo">
         <h2 id="f-nucleo">Para dar mais precisão (opcional)</h2>
-        <p className="field-hint">Sem resposta, a linha correspondente entra no relatório como hipótese.</p>
-        {q.perguntas.map((p) => (
+        <p className="field-hint">
+          Sem resposta, a linha correspondente entra no relatório como hipótese. As marcadas como recomendadas são as que mais mudam o seu
+          número e contam no progresso.
+        </p>
+        {perguntas.map((p) => (
           <Escolha
             key={p.id}
             nome={`nucleo-${p.id}`}
-            legenda={p.texto}
+            legenda={escolhidas.has(p.id) ? `${p.texto} (recomendada)` : p.texto}
             opcoes={p.opcoes}
             valor={r.nucleo?.[p.id]}
             aoMudar={(v) => atualizar((a) => ({ ...a, nucleo: { ...(a.nucleo ?? {}), [p.id]: v } }))}
