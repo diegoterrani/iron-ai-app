@@ -152,6 +152,10 @@ O analista da IRON conduz reuniões com a empresa; os participantes não usam a 
 | Respostas no log | Auditoria registra quem, quando e quais perguntas, sem os valores | `deep_test.sql` |
 | Guardar transcrição além do combinado | `deep_apagar_transcricoes_expiradas` apaga falas e trechos literais 12 meses após o fim do contrato (ou da conclusão/cancelamento, sem contrato); respostas, resumos e relatórios ficam. Agendar no pg_cron diário junto com `conversas_apagar_expiradas` | `deep_test.sql` |
 | Exclusão da conta do analista travar nos registros imutáveis | Vínculos de pessoa viram nulo (`on delete set null`) e os gatilhos aceitam só essa mudança | `deep_test.sql` |
+| Modelo gravar resposta inventada ou fora do roteiro | `executarFerramentaDeep` valida o lote inteiro pelo roteiro (pergunta existe, tipo, faixa, opção, trecho obrigatório); um item inválido e nada é gravado, o erro volta ao modelo | `deep-agente.test.ts` |
+| CPF, CNPJ, cartão ou conta digitados chegarem ao modelo ou à transcrição | `mascararDadosSensiveis` troca por marcador antes de montar a mensagem; a fala gravada já vai mascarada | `deep-agente.test.ts` |
+| Modelo ler o banco ou outras reuniões | O agente recebe só o estado resumido e os resumos das reuniões encerradas; grava só pelas ferramentas, que chamam as funções `deep_*` com o analista da sessão | `deep-agente.test.ts` |
+| Deep aberto com um roteiro e conduzido com outro | `turnoDaReuniao` recusa quando `pacote_versao` do Deep difere do roteiro carregado | `deep-agente.test.ts` |
 
 ## Dependências e auditoria
 
