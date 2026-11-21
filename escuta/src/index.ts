@@ -168,6 +168,8 @@ export class ReuniaoEscuta extends DurableObject<Env> {
 
     const par = new WebSocketPair();
     const [paraNavegador, servidor] = [par[0], par[1]];
+    // Com a data de compatibilidade atual o padrão é Blob; o áudio precisa chegar como ArrayBuffer.
+    servidor.binaryType = "arraybuffer";
     servidor.accept();
     this.cliente = servidor;
     this.segmentador = new Segmentador();
