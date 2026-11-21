@@ -5,8 +5,7 @@ import { chamarAnthropic, detalheErroApi } from "@/lib/assessment/agente/convers
 import {
   ErroEscutaSelf,
   aplicarConfirmado,
-  processarEscutaSelf,
-  receberBlocosSelf,
+  consolidarResposta,
   rotuloDoCampo,
   valorLegivel,
   type AcessoRascunho,
@@ -16,8 +15,8 @@ import { eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
 import { sessaoComMfa } from "@/lib/auth/mfa";
 import { getSessao } from "@/lib/auth/session";
 import { agenteConfigurado, escutaConfigurada, llmEnv } from "@/lib/env";
+import type { RespostaConsolidada } from "@/lib/escuta/consolidacao";
 import { ENDERECO_ESCUTA, MINUTOS_POR_TOKEN, PROTOCOLO_ESCUTA, VERSAO_CONSENTIMENTO } from "@/lib/escuta/config";
-import { MAX_SEQ } from "@/lib/escuta/papeis";
 import { tokenDaEscuta } from "@/lib/escuta/token";
 import { log, newTraceId } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
@@ -33,16 +32,6 @@ import * as servidor from "@/lib/supabase/servidor";
 
 const idSchema = z.uuid();
 const modoSchema = z.enum(["desligada", "pergunta", "fluido", "ambos"]);
-const blocosSchema = z
-  .array(
-    z.object({
-      seq: z.number().int().min(1).max(MAX_SEQ),
-      canal: z.enum(["sala", "remoto"]),
-      texto: z.string().max(4000),
-    }),
-  )
-  .min(1)
-  .max(20);
 
 export interface ItemAConfirmar {
   id: string;
@@ -216,78 +205,6 @@ export async function tokenEscuta(id: string): Promise<RespostaEscuta<{ token: s
   return { ok: true, token: t.token, exp: t.exp, endereco: ENDERECO_ESCUTA, protocolo: PROTOCOLO_ESCUTA, minutosRestantes: r.restantes };
 }
 
-/** Guarda blocos transcritos (modo fluido e ambos). O servidor mascara antes de gravar. */
-export async function enviarBlocosEscuta(id: string, blocos: unknown): Promise<RespostaEscuta<{ gravados: number }>> {
-  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
-  const b = blocosSchema.safeParse(blocos);
-  if (!b.success) return { ok: false, erro: "Blocos inválidos." };
-  const ctx = await pessoaDaSessao();
-  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
-  const trace = newTraceId();
-  try {
-    const r = await receberBlocosSelf({ assessmentId: id, pessoa: ctx.pessoa, blocos: b.data });
-    log("info", "self.escuta.blocos", { trace, ator: ctx.pessoa.userId, gravados: r.gravados, repetidos: r.repetidos, descartados: r.descartados, ...r.mascarados });
-    return { ok: true, gravados: r.gravados };
-  } catch (err) {
-    const codigo = err instanceof ErroEscutaSelf ? err.codigo : "desconhecido";
-    log("warn", "self.escuta.blocos_recusados", { trace, ator: ctx.pessoa.userId, codigo });
-    return { ok: false, erro: `Não foi possível guardar a transcrição. (código ${trace})` };
-  }
-}
-
-/**
- * Leva os blocos pendentes ao agente. A tela chama uma vez por vez (nunca
- * duas ao mesmo tempo) e repete enquanto houver blocos restantes.
- */
-export async function processarEscuta(
-  id: string,
-): Promise<RespostaEscuta<{ restantes: boolean; processados: number; respostas?: Rascunho06; versao?: string; estado: EstadoEscutaTela }>> {
-  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
-  const ctx = await pessoaDaSessao();
-  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
-  const trace = newTraceId();
-  if (!agenteConfigurado()) return { ok: false, erro: INDISPONIVEL };
-  const inicio = Date.now();
-  try {
-    const r = await processarEscutaSelf({
-      assessmentId: id,
-      pessoa: ctx.pessoa,
-      chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY),
-      rascunho: acessoRascunho(ctx.supabase, id),
-    });
-    log("info", "self.escuta.lote", {
-      trace,
-      ator: ctx.pessoa.userId,
-      processados: r.processados,
-      restantes: r.restantes,
-      propostas: r.propostas,
-      gravou: Boolean(r.versao),
-      fim: r.turno?.fim ?? "sem_turno",
-      ms: Date.now() - inicio,
-      tokens_entrada: r.turno?.uso.entrada ?? 0,
-      tokens_saida: r.turno?.uso.saida ?? 0,
-      cache_leitura: r.turno?.uso.cacheLeitura ?? 0,
-    });
-    const e = await servidor.selfEscutaEstado(id, ctx.pessoa);
-    return {
-      ok: true,
-      restantes: r.restantes,
-      processados: r.processados,
-      estado: paraTela(e.estado),
-      ...(r.versao && r.respostas ? { versao: r.versao, respostas: r.respostas } : {}),
-    };
-  } catch (err) {
-    if (err instanceof ErroEscutaSelf) {
-      log("warn", "self.escuta.lote_falhou", { trace, ator: ctx.pessoa.userId, etapa: err.etapa, codigo: err.codigo });
-      if (err.etapa === "conflito") return { ok: false, erro: "Alguém salvou o assessment agora. A escuta tenta de novo em instantes." };
-      if (err.etapa === "formato") return { ok: false, erro: "Este rascunho é de uma versão antiga do Self e não aceita o áudio." };
-      return { ok: false, erro: `Não foi possível analisar a transcrição agora. (código ${trace})` };
-    }
-    log("error", "self.escuta.llm_erro", { trace, ator: ctx.pessoa.userId, ...detalheErroApi(err) });
-    return { ok: false, erro: `O assistente não respondeu agora; a transcrição fica guardada e é analisada depois. (código ${trace})` };
-  }
-}
-
 /**
  * Confirma ou descarta uma resposta ouvida com dúvida. Confirmar grava no
  * rascunho (mesma validação do formulário, com controle de versão), registra
@@ -340,4 +257,56 @@ export async function resolverEscuta(
   log("info", "self.escuta.resolvido", { trace, ator: ctx.pessoa.userId, decisao: d.data });
   const e = await servidor.selfEscutaEstado(id, ctx.pessoa);
   return { ok: true, estado: paraTela(e.estado), ...(gravado ?? {}) };
+}
+
+const falasSchema = z
+  .array(z.object({ quem: z.string().max(40), texto: z.string().max(4000) }))
+  .min(1)
+  .max(80)
+  .refine((f) => f.reduce((n, x) => n + x.texto.length, 0) <= 20_000, "Fala longa demais.");
+
+/**
+ * Entrevista guiada: consolida a resposta da pergunta atual a partir da fala
+ * captada no navegador. Nada é gravado aqui: o consultor revisa e envia pela
+ * conversa. Só com o áudio ligado e o consentimento vigente (o banco diz).
+ */
+export async function consolidarRespostaEscuta(
+  id: string,
+  pergunta: string,
+  falas: unknown,
+): Promise<RespostaEscuta<{ consolidada: RespostaConsolidada }>> {
+  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
+  const f = falasSchema.safeParse(falas);
+  const p = z.string().max(4000).safeParse(pergunta ?? "");
+  if (!f.success || !p.success) return { ok: false, erro: "Nada para consolidar." };
+  const ctx = await pessoaDaSessao();
+  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const trace = newTraceId();
+  if (!agenteConfigurado()) return { ok: false, erro: INDISPONIVEL };
+  const e = await servidor.selfEscutaEstado(id, ctx.pessoa);
+  if (e.error) return { ok: false, erro: mensagemDoBanco(e.error.code, e.error.message, trace) };
+  if (paraTela(e.estado).modo === "desligada") {
+    return { ok: false, erro: "O áudio está desligado ou o consentimento venceu. Ligue o áudio de novo." };
+  }
+  const inicio = Date.now();
+  try {
+    const r = await consolidarResposta({ pergunta: p.data, falas: f.data, chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY) });
+    log("info", "self.escuta.consolidada", {
+      trace,
+      ator: ctx.pessoa.userId,
+      falas: f.data.length,
+      tambem: r.consolidada.tambem.length,
+      ms: Date.now() - inicio,
+      tokens_entrada: r.uso.entrada,
+      tokens_saida: r.uso.saida,
+    });
+    return { ok: true, consolidada: r.consolidada };
+  } catch (err) {
+    if (err instanceof ErroEscutaSelf) {
+      log("warn", "self.escuta.consolidar_falhou", { trace, ator: ctx.pessoa.userId, etapa: err.etapa, codigo: err.codigo });
+      return { ok: false, erro: err.codigo === "sem_fala" ? "Nada foi captado ainda." : `Não foi possível organizar a resposta. Tente de novo. (código ${trace})` };
+    }
+    log("error", "self.escuta.llm_erro", { trace, ator: ctx.pessoa.userId, ...detalheErroApi(err) });
+    return { ok: false, erro: `O assistente não respondeu agora. A fala captada continua aqui; tente de novo. (código ${trace})` };
+  }
 }
