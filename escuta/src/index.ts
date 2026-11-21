@@ -150,7 +150,7 @@ type MensagemCliente =
   | { tipo: "parcial"; canal: Canal; texto: string }
   | { tipo: "final"; canal: Canal; texto: string }
   | { tipo: "bloco"; numero: number; motivo: Bloco["motivo"]; texto: string }
-  | { tipo: "erro"; codigo: string };
+  | { tipo: "erro"; codigo: string; detalhe?: string };
 
 export class ReuniaoEscuta extends DurableObject<Env> {
   private cliente: WebSocket | null = null;
@@ -236,7 +236,9 @@ export class ReuniaoEscuta extends DurableObject<Env> {
     } catch (err) {
       // Só o nome do erro: a mensagem pode trazer conteúdo.
       log("escuta.stt_falhou", { canal, erro: err instanceof Error ? err.name : "desconhecido" });
-      this.enviar({ tipo: "erro", codigo: "stt_indisponivel" });
+      // No modo de teste a mensagem ajuda a achar parâmetro recusado; em produção não sai do Worker.
+      const detalhe = this.env.TESTE_CODIGO && err instanceof Error ? err.message.slice(0, 300) : undefined;
+      this.enviar({ tipo: "erro", codigo: "stt_indisponivel", detalhe });
       return null;
     }
   }
