@@ -5,7 +5,10 @@
  * A transcrição é fala de pessoas captada por áudio: é dado não confiável.
  * Ela nunca é instrução para o modelo, e uma resposta só vale se o trecho que
  * a sustenta existir de fato na transcrição do turno.
+ *
+ * Usado também pela escuta do Self (src/lib/assessment/agente/escuta-self.ts).
  */
+import { mascararDadosSensiveis, type TipoMascara } from "./mascara";
 
 export type ModoEscuta = "fluido" | "pergunta" | "ambos";
 export type CanalEscuta = "sala" | "remoto";
@@ -118,4 +121,41 @@ export function janelaDeFalas<T extends { papel: string; conteudo: unknown }>(fa
   });
   if (maxTurnos < 1 || inicios.length <= maxTurnos) return [...falas];
   return falas.slice(inicios[inicios.length - maxTurnos]);
+}
+
+/** Um bloco como chega do Worker de transcrição (pelo navegador). */
+export interface BlocoRecebido {
+  seq: number;
+  canal: CanalEscuta;
+  texto: string;
+  inicio_ms?: number;
+  fim_ms?: number;
+}
+
+export const MAX_TEXTO_BLOCO = 4000;
+
+/**
+ * Prepara blocos para gravar: sem dado sensível (CPF, CNPJ, cartão, banco,
+ * Pix) e sem marcador do app, cortados no tamanho do banco. Bloco vazio é
+ * descartado. Devolve quantos dados foram mascarados (vai ao log, sem o dado).
+ */
+export function prepararBlocos(blocos: readonly BlocoRecebido[]): {
+  prontos: BlocoRecebido[];
+  descartados: number;
+  mascarados: Record<TipoMascara, number>;
+} {
+  const mascarados: Record<TipoMascara, number> = { cpf: 0, cnpj: 0, cartao: 0, banco: 0, pix: 0 };
+  const prontos: BlocoRecebido[] = [];
+  let descartados = 0;
+  for (const b of blocos) {
+    const m = mascararDadosSensiveis(b.texto.trim());
+    const texto = neutralizarMarcadores(m.texto).slice(0, MAX_TEXTO_BLOCO);
+    if (!texto) {
+      descartados++;
+      continue;
+    }
+    for (const k of Object.keys(mascarados) as TipoMascara[]) mascarados[k] += m.contagem[k];
+    prontos.push({ ...b, texto });
+  }
+  return { prontos, descartados, mascarados };
 }

@@ -202,6 +202,9 @@ export function chamarAnthropic(apiKey: string): ChamarLLM {
   return (params) => cliente.beta.messages.create(params);
 }
 
+/** Marca da mensagem ditada (escuta do Self, pergunta a pergunta): não aparece na tela. */
+export const PREFIXO_VOZ = "[Fala transcrita]";
+
 export interface FalaTela {
   autor: "cliente" | "agente";
   texto: string;
@@ -227,7 +230,10 @@ export function falasParaTela(historico: readonly unknown[]): FalaTela[] {
     const blocos = typeof content === "string" ? [{ type: "text", text: content }] : Array.isArray(content) ? content : [];
     for (const b of blocos as { type?: unknown; text?: unknown }[]) {
       if (b?.type !== "text" || typeof b.text !== "string" || !b.text.trim()) continue;
-      if (role === "user" && !b.text.startsWith("[Aviso do app]")) falas.push({ autor: "cliente", texto: b.text });
+      if (role === "user" && !b.text.startsWith("[Aviso do app]")) {
+        const texto = b.text.startsWith(PREFIXO_VOZ) ? b.text.slice(PREFIXO_VOZ.length).trim() : b.text;
+        if (texto) falas.push({ autor: "cliente", texto });
+      }
       if (role === "assistant") for (const t of separarBaloes(b.text)) falas.push({ autor: "agente", texto: t });
     }
   }
