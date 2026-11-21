@@ -180,7 +180,7 @@ O navegador do analista recebe os blocos do Worker e os entrega ao servidor por 
 | Reenvio depois de queda duplicar fala | Bloco repetido (mesmo `seq` na reunião) é ignorado | `deep_escuta_test.sql` |
 | Custo do LLM e disco sem teto na escuta | 300 turnos por reunião com escuta (120 sem), 5000 blocos por reunião, 20 blocos por chamada, texto de bloco até 4000 caracteres | `deep_escuta_test.sql` |
 | Guardar transcrição além do combinado | `deep_apagar_transcricoes_expiradas` também apaga os blocos e o trecho dos itens a confirmar (12 meses após o fim do contrato); consentimentos e itens ficam | `deep_escuta_test.sql` |
-| Dado sensível (CPF, cartão, conta) gravado no bloco | O servidor aplica `mascararDadosSensiveis` antes de gravar o bloco, como na digitação. O banco não consegue reconhecer o dado, então este controle é de código e será testado no PR do agente | PR 2 |
+| Dado sensível (CPF, cartão, conta) gravado no bloco | O servidor aplica `mascararDadosSensiveis` antes de gravar o bloco, como na digitação. O banco não consegue reconhecer o dado, então este controle é de código e é coberto por teste (`tests/unit/deep-escuta.test.ts`). Marcadores `[Escuta]` e `[Aviso do app]` ditos em voz alta também são neutralizados | PR 2 (feito) |
 | Equipe IRON de outra empresa ou cliente ler a transcrição | RLS `deep.conduzir` na empresa do Deep; ADM-Cliente não lê blocos nem itens a confirmar | `deep_escuta_test.sql` |
 | Exclusão da conta do analista travar nos registros imutáveis | `registrado_por` e `fechada_por` viram nulo e os gatilhos aceitam só essa mudança | `deep_escuta_test.sql` |
 
