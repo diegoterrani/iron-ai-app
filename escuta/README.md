@@ -71,6 +71,10 @@ Use um código longo e aleatório e apague o segredo ao terminar.
    - Alvo: o mesmo Worker
    - Validação: `/teste/` responde 404
 
+Desde 21/11/2026 o Worker encerra a escuta quando o token vence (com 30 s de
+folga). O app renova o token pelo próprio WebSocket; a página de teste não
+renova, então cada teste dura cerca de 5 minutos.
+
 O Workers AI tem cota diária no plano gratuito; para reuniões de mais de
 alguns minutos, a conta precisa do plano pago de Workers.
 

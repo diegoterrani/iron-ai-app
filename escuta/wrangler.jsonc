@@ -15,7 +15,7 @@
   "vars": {
     // Origens que podem abrir a escuta, separadas por vírgula. Nunca curinga.
     // App em produção, o preview da branch da tela (remover depois do merge) e a página de teste local.
-    "ORIGENS_PERMITIDAS": "https://app.iron-ai.io,https://PREVIEW_DA_BRANCH,http://localhost:8788"
+    "ORIGENS_PERMITIDAS": "https://app.iron-ai.io,https://iron-ai-app-git-claude-self-escuta-tela-iron-security.vercel.app,http://localhost:8788"
   }
   // Segredos (nunca aqui), cadastrados no painel ou com `wrangler secret put`:
   // - ESCUTA_TOKEN_SECRET: assina o token curto (32+ caracteres);
