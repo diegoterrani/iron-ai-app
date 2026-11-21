@@ -163,6 +163,29 @@ O analista da IRON conduz reuniões com a empresa; os participantes não usam a 
 | Correção manual gravar valor fora do roteiro | `corrigirResposta` converte e valida com `validarValor` (mesmas regras do agente) antes de chamar `deep_registrar_respostas`; a versão anterior fica no histórico | `deep-tela.test.ts` |
 | Transcrição renderizada como HTML | Falas e resumo exibidos como texto puro pelo React (sem `dangerouslySetInnerHTML`) | revisão de código |
 
+## Escuta da reunião no Deep (20/11/2026, banco)
+
+O analista pode ligar, de forma opcional, a escuta da reunião: o áudio é transcrito fora do banco (Worker da Cloudflare) e chega em blocos, e o agente do Deep separa o que responde ao roteiro da conversa paralela. Migração `20261120200000_deep_escuta.sql`; esta parte é só o banco (agente, tela e relatório vêm em PRs seguintes).
+
+O navegador do analista recebe os blocos do Worker e os entrega ao servidor por Server Action, que grava pelas funções `deep_escuta_*`. O Worker não tem credencial do banco.
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Escutar sem os participantes saberem | A escuta começa desligada e o banco só a liga depois de `deep_escuta_consentir` (lista de participantes e versão do texto lido, auditado). Uma constraint impede reunião com escuta ligada sem consentimento. Cada reunião precisa do seu consentimento | `deep_escuta_test.sql` |
+| Navegador ligar a escuta, gravar blocos ou respostas | Mesmas regras do Deep: tabelas só com `select`, funções `deep_escuta_*` só para `service_role`, com analista e MFA conferidos no banco | `deep_escuta_test.sql` |
+| Modelo ou navegador forjar a origem da resposta ou a pergunta marcada | A origem (`digitacao` ou `escuta`) é parâmetro do servidor, não campo da resposta (campo extra é recusado). A pergunta marcada de cada bloco vem da reunião, não do navegador | `deep_escuta_test.sql` |
+| Resposta ouvida com pouca certeza virar dado do relatório | Vai para `deep_escuta_confirmar` e só vira resposta quando o analista confirma (`deep_escuta_resolver`, mesma transação, confiança alta). A reunião não encerra com itens a confirmar | `deep_escuta_test.sql` |
+| Perder o que foi captado ao corrigir | Resposta captada corrigida pela digitação fica como `substituida` com origem `escuta` | `deep_escuta_test.sql` |
+| Reescrever ou apagar a transcrição ou o consentimento | Blocos, consentimentos e itens a confirmar só aceitam inserção (gatilhos valem para o dono das tabelas); o bloco só muda para "processado" | `deep_escuta_test.sql` |
+| Reenvio depois de queda duplicar fala | Bloco repetido (mesmo `seq` na reunião) é ignorado | `deep_escuta_test.sql` |
+| Custo do LLM e disco sem teto na escuta | 300 turnos por reunião com escuta (120 sem), 5000 blocos por reunião, 20 blocos por chamada, texto de bloco até 4000 caracteres | `deep_escuta_test.sql` |
+| Guardar transcrição além do combinado | `deep_apagar_transcricoes_expiradas` também apaga os blocos e o trecho dos itens a confirmar (12 meses após o fim do contrato); consentimentos e itens ficam | `deep_escuta_test.sql` |
+| Dado sensível (CPF, cartão, conta) gravado no bloco | O servidor aplica `mascararDadosSensiveis` antes de gravar o bloco, como na digitação. O banco não consegue reconhecer o dado, então este controle é de código e será testado no PR do agente | PR 2 |
+| Equipe IRON de outra empresa ou cliente ler a transcrição | RLS `deep.conduzir` na empresa do Deep; ADM-Cliente não lê blocos nem itens a confirmar | `deep_escuta_test.sql` |
+| Exclusão da conta do analista travar nos registros imutáveis | `registrado_por` e `fechada_por` viram nulo e os gatilhos aceitam só essa mudança | `deep_escuta_test.sql` |
+
+Blocos ainda não processados quando a reunião é encerrada ficam guardados, marcados como não processados, e seguem a mesma retenção. O encerramento não depende do agente estar disponível.
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
