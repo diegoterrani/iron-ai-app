@@ -11,5 +11,5 @@ Documento vivo: https://claude.ai/artifact/JWeWqg4mZgZH6xABQBax7w
 | 4 | Pagamentos (Stripe) e direitos de compra | A fazer |
 | 5 | Cursos, treinamentos, materiais, blog | A fazer |
 | 6 | Fórum com agente moderador | A fazer |
-| 7 | Assessments Self e Deep dive | Em andamento (7a: Self no app em 4 PRs: motor, banco, questionário e resultado; falta revisar e aplicar no Supabase). Escuta da reunião no Deep em 4 PRs: banco (feito, aguarda revisão), agente, tela e relatório |
+| 7 | Assessments Self e Deep dive | Em andamento (7a: Self no app em 4 PRs: motor, banco, questionário e resultado; falta revisar e aplicar no Supabase). Escuta da reunião no Deep: banco e agente feitos; tela e relatório depois do Self. Escuta no Self em 3 PRs: banco (aguarda revisão), agente e tela |
 | 8 | Endurecimento, LGPD e go-live | A fazer |

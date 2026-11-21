@@ -186,6 +186,25 @@ O navegador do analista recebe os blocos do Worker e os entrega ao servidor por 
 
 Blocos ainda não processados quando a reunião é encerrada ficam guardados, marcados como não processados, e seguem a mesma retenção. O encerramento não depende do agente estar disponível.
 
+## Escuta no Self assessment (21/11/2026, banco)
+
+O cliente pode ligar, de forma opcional, o áudio na conversa do Self. Pergunta a pergunta: a pessoa responde falando e o texto transcrito vira a mensagem dela na conversa. Fluido ou ambos: escuta contínua de uma reunião da equipe, em blocos, de onde o agente tira as respostas. O agente só escuta (não fala). Migração `20261121100000_self_escuta.sql`; esta parte é só o banco (agente e tela vêm nos PRs seguintes).
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Escutar sem as pessoas saberem | Começa desligada. Ligar exige `self_escuta_consentir` (versão do texto lido e quantas pessoas estavam presentes, auditado). O consentimento vale 8 horas; vencido, o banco trata a escuta como desligada até um novo consentimento | `self_escuta_test.sql` |
+| Navegador ligar a escuta, gravar blocos ou forjar origem | Tabelas só com `select`; funções `self_escuta_*` só para `service_role`, recebendo a pessoa e o MFA | `self_escuta_test.sql` |
+| Usar a escuta sem poder editar ou sem ter comprado o Self | Toda função confere `pode_editar_assessment` e o direito ao Self da pessoa (pessoal ou da empresa de que participa). Revogar o direito para a escuta na hora | `self_escuta_test.sql` |
+| Colega da empresa ler a transcrição de outra pessoa | A escuta é de quem a ligou (assessment + pessoa), como a conversa. A origem das respostas é parte do assessment e segue o RLS dele | `self_escuta_test.sql` |
+| Custo de transcrição e disco sem teto | O servidor reserva minutos antes de emitir o token de transcrição: até 30 por vez e 240 por pessoa e assessment. Até 3000 blocos, 20 por chamada, 4000 caracteres por bloco | `self_escuta_test.sql` |
+| Resposta ouvida com pouca certeza virar dado do resultado | Vai para `self_escuta_confirmar`; só a pessoa que ligou a escuta confirma. O Self não conclui com item pendente (gatilho em `assessments`, vale até para escrita direta) | `self_escuta_test.sql` |
+| Origem da resposta forjada pelo modelo | O servidor registra a origem (`escuta` ou `escuta_confirmada`) com o valor gravado; o relatório compara com o valor atual para saber se foi editado depois | `self_escuta_test.sql` |
+| Reescrever transcrição ou consentimento | Texto do bloco e consentimento são imutáveis; o bloco só muda para processado | `self_escuta_test.sql` |
+| Guardar transcrição além do combinado | `self_escuta_apagar_expiradas` apaga blocos com mais de 90 dias e o trecho dos itens a confirmar (mesma retenção da conversa); consentimentos e itens ficam | `self_escuta_test.sql` |
+| Dado sensível dito em voz alta | O servidor mascara antes de gravar, como no Deep (controle de código) | PR do agente |
+
+Ainda não entra na exportação LGPD (`meus_dados`): fica para o PR da tela, junto com o texto de consentimento.
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
