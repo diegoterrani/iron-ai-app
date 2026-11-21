@@ -11,6 +11,7 @@ import { agenteConfigurado } from "@/lib/env";
 import { aprofundamentoParaProgresso, eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { ConversaSelf } from "./conversa-self";
+import { EscolhaEmpresa } from "./escolha-empresa";
 import { Formulario06 } from "./formulario-06";
 import { QuestionarioSelf } from "./questionario-self";
 
@@ -25,7 +26,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
   const supabase = await createClient();
   const { data: linha } = await supabase
     .from("assessments")
-    .select("id, user_id, org_id, status, respostas, empresa, atualizado_em")
+    .select("id, user_id, org_id, status, respostas, empresa, empresa_id, atualizado_em")
     .eq("id", id)
     .maybeSingle<{
       id: string;
@@ -34,6 +35,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       status: string;
       respostas: RespostasGravadas | null;
       empresa: EmpresaSelf;
+      empresa_id: string | null;
       atualizado_em: string;
     }>();
   // RLS: lê o dono do pessoal ou quem tem assessment.ver na empresa.
@@ -78,14 +80,18 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
     const q06 = montarQuestionario06();
     const inicial06 = (linha.respostas ?? {}) as Rascunho06;
     const aprofundamento06 = aprofundamentoParaProgresso(inicial06);
-    return (
-      <main>
-        <p className="eyebrow">
-          <Link href="/assessment">Self assessment</Link> / Food service
-        </p>
-        <h1 className="title">Self Assessment</h1>
+    // Assessment pessoal: escolher empresa do cadastro ou cadastrar nova (a
+    // conversa e o formulário aparecem depois da escolha). O da organização
+    // usa os dados dela. A chave remonta tudo quando a empresa muda.
+    const pessoal = linha.org_id === null;
+    const dadosEmpresa = linha.empresa ?? {};
+    const local = [dadosEmpresa.cidade, dadosEmpresa.uf].filter(Boolean).join("/") || null;
+    const chave = `${linha.empresa_id ?? "sem-empresa"}-${linha.atualizado_em}`;
+    const miolo = (
+      <>
         {conversa ? (
           <ConversaSelf
+            key={chave}
             formato="0.6"
             assessmentId={id}
             questionario={q06}
@@ -106,6 +112,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
               </p>
             )}
             <Formulario06
+              key={chave}
               assessmentId={id}
               questionario={q06}
               inicial={inicial06}
@@ -114,6 +121,26 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
               aprofundamentoInicial={aprofundamento06}
             />
           </>
+        )}
+      </>
+    );
+    return (
+      <main>
+        <p className="eyebrow">
+          <Link href="/assessment">Self assessment</Link> / Food service
+        </p>
+        <h1 className="title">Self Assessment</h1>
+        {pessoal ? (
+          <EscolhaEmpresa
+            key={chave}
+            assessmentId={id}
+            vinculada={linha.empresa_id && dadosEmpresa.nome ? { nome: dadosEmpresa.nome, local } : null}
+            abrir={!linha.empresa_id && !dadosEmpresa.nome}
+          >
+            {miolo}
+          </EscolhaEmpresa>
+        ) : (
+          miolo
         )}
       </main>
     );

@@ -220,6 +220,20 @@ O cliente pode ligar, de forma opcional, o áudio na conversa do Self. Pergunta 
 
 A escuta ainda não entra na exportação LGPD (`meus_dados`). Fica como pendência: consentimentos e itens a confirmar da própria pessoa.
 
+## Cadastro de empresas do Self (21/11/2026)
+
+No começo do assessment pessoal, a pessoa escolhe uma empresa já cadastrada (com busca) ou cadastra uma nova. Migração `20261121120000_empresas_cadastro.sql`.
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Ver empresas e contatos de outros clientes | RLS: quem cadastrou e a equipe IRON (super_admin ou equipe_iron, conta ativa e sessão com MFA). Cliente vê só as próprias | `empresas_cadastro_test.sql` |
+| Equipe acessar o cadastro sem MFA | `e_equipe_iron()` exige sessão aal2 | `empresas_cadastro_test.sql` (mutação) |
+| Navegador gravar no cadastro ou trocar o vínculo direto | Tabela só com `select`; `empresa_id` fora das colunas editáveis do assessment; vínculo só por `vincular_empresa_assessment`, que confere se a pessoa pode editar o rascunho e ver a empresa | `empresas_cadastro_test.sql` |
+| Busca com curinga ou injeção | Função SQL com parâmetro (sem montar filtro em texto); `%`, `_` e `\` digitados são escapados; termo até 100 caracteres; no máximo 10 resultados | `empresas_cadastro_test.sql` (mutação) |
+| Resultado antigo mudar quando o cadastro mudar | O assessment guarda a própria cópia dos dados; o cadastro só recebe os dados na conclusão | `empresas_cadastro_test.sql` |
+| Cadastro bloquear a conclusão | A sincronização na conclusão descarta dado fora do formato (CNPJ incompleto, por exemplo) e nunca lança erro | `empresas_cadastro_test.sql` |
+| Contato de cliente ficar depois da exclusão da conta | Excluir a conta de quem cadastrou apaga as empresas dela; o assessment perde só o vínculo | `empresas_cadastro_test.sql` |
+
 ## Dependências e auditoria
 
 `npm audit --omit=dev --audit-level=high` roda no CI. Em 02/11/2026 há um alerta
