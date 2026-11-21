@@ -9,6 +9,7 @@ import {
 } from "@/lib/assessment/agente/conversa";
 import type { AreaDeep, RoteiroDeep } from "@/lib/assessment/deep/roteiro";
 import { definirFerramentasDeep, executarFerramentaDeep, type BancoDeep, type SinalDeep } from "./ferramentas";
+import { janelaDeFalas, MAX_TEXTO_ESCUTA, type ContextoEscuta } from "./escuta";
 import { mascararDadosSensiveis, type TipoMascara } from "./mascara";
 import { montarPromptDeep } from "./prompt";
 
@@ -86,19 +87,25 @@ export async function executarTurnoDeep(args: {
   area: AreaDeep;
   /** Falas da reunião atual, como vieram de deep_reservar_turno. */
   falas: readonly FalaDeep[];
-  /** Texto digitado pelo analista ou aviso do app ("[Aviso do app] ..."). */
+  /** Texto digitado pelo analista, aviso do app ("[Aviso do app] ...") ou transcrição ("[Escuta] ..."). */
   entrada: string;
   contexto: string;
   banco: BancoDeep;
   chamar: ChamarLLM;
+  /** Turno de escuta: transcrição como entrada, com as regras próprias das ferramentas. */
+  escuta?: ContextoEscuta;
+  /** Quantos turnos recentes da reunião vão ao modelo (o resto está no estado do Deep). Sem valor, todos. */
+  janelaTurnos?: number;
 }): Promise<ResultadoTurnoDeep> {
   const bruto = args.entrada.trim();
+  const limite = args.escuta ? MAX_TEXTO_ESCUTA : MAX_TEXTO_ANALISTA;
   if (!bruto) throw new EntradaInvalida("fala vazia");
-  if (bruto.length > MAX_TEXTO_ANALISTA) throw new EntradaInvalida(`fala acima de ${MAX_TEXTO_ANALISTA} caracteres`);
+  if (bruto.length > limite) throw new EntradaInvalida(`fala acima de ${limite} caracteres`);
   const { texto, contagem } = mascararDadosSensiveis(bruto);
 
   const novas: FalaDeep[] = [{ papel: "analista", conteudo: texto }];
-  const mensagens = [...paraMensagens(args.falas), ...paraMensagens(novas)];
+  const historico = args.janelaTurnos ? janelaDeFalas(args.falas, args.janelaTurnos) : args.falas;
+  const mensagens = [...paraMensagens(historico), ...paraMensagens(novas)];
   const textos: string[] = [];
   const sinais: SinalDeep[] = [];
   let uso: Uso = { entrada: 0, saida: 0, cacheLeitura: 0, cacheEscrita: 0 };
@@ -134,7 +141,7 @@ export async function executarTurnoDeep(args: {
     const resultados: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const b of resposta.content) {
       if (b.type !== "tool_use") continue;
-      const r = await executarFerramentaDeep(args.roteiro, args.area, b.name, b.input, args.banco);
+      const r = await executarFerramentaDeep(args.roteiro, args.area, b.name, b.input, args.banco, args.escuta);
       if (r.sinal) sinais.push(r.sinal);
       resultados.push({ type: "tool_result", tool_use_id: b.id, content: r.conteudo, is_error: r.erro });
     }

@@ -3,6 +3,7 @@
  * gravada, participantes digitados, valores digitados na correção manual e
  * formatação das respostas. Nada aqui fala com o banco ou com a API.
  */
+import { PREFIXO_ESCUTA } from "./agente/escuta";
 import { AREAS, situacaoArea, validarValor, type AreaDeep, type PerguntaDeep, type RespostaVigente, type RoteiroDeep, type ResultadoValidacao } from "./roteiro";
 
 export const AVISO_APP = "[Aviso do app]";
@@ -27,7 +28,8 @@ export interface FalaReuniao {
 
 /**
  * Transcrição para a tela: só os textos do analista e do agente, na ordem.
- * Resultados de ferramentas, raciocínio e avisos do app ficam de fora.
+ * Resultados de ferramentas, raciocínio, avisos do app e trechos da escuta
+ * (o texto bruto da transcrição ao vivo) ficam de fora.
  * O texto é mostrado como texto puro (nunca HTML).
  */
 export function falasDaReuniao(linhas: readonly { papel: unknown; conteudo: unknown }[]): FalaReuniao[] {
@@ -38,16 +40,16 @@ export function falasDaReuniao(linhas: readonly { papel: unknown; conteudo: unkn
     for (const b of blocos as { type?: unknown; text?: unknown }[]) {
       if (b?.type !== "text" || typeof b.text !== "string") continue;
       const texto = b.text.trim();
-      if (!texto || texto.startsWith(AVISO_APP)) continue;
+      if (!texto || texto.startsWith(AVISO_APP) || texto.startsWith(PREFIXO_ESCUTA)) continue;
       falas.push({ autor: l.papel, texto });
     }
   }
   return falas;
 }
 
-/** Tira um prefixo de aviso digitado pelo analista: só o servidor fala como o app. */
+/** Tira os prefixos que só o servidor usa (aviso do app e escuta) do que o analista digitou. */
 export function semAvisoDoApp(texto: string): string {
-  return texto.replaceAll(AVISO_APP, "").trim();
+  return texto.replaceAll(AVISO_APP, "").replaceAll(PREFIXO_ESCUTA, "").trim();
 }
 
 // ------------------------------------------------------------ participantes

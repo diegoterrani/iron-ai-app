@@ -1,6 +1,7 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { AREAS, validarValor, type AreaDeep, type RoteiroDeep, type ValorDeep } from "@/lib/assessment/deep/roteiro";
+import { trechoPresente, type ContextoEscuta } from "./escuta";
 
 /**
  * Ferramentas do agente do Deep (modo analista).
@@ -15,6 +16,7 @@ import { AREAS, validarValor, type AreaDeep, type RoteiroDeep, type ValorDeep } 
 export const MAX_ITENS_LOTE = 50;
 const MAX_TRECHO = 500;
 const MAX_PARTICIPANTE = 200;
+const MAX_MOTIVO = 300;
 const CONFIANCAS = ["alta", "media", "baixa"] as const;
 const TIPOS_EVIDENCIA = ["documento", "dado", "observacao", "declaracao"] as const;
 
@@ -26,6 +28,17 @@ export interface RespostaParaGravar {
   participante?: string;
   confianca: (typeof CONFIANCAS)[number];
   trecho?: string;
+}
+
+/** Resposta ouvida com pouca certeza: espera o analista confirmar, não entra no Deep. */
+export interface PropostaParaGravar {
+  pergunta_id: string;
+  area: AreaDeep;
+  valor: ValorDeep | null;
+  nao_se_aplica: boolean;
+  participante?: string;
+  motivo: string;
+  trecho: string;
 }
 
 export interface EvidenciaParaGravar {
@@ -48,11 +61,16 @@ export interface BancoDeep {
   registrarRespostas(itens: RespostaParaGravar[]): Promise<{ gravadas: number; inalteradas: number }>;
   registrarEvidencias(itens: EvidenciaParaGravar[]): Promise<{ gravadas: number; inalteradas: number }>;
   registrarPendencia(p: PendenciaParaGravar): Promise<string>;
+  /** Só em turno de escuta: guarda para o analista confirmar. Devolve quantas guardou. */
+  proporAConfirmar(itens: PropostaParaGravar[]): Promise<number>;
   /** Estado atual para ver_estado (já resumido para o modelo). */
   verEstado(): Promise<unknown>;
 }
 
-export type SinalDeep = { tipo: "resumo_reuniao"; resumo: string } | { tipo: "gravou"; respostas: number; evidencias: number; pendencias: number };
+export type SinalDeep =
+  | { tipo: "resumo_reuniao"; resumo: string }
+  | { tipo: "gravou"; respostas: number; evidencias: number; pendencias: number }
+  | { tipo: "a_confirmar"; itens: number };
 
 export interface ResultadoFerramentaDeep {
   conteudo: string;
@@ -101,6 +119,38 @@ export function definirFerramentasDeep(roteiro: RoteiroDeep): Anthropic.Beta.Bet
                 participante: texto(MAX_PARTICIPANTE, { description: "nome ou cargo de quem respondeu, se o analista disse" }),
                 confianca: { type: "string", enum: [...CONFIANCAS], description: "alta: lido de relatório ou sistema; media: de cabeça com segurança; baixa: estimativa" },
                 trecho: texto(MAX_TRECHO, { description: "trecho literal da fala do analista que sustenta a resposta" }),
+              },
+            },
+          },
+        },
+      },
+    },
+    {
+      name: "propor_a_confirmar",
+      description:
+        "Só em mensagens de escuta ([Escuta]): guarda para o analista confirmar uma resposta que você ouviu mas não tem certeza " +
+        "(número ambíguo, ruído, resposta incompleta, dúvida sobre quem falou). Não grava no Deep: o analista confirma ou descarta depois. " +
+        "Resposta clara vai em registrar_respostas. Cada item leva o trecho literal da transcrição e o motivo da dúvida.",
+      input_schema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["itens"],
+        properties: {
+          itens: {
+            type: "array",
+            minItems: 1,
+            maxItems: MAX_ITENS_LOTE,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["pergunta_id", "motivo", "trecho"],
+              properties: {
+                pergunta_id: { type: "string", enum: ids },
+                valor: { description: "O que você entendeu, no tipo da pergunta." },
+                nao_se_aplica: { type: "boolean" },
+                participante: texto(MAX_PARTICIPANTE),
+                motivo: texto(MAX_MOTIVO, { description: "por que você não tem certeza" }),
+                trecho: texto(MAX_TRECHO, { description: "trecho literal da transcrição" }),
               },
             },
           },
@@ -179,30 +229,62 @@ const textoOpcional = (v: unknown, max: number): string | undefined | false => {
   return v.trim() || undefined;
 };
 
-/** Confere o lote de respostas inteiro; devolve os itens prontos ou a lista de erros. */
-export function validarLoteRespostas(roteiro: RoteiroDeep, entrada: unknown): { itens: RespostaParaGravar[] } | { erros: string[] } {
-  if (!obj(entrada) || !Array.isArray(entrada.respostas)) return { erros: ["respostas deve ser uma lista"] };
-  const lista = entrada.respostas;
-  if (lista.length < 1 || lista.length > MAX_ITENS_LOTE) return { erros: [`mande de 1 a ${MAX_ITENS_LOTE} respostas`] };
+/** Item já validado; em proposta, a confiança é fixa e o motivo vem preenchido. */
+type ItemValidado = RespostaParaGravar & { motivo?: string };
 
+/**
+ * Confere o lote inteiro; devolve os itens prontos ou a lista de erros.
+ * Com `proposta`, o item leva `motivo` no lugar de `confianca` (vai para a
+ * lista "a confirmar"). Com `escuta`, vale também: no modo pergunta a
+ * pergunta só a pergunta marcada, e o trecho precisa existir na transcrição.
+ */
+export function validarLoteRespostas(
+  roteiro: RoteiroDeep,
+  entrada: unknown,
+  opc: { proposta?: boolean; escuta?: ContextoEscuta } = {},
+): { itens: ItemValidado[] } | { erros: string[] } {
+  const chave = opc.proposta ? "itens" : "respostas";
+  if (!obj(entrada) || !Array.isArray(entrada[chave])) return { erros: [`${chave} deve ser uma lista`] };
+  const lista = entrada[chave] as unknown[];
+  if (lista.length < 1 || lista.length > MAX_ITENS_LOTE) return { erros: [`mande de 1 a ${MAX_ITENS_LOTE} itens`] };
+
+  const permitidas = new Set(
+    opc.proposta
+      ? ["pergunta_id", "valor", "nao_se_aplica", "participante", "motivo", "trecho"]
+      : ["pergunta_id", "valor", "nao_se_aplica", "participante", "confianca", "trecho"],
+  );
+  const marcas = new Set((opc.escuta?.blocos ?? []).map((b) => b.pergunta_marcada).filter((m): m is string => !!m));
   const erros: string[] = [];
-  const itens: RespostaParaGravar[] = [];
+  const itens: ItemValidado[] = [];
   const vistos = new Set<string>();
   lista.forEach((bruto, i) => {
     const onde = `item ${i + 1}`;
     if (!obj(bruto)) return void erros.push(`${onde}: formato inválido`);
-    const permitidas = new Set(["pergunta_id", "valor", "nao_se_aplica", "participante", "confianca", "trecho"]);
     const extra = Object.keys(bruto).filter((k) => !permitidas.has(k));
     if (extra.length) return void erros.push(`${onde}: campos desconhecidos ${extra.join(", ")}`);
     const p = typeof bruto.pergunta_id === "string" ? roteiro.porId.get(bruto.pergunta_id) : undefined;
     if (!p) return void erros.push(`${onde}: pergunta inexistente no roteiro`);
     if (vistos.has(p.id)) return void erros.push(`${p.id}: repetida no lote`);
     vistos.add(p.id);
-    if (!CONFIANCAS.includes(bruto.confianca as never)) return void erros.push(`${p.id}: confiança deve ser alta, media ou baixa`);
+    if (!opc.proposta && !CONFIANCAS.includes(bruto.confianca as never)) return void erros.push(`${p.id}: confiança deve ser alta, media ou baixa`);
+    const motivo = opc.proposta ? textoOpcional(bruto.motivo, MAX_MOTIVO) : undefined;
+    if (opc.proposta && !motivo) return void erros.push(`${p.id}: falta o motivo da dúvida (até ${MAX_MOTIVO} caracteres)`);
     const trecho = textoOpcional(bruto.trecho, MAX_TRECHO);
     const participante = textoOpcional(bruto.participante, MAX_PARTICIPANTE);
     if (trecho === false || participante === false) return void erros.push(`${p.id}: trecho ou participante longo demais`);
     if (!trecho) return void erros.push(`${p.id}: falta o trecho que sustenta a resposta`);
+
+    if (opc.escuta) {
+      const e = opc.escuta;
+      if (e.modo === "pergunta" && !marcas.has(p.id)) {
+        const quais = marcas.size ? [...marcas].join(", ") : "nenhuma marcada neste trecho";
+        return void erros.push(`${p.id}: no modo pergunta a pergunta só vale a pergunta marcada pelo analista (${quais})`);
+      }
+      const fontes = e.modo === "pergunta" ? e.blocos.filter((b) => b.pergunta_marcada === p.id) : e.blocos;
+      if (!trechoPresente(trecho, fontes.map((b) => b.texto))) {
+        return void erros.push(`${p.id}: o trecho não aparece na transcrição deste turno; copie exatamente o que foi dito`);
+      }
+    }
 
     const nsa = bruto.nao_se_aplica === true;
     let valor: ValorDeep | null = null;
@@ -217,8 +299,9 @@ export function validarLoteRespostas(roteiro: RoteiroDeep, entrada: unknown): { 
       valor,
       nao_se_aplica: nsa,
       participante,
-      confianca: bruto.confianca as RespostaParaGravar["confianca"],
+      confianca: opc.proposta ? "baixa" : (bruto.confianca as RespostaParaGravar["confianca"]),
       trecho,
+      ...(motivo ? { motivo } : {}),
     });
   });
   return erros.length ? { erros } : { itens };
@@ -279,16 +362,34 @@ export async function executarFerramentaDeep(
   nome: string,
   entrada: unknown,
   banco: BancoDeep,
+  /** Presente só em turno de escuta: liga as regras da transcrição e a ferramenta propor_a_confirmar. */
+  escuta?: ContextoEscuta,
 ): Promise<ResultadoFerramentaDeep> {
   if (!AREAS.includes(area)) return falha("área da reunião inválida");
   switch (nome) {
     case "ver_estado":
       return ok(await banco.verEstado());
     case "registrar_respostas": {
-      const v = validarLoteRespostas(roteiro, entrada);
+      const v = validarLoteRespostas(roteiro, entrada, { escuta });
       if ("erros" in v) return falha(v.erros);
       const r = await banco.registrarRespostas(v.itens);
       return ok({ ...r, estado: await banco.verEstado() }, { tipo: "gravou", respostas: r.gravadas, evidencias: 0, pendencias: 0 });
+    }
+    case "propor_a_confirmar": {
+      if (!escuta) return falha("propor_a_confirmar só existe em mensagens de escuta ([Escuta])");
+      const v = validarLoteRespostas(roteiro, entrada, { proposta: true, escuta });
+      if ("erros" in v) return falha(v.erros);
+      const propostas: PropostaParaGravar[] = v.itens.map((i) => ({
+        pergunta_id: i.pergunta_id,
+        area: i.area,
+        valor: i.valor,
+        nao_se_aplica: i.nao_se_aplica,
+        participante: i.participante,
+        motivo: i.motivo ?? "",
+        trecho: i.trecho ?? "",
+      }));
+      const guardadas = await banco.proporAConfirmar(propostas);
+      return ok({ guardadas, gravado_no_deep: false }, { tipo: "a_confirmar", itens: guardadas });
     }
     case "registrar_evidencias": {
       const v = validarLoteEvidencias(roteiro, entrada);

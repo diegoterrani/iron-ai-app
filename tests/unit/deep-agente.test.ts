@@ -9,6 +9,7 @@ import {
   type BancoDeep,
   type EvidenciaParaGravar,
   type PendenciaParaGravar,
+  type PropostaParaGravar,
   type RespostaParaGravar,
 } from "@/lib/assessment/deep/agente/ferramentas";
 import { mascararDadosSensiveis } from "@/lib/assessment/deep/agente/mascara";
@@ -52,7 +53,7 @@ function apiSimulada(roteiro: Anthropic.Beta.BetaMessage[]) {
 }
 
 function bancoFalso() {
-  const chamadas = { respostas: [] as RespostaParaGravar[][], evidencias: [] as EvidenciaParaGravar[][], pendencias: [] as PendenciaParaGravar[] };
+  const chamadas = { respostas: [] as RespostaParaGravar[][], evidencias: [] as EvidenciaParaGravar[][], pendencias: [] as PendenciaParaGravar[], propostas: [] as PropostaParaGravar[][] };
   const banco: BancoDeep = {
     async registrarRespostas(itens) {
       chamadas.respostas.push(itens);
@@ -61,6 +62,10 @@ function bancoFalso() {
     async registrarEvidencias(itens) {
       chamadas.evidencias.push(itens);
       return { gravadas: itens.length, inalteradas: 0 };
+    },
+    async proporAConfirmar(itens) {
+      chamadas.propostas.push(itens);
+      return itens.length;
     },
     async registrarPendencia(p) {
       chamadas.pendencias.push(p);
@@ -111,7 +116,7 @@ describe("máscara de dados sensíveis", () => {
 describe("ferramentas do Deep", () => {
   it("definições usam só ids do roteiro e critérios de gate", () => {
     const tools = definirFerramentasDeep(roteiroDeep);
-    expect(tools.map((t) => t.name)).toEqual(["ver_estado", "registrar_respostas", "registrar_evidencias", "registrar_pendencia", "encerrar_reuniao"]);
+    expect(tools.map((t) => t.name)).toEqual(["ver_estado", "registrar_respostas", "propor_a_confirmar", "registrar_evidencias", "registrar_pendencia", "encerrar_reuniao"]);
     const json = JSON.stringify(tools);
     expect(json).toContain("b.ev1");
     expect(json).toContain("gate.a.linha_base");

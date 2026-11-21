@@ -20,8 +20,20 @@ export interface EstadoBanco {
     status: string;
     participantes: { nome: string; cargo?: string }[];
     resumo: string | null;
+    /** Migração 20261120200000; ausente em banco sem a escuta (vale desligada). */
+    escuta_modo?: "desligada" | "fluido" | "pergunta" | "ambos";
+    pergunta_marcada?: string | null;
   }[];
-  respostas: { pergunta_id: string; area: string; valor: unknown; nao_se_aplica: boolean; confianca: string; participante: string | null }[];
+  respostas: {
+    pergunta_id: string;
+    area: string;
+    valor: unknown;
+    nao_se_aplica: boolean;
+    confianca: string;
+    participante: string | null;
+    origem?: "digitacao" | "escuta";
+  }[];
+  a_confirmar?: { id: string; sessao_id: string; pergunta_id: string; area: string; valor: unknown; nao_se_aplica: boolean; motivo: string }[];
   evidencias: { criterio_id: string; area: string; tipo: string; fonte: string | null; descricao: string; cumprido: boolean | null }[];
   pendencias_abertas: { fonte: string | null; descricao: string; responsavel: string | null; prazo: string | null }[];
 }
@@ -59,6 +71,16 @@ export function estadoParaModelo(roteiro: RoteiroDeep, e: EstadoBanco, sessaoId:
     })),
     evidencias: e.evidencias.map((v) => ({ criterio: v.criterio_id, tipo: v.tipo, cumprido: v.cumprido })),
     pendencias_abertas: e.pendencias_abertas.map((p) => ({ fonte: p.fonte, descricao: p.descricao, responsavel: p.responsavel, prazo: p.prazo })),
+    // Só aparece quando há algo esperando o analista (a escuta propôs e ele ainda não decidiu).
+    ...(e.a_confirmar?.length
+      ? {
+          a_confirmar: e.a_confirmar.map((c) => ({
+            id: c.pergunta_id,
+            ...(c.nao_se_aplica ? { nao_se_aplica: true } : { valor: c.valor }),
+            motivo: c.motivo,
+          })),
+        }
+      : {}),
   };
 }
 

@@ -133,6 +133,64 @@ export async function deepRegistrarRespostas(sessaoId: string, a: AnalistaDeep, 
   return { resultado: data as { gravadas: number; inalteradas: number } | null, error: erroBanco(error) };
 }
 
+/** Como deep_registrar_respostas, mas com a origem decidida aqui (migração 20261120200000): "escuta" vem do agente ouvinte. */
+export async function deepRegistrarRespostasOrigem(sessaoId: string, a: AnalistaDeep, respostas: unknown[], origem: "digitacao" | "escuta") {
+  const { data, error } = await clienteServidor().rpc("deep_registrar_respostas_origem", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_respostas: respostas,
+    p_origem: origem,
+  });
+  return { resultado: data as { gravadas: number; inalteradas: number } | null, error: erroBanco(error) };
+}
+
+// Escuta da reunião (migração 20261120200000).
+
+/** Guarda blocos transcritos (até 20); bloco repetido (mesmo seq) é ignorado. */
+export async function deepEscutaGravarBlocos(
+  sessaoId: string,
+  a: AnalistaDeep,
+  blocos: { seq: number; canal: "sala" | "remoto"; texto: string; inicio_ms?: number; fim_ms?: number }[],
+) {
+  const { data, error } = await clienteServidor().rpc("deep_escuta_gravar_blocos", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_blocos: blocos,
+  });
+  return { resultado: data as { gravados: number; repetidos: number } | null, error: erroBanco(error) };
+}
+
+/** Blocos ainda não processados pelo agente, em ordem (até 40). */
+export async function deepEscutaPendentes(sessaoId: string, a: AnalistaDeep) {
+  const { data, error } = await clienteServidor().rpc("deep_escuta_pendentes", { p_sessao: sessaoId, p_user: a.userId, p_aal2: a.aal2 });
+  return { blocos: (data ?? []) as unknown[], error: erroBanco(error) };
+}
+
+/** Marca os blocos que o turno do agente recebeu; p_mensagem_ordem é a fala do analista desse turno. */
+export async function deepEscutaMarcarProcessados(sessaoId: string, a: AnalistaDeep, seqs: number[], mensagemOrdem: number) {
+  const { data, error } = await clienteServidor().rpc("deep_escuta_marcar_processados", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_seqs: seqs,
+    p_mensagem_ordem: mensagemOrdem,
+  });
+  return { marcados: data as number | null, error: erroBanco(error) };
+}
+
+/** Respostas ouvidas com pouca certeza: ficam "a confirmar" e não entram no Deep. */
+export async function deepEscutaPropor(sessaoId: string, a: AnalistaDeep, itens: unknown[]) {
+  const { data, error } = await clienteServidor().rpc("deep_escuta_propor", {
+    p_sessao: sessaoId,
+    p_user: a.userId,
+    p_aal2: a.aal2,
+    p_itens: itens,
+  });
+  return { guardadas: data as number | null, error: erroBanco(error) };
+}
+
 export async function deepRegistrarEvidencias(sessaoId: string, a: AnalistaDeep, evidencias: unknown[]) {
   const { data, error } = await clienteServidor().rpc("deep_registrar_evidencias", {
     p_sessao: sessaoId,
