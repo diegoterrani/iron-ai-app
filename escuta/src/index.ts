@@ -49,8 +49,9 @@ const PARAMETROS_STT = {
   encoding: "linear16",
   sample_rate: "16000",
   language: "pt-BR",
-  interim_results: true,
-  smart_format: true,
+  // O Nova-3 por WebSocket recebe os parâmetros como texto: booleano puro volta 400 (AiError 8006).
+  interim_results: "true",
+  smart_format: "true",
   endpointing: "300",
 };
 
@@ -150,7 +151,7 @@ type MensagemCliente =
   | { tipo: "parcial"; canal: Canal; texto: string }
   | { tipo: "final"; canal: Canal; texto: string }
   | { tipo: "bloco"; numero: number; motivo: Bloco["motivo"]; texto: string }
-  | { tipo: "erro"; codigo: string };
+  | { tipo: "erro"; codigo: string; detalhe?: string };
 
 export class ReuniaoEscuta extends DurableObject<Env> {
   private cliente: WebSocket | null = null;
@@ -225,7 +226,7 @@ export class ReuniaoEscuta extends DurableObject<Env> {
       ) => Promise<Response>;
       const resposta = await executar("@cf/deepgram/nova-3", PARAMETROS_STT, { websocket: true });
       const ws = resposta.webSocket;
-      if (!ws) throw new Error(`sem websocket (status ${resposta.status})`);
+      if (!ws) throw new Error(`sem websocket (status ${resposta.status}) ${(await resposta.clone().text()).slice(0, 240)}`);
       ws.accept();
       ws.addEventListener("message", (e) => this.aoTranscrever(canal, e.data));
       ws.addEventListener("close", () => this.sttCaiu(canal, ws));
@@ -236,7 +237,9 @@ export class ReuniaoEscuta extends DurableObject<Env> {
     } catch (err) {
       // Só o nome do erro: a mensagem pode trazer conteúdo.
       log("escuta.stt_falhou", { canal, erro: err instanceof Error ? err.name : "desconhecido" });
-      this.enviar({ tipo: "erro", codigo: "stt_indisponivel" });
+      // No modo de teste a mensagem ajuda a achar parâmetro recusado; em produção não sai do Worker.
+      const detalhe = this.env.TESTE_CODIGO && err instanceof Error ? err.message.slice(0, 300) : undefined;
+      this.enviar({ tipo: "erro", codigo: "stt_indisponivel", detalhe });
       return null;
     }
   }
