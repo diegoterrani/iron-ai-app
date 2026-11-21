@@ -55,7 +55,7 @@ function receber(msg) {
     item.append(meta, texto);
     el("blocos").append(item);
   } else if (msg.tipo === "erro") {
-    estado(`Aviso do Worker: ${msg.codigo}`);
+    estado(`Aviso do Worker: ${msg.codigo}${msg.detalhe ? ` (${msg.detalhe})` : ""}`);
   }
 }
 
