@@ -1616,13 +1616,49 @@ a {
   }
 }
 
-/* Assistente de áudio na conversa do Self (painel-escuta.tsx) */
-.escuta {
-  align-self: stretch;
-  max-width: 44rem;
+/* Assistente de áudio na conversa do Self (painel-escuta.tsx).
+   Áudio ligado: a conversa se divide em duas colunas (perguntas | captação). */
+.conversa-unica {
+  display: flex;
+  flex-direction: column;
+}
+
+.conversa-unica > .escuta-barra {
+  order: -1;
+}
+
+.conversa-dividida {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.escuta-barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.escuta-coluna {
+  position: sticky;
+  top: var(--space-2);
   display: grid;
   gap: var(--space-2);
-  margin: var(--space-2) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  max-height: calc(100dvh - 2 * var(--space-2));
+  overflow-y: auto;
+}
+
+.escuta-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
 }
 
 .escuta-cartao {
@@ -1633,7 +1669,13 @@ a {
   gap: var(--space-2);
 }
 
-.escuta-cartao p {
+.escuta-coluna > .escuta-cartao {
+  padding: 0;
+  border: 0;
+}
+
+.escuta-cartao p,
+.escuta-coluna p {
   margin: 0;
 }
 
@@ -1651,32 +1693,29 @@ a {
   font-size: 14px;
 }
 
-.escuta-modos {
-  border: 0;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--space-1);
-}
-
 .escuta-status {
   font-size: 14px;
   font-weight: 700;
   color: var(--accent-text);
 }
 
+.escuta-pergunta {
+  font-size: 14px;
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+}
+
 .escuta-ao-vivo {
-  max-height: 12rem;
+  min-height: 10rem;
+  max-height: 40vh;
   overflow-y: auto;
   padding: var(--space-1) var(--space-2);
   background: var(--surface);
   font-size: 14px;
   display: grid;
+  align-content: start;
   gap: 4px;
-}
-
-.escuta-ao-vivo:empty {
-  display: none;
 }
 
 .escuta-quem {
@@ -1687,10 +1726,9 @@ a {
   color: var(--subtle);
 }
 
-.escuta-resposta {
-  border-top: 1px solid var(--hairline);
-  padding-top: 4px;
-  font-weight: 700;
+.escuta-revisao textarea {
+  width: 100%;
+  font: inherit;
 }
 
 .escuta-confirmar {
@@ -1706,6 +1744,18 @@ a {
   padding-top: var(--space-2);
   display: grid;
   gap: 4px;
+}
+
+@media (max-width: 900px) {
+  .conversa-dividida {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .conversa-dividida > .escuta-coluna {
+    order: -1;
+    position: static;
+    max-height: none;
+  }
 }
 
 /* Escolha da empresa no começo do Self (escolha-empresa.tsx) */
