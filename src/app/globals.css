@@ -1615,3 +1615,95 @@ a {
     padding-top: var(--space-3);
   }
 }
+
+/* Assistente de áudio na conversa do Self (painel-escuta.tsx) */
+.escuta {
+  align-self: stretch;
+  max-width: 44rem;
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.escuta-cartao {
+  padding: var(--space-3);
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.escuta-cartao p {
+  margin: 0;
+}
+
+.escuta-linha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.escuta-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  font-size: 14px;
+}
+
+.escuta-modos {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.escuta-status {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-text);
+}
+
+.escuta-ao-vivo {
+  max-height: 12rem;
+  overflow-y: auto;
+  padding: var(--space-1) var(--space-2);
+  background: var(--surface);
+  font-size: 14px;
+  display: grid;
+  gap: 4px;
+}
+
+.escuta-ao-vivo:empty {
+  display: none;
+}
+
+.escuta-quem {
+  font-weight: 700;
+}
+
+.escuta-parcial {
+  color: var(--subtle);
+}
+
+.escuta-resposta {
+  border-top: 1px solid var(--hairline);
+  padding-top: 4px;
+  font-weight: 700;
+}
+
+.escuta-confirmar {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.escuta-confirmar li {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+  display: grid;
+  gap: 4px;
+}

@@ -19,9 +19,10 @@ import {
 } from "@/lib/assessment/self";
 import { log, newTraceId } from "@/lib/log";
 import { createClient } from "@/lib/supabase/server";
-import { gravarConclusaoSelf, gravarConversa, reservarTurnoConversa } from "@/lib/supabase/servidor";
+import { gravarConclusaoSelf, gravarConversa, reservarTurnoConversa, selfEscutaEstado } from "@/lib/supabase/servidor";
 import type Anthropic from "@anthropic-ai/sdk";
-import { MAX_TEXTO_CLIENTE, chamarAnthropic, detalheErroApi, executarTurno, falasParaTela, separarBaloes, type FalaTela } from "@/lib/assessment/agente/conversa";
+import { textoDeVoz } from "@/lib/assessment/agente/escuta-self";
+import { MAX_TEXTO_CLIENTE, PREFIXO_VOZ, chamarAnthropic, detalheErroApi, executarTurno, falasParaTela, separarBaloes, type FalaTela } from "@/lib/assessment/agente/conversa";
 import type { CampoSeguro, Sinal } from "@/lib/assessment/agente/ferramentas";
 import type { RespostasSelf } from "@/lib/assessment/questionario";
 import { cnpjValido } from "@/lib/validation/cnpj";
@@ -240,6 +241,9 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
   });
   if (error) {
     log("warn", "self.concluir.recusado", { trace, ator: userId, code: error.code });
+    if (error.message.includes("a confirmar")) {
+      return { message: "Há respostas ouvidas pelo áudio esperando confirmação. Confirme ou descarte cada uma no painel de áudio antes de concluir." };
+    }
     return { message: `${mensagemErroBanco(error)} (código ${trace})` };
   }
   log("info", "self.concluir.ok", { trace, ator: userId, motor: resultado.versoes.motor });
@@ -250,6 +254,8 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
 
 export type EntradaConversa =
   | { tipo: "mensagem"; texto: string }
+  /** Resposta ditada (áudio, pergunta a pergunta): mascarada e marcada como fala transcrita. */
+  | { tipo: "voz"; texto: string }
   | { tipo: "inicio" }
   | { tipo: "campo_preenchido"; campo: CampoSeguro };
 
@@ -268,6 +274,7 @@ export interface RespostaConversa {
 
 const entradaSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("mensagem"), texto: z.string().trim().min(1, "Escreva uma mensagem.").max(MAX_TEXTO_CLIENTE, `Use até ${MAX_TEXTO_CLIENTE} caracteres.`) }),
+  z.object({ tipo: z.literal("voz"), texto: z.string().trim().min(1, "Nada foi ouvido.").max(MAX_TEXTO_CLIENTE, `Use até ${MAX_TEXTO_CLIENTE} caracteres.`) }),
   z.object({ tipo: z.literal("inicio") }),
   z.object({ tipo: z.literal("campo_preenchido"), campo: z.enum(["cnpj", "contato_telefone"]) }),
 ]);
@@ -284,8 +291,9 @@ function textoParaAgente(e: z.infer<typeof entradaSchema>, empresa: EmpresaSelf)
       ? `${AVISO} O cliente preencheu o ${ROTULO_SEGURO[e.campo]} no campo seguro e o app validou.`
       : `${AVISO} O ${ROTULO_SEGURO[e.campo]} não foi preenchido corretamente no campo seguro.`;
   }
-  // Remove um prefixo de aviso digitado pelo cliente.
-  return e.texto.replaceAll(AVISO, "").trim() || "(mensagem vazia)";
+  if (e.tipo === "voz") return textoDeVoz(e.texto).texto || "(mensagem vazia)";
+  // Remove prefixos que só o app usa (aviso e fala transcrita) do que o cliente digitou.
+  return e.texto.replaceAll(AVISO, "").replaceAll(PREFIXO_VOZ, "").trim() || "(mensagem vazia)";
 }
 
 /** Abre a conversa: devolve as falas da própria pessoa (o RLS só mostra a dela). */
@@ -343,6 +351,16 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
 
   const { data: temDireito } = await supabase.rpc("tem_direito", { p_produto: "self_assessment", p_org: linha.org_id });
   if (temDireito !== true) return { ok: false, erro: "Seu acesso ao Self assessment não está liberado." };
+
+  // Resposta por voz só com o áudio ligado e o consentimento vigente (o banco diz o modo).
+  if (e.data.tipo === "voz") {
+    const escuta = await selfEscutaEstado(id, { userId, aal2: await sessaoComMfa(supabase) });
+    const modo = (escuta.estado as { modo?: unknown } | null)?.modo;
+    if (escuta.error || (modo !== "pergunta" && modo !== "ambos")) {
+      log("info", "self.conversa.voz_recusada", { trace, ator: userId, code: escuta.error?.code ?? "modo" });
+      return { ok: false, erro: "O áudio está desligado ou o consentimento venceu. Ligue o áudio de novo para responder falando." };
+    }
+  }
 
   const reserva = await reservarTurnoConversa(id, userId, await sessaoComMfa(supabase));
   if (reserva.error) {

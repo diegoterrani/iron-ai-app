@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AcaoState } from "@/lib/acao/tipos";
 import type { FalaTela } from "@/lib/assessment/agente/conversa";
 import {
@@ -14,6 +14,7 @@ import {
 import type { CampoSeguro } from "@/lib/assessment/agente/ferramentas";
 import type { EmpresaSelf, Questionario, RespostasSelf } from "@/lib/assessment/questionario";
 import { progresso06, type Questionario06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { PainelEscuta } from "./painel-escuta";
 import { IndicadorProgresso06 } from "./progresso-06";
 import { Resumo06 } from "./resumo-06";
 import { cnpjValido, formatarCnpj } from "@/lib/validation/cnpj";
@@ -168,6 +169,18 @@ export function ConversaSelf(props: Props) {
 
   const [estadoConcluir, concluir, concluindo] = useActionState<AcaoState, FormData>(concluirSelf, {});
 
+  // Áudio: a escuta contínua grava respostas no rascunho; a conversa acompanha a versão.
+  const aoRespostasDaEscuta = useCallback((r: Rascunho06, v: string) => {
+    setRespostas(r);
+    versao.current = v;
+  }, []);
+  // Pergunta a pergunta: a resposta falada entra na conversa como fala do cliente.
+  const enviarVoz = async (t: string) => {
+    pularDigitacao();
+    setMostrarResumo(false);
+    return enviar({ tipo: "voz", texto: t }, { autor: "cliente", texto: t });
+  };
+
   return (
     <section className="conversa" aria-label="Conversa do Self assessment">
       {props.formato === "0.6" && (
@@ -247,6 +260,10 @@ export function ConversaSelf(props: Props) {
         <p className="field-error" role="alert">
           {erro}
         </p>
+      )}
+
+      {props.formato === "0.6" && (
+        <PainelEscuta assessmentId={assessmentId} aoRespostas={aoRespostasDaEscuta} enviarVoz={enviarVoz} ocupado={aguardando} />
       )}
 
       <form className="conversa-entrada" onSubmit={aoEnviar}>

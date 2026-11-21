@@ -5,6 +5,7 @@
  * Um nonce novo por requisição libera só esses scripts; qualquer script
  * injetado por XSS fica bloqueado (OWASP A03). Ver docs/seguranca.md.
  */
+import { ORIGEM_ESCUTA } from "@/lib/escuta/config";
 
 /** Gera um nonce imprevisível (128 bits) em base64, um por requisição. */
 export function generateNonce(): string {
@@ -41,7 +42,8 @@ export function buildCsp({ nonce, isDev }: CspOptions): string {
     "style-src": ["'self'", `'nonce-${nonce}'`],
     "img-src": ["'self'", "blob:", "data:"],
     "font-src": ["'self'"],
-    "connect-src": ["'self'"],
+    // Escuta (áudio) do Self: WebSocket só para o Worker de transcrição.
+    "connect-src": ["'self'", ORIGEM_ESCUTA],
     // Turnstile (anti-robô) roda num iframe da Cloudflare.
     "frame-src": ["https://challenges.cloudflare.com"],
     "object-src": ["'none'"],

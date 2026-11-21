@@ -38,4 +38,10 @@ describe("buildCsp", () => {
       expect(() => buildCsp({ nonce: bad, isDev: false })).toThrow("Nonce inválido");
     },
   );
+
+  it("libera WebSocket só para o Worker da escuta, sem curinga", () => {
+    const csp = buildCsp({ nonce: generateNonce(), isDev: false });
+    expect(csp).toContain("connect-src 'self' wss://iron-ai-escuta.contato-bd2.workers.dev;");
+    expect(csp).not.toMatch(/connect-src[^;]*\*/);
+  });
 });

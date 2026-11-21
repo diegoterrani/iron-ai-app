@@ -205,7 +205,20 @@ O cliente pode ligar, de forma opcional, o áudio na conversa do Self. Pergunta 
 | Modelo gravar algo que ninguém disse, ou obedecer instrução falada | Cada campo gravado precisa de um trecho que exista na transcrição do lote; um trecho falso recusa a chamada inteira. O valor passa pela mesma validação do formulário. A transcrição vai como dado, num agente separado da conversa, sem histórico | `tests/unit/self-escuta.test.ts` |
 | Escuta sobrescrever o que alguém salvou ao mesmo tempo | O rascunho só é gravado se a versão não mudou durante o turno; senão nada é marcado e o lote volta | `tests/unit/self-escuta.test.ts` |
 
-Ainda não entra na exportação LGPD (`meus_dados`): fica para o PR da tela, junto com o texto de consentimento.
+### Tela e Worker (PR C, 21/11/2026)
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Token de transcrição usado além dos minutos reservados | Cada token (10 min) só é emitido depois de reservar os minutos no banco. O Worker encerra a escuta quando o token vence (com 30 s de folga) e só renova com outro token da mesma reunião e pessoa, enviado pelo próprio WebSocket | `escuta/tests`, `tests/unit/escuta-token.test.ts` |
+| App e Worker divergirem no formato do token | O teste do app confere o token emitido com o código do próprio Worker | `tests/unit/escuta-token.test.ts` |
+| Navegador forjar dados de sessão no Durable Object | O Worker grava sessão, pessoa e validade em cabeçalhos próprios (substituindo qualquer valor enviado) depois de conferir o token; só o Worker alcança o objeto | revisão |
+| Identificar a voz das pessoas (biometria) | Não há impressão de voz: a separação de falantes do Nova-3 numera as vozes só dentro da conexão, e "Sou eu" associa um número ao consultor só naquela conexão. Nada da voz é guardado | `escuta/tests/segmentador.test.ts`, `tests/unit/escuta-papeis.test.ts` |
+| Fala do consultor virar resposta | Os blocos chegam ao servidor com o papel de cada linha (Consultor ou Cliente). O agente trata a fala do consultor como pergunta; resumo do consultor só vale com confirmação do cliente na fala seguinte | prompt + `tests/unit/self-escuta.test.ts` |
+| Microfone liberado em outras páginas | Permissions-Policy libera microfone e captura de aba só em `/assessment/*`; nas demais segue bloqueado | revisão |
+| WebSocket para destino arbitrário | CSP `connect-src` lista só o Worker da escuta (sem curinga) | `tests/unit/csp.test.ts` |
+| Resposta por voz sem o áudio ligado | O servidor confere no banco o modo e o consentimento antes de aceitar a mensagem "voz" na conversa | revisão |
+
+A escuta ainda não entra na exportação LGPD (`meus_dados`). Fica como pendência: consentimentos e itens a confirmar da própria pessoa.
 
 ## Dependências e auditoria
 

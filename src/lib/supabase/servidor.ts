@@ -351,3 +351,48 @@ export async function selfEscutaPropor(
   });
   return { guardadas: data as number | null, error: erroBanco(error) };
 }
+
+/** Registra o consentimento (versão do texto lido e quantas pessoas estavam presentes). */
+export async function selfEscutaConsentir(assessmentId: string, p: PessoaSelf, textoVersao: string, pessoas: number) {
+  const { error } = await clienteServidor().rpc("self_escuta_consentir", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_texto_versao: textoVersao,
+    p_pessoas: pessoas,
+  });
+  return { error: erroBanco(error) };
+}
+
+/** Liga, troca ou desliga a escuta (ligar exige consentimento vigente; o banco confere). */
+export async function selfEscutaDefinir(assessmentId: string, p: PessoaSelf, modo: "desligada" | "pergunta" | "fluido" | "ambos") {
+  const { error } = await clienteServidor().rpc("self_escuta_definir", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_modo: modo,
+  });
+  return { error: erroBanco(error) };
+}
+
+/** Reserva minutos de áudio antes de emitir o token de transcrição; devolve os minutos que restam. */
+export async function selfEscutaReservarMinutos(assessmentId: string, p: PessoaSelf, minutos: number) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_reservar_minutos", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_minutos: minutos,
+  });
+  return { restantes: data as number | null, error: erroBanco(error) };
+}
+
+/** Fecha um item a confirmar (só quem ligou a escuta). */
+export async function selfEscutaResolver(itemId: string, decisao: "confirmar" | "descartar", p: PessoaSelf) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_resolver", {
+    p_item: itemId,
+    p_decisao: decisao,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+  });
+  return { resultado: data as { assessment_id: string; pergunta_id: string; valor: unknown } | null, error: erroBanco(error) };
+}
