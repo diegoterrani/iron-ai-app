@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AcaoForm } from "@/components/acao-form";
+import { CONTATO_URL } from "@/lib/ui/textos";
 import { exigirContaAtiva, getSessao } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { DESCRICAO_PAPEL_CLIENTE, PAPEIS_CONVITE, ROTULO_PAPEL, ROTULO_STATUS, type Status } from "@/lib/validation/admin";
@@ -147,7 +148,9 @@ async function SecaoEmpresa({ orgId, euId }: { orgId: string; euId: string }) {
           </div>
         </AcaoForm>
       ) : (
-        <p className="notice">Todos os assentos estão em uso. Para ampliar, fale com a equipe IRON AI.</p>
+        <p className="notice">
+          Todos os assentos estão em uso. Para ampliar, <a href={CONTATO_URL}>fale com a equipe IRON AI</a>.
+        </p>
       )}
       <p className="field-hint">O convite vale por 7 dias. A pessoa entra com o papel escolhido e só passa a ter acesso depois de aceitar. Para tornar alguém ADM-Cliente, fale com a equipe IRON AI.</p>
     </section>

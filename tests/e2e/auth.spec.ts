@@ -38,7 +38,7 @@ test("entrar mostra só Google e formulário com rótulos", async ({ page }) => 
   await expect(page.getByLabel("Senha")).toHaveAttribute("type", "password");
 });
 
-for (const path of ["/painel", "/assessment", "/assessment/22222222-2222-4222-8222-222222222222", "/assessment/22222222-2222-4222-8222-222222222222/resultado/pdf", "/redefinir-senha", "/aguardando-aprovacao", "/admin", "/verificar-mfa", "/conta/seguranca", "/configurar-mfa", "/deep", "/deep/22222222-2222-4222-8222-222222222222"]) {
+for (const path of ["/painel", "/assessment", "/assessment/22222222-2222-4222-8222-222222222222", "/assessment/22222222-2222-4222-8222-222222222222/resultado/pdf", "/redefinir-senha", "/aguardando-aprovacao", "/admin", "/verificar-mfa", "/conta/seguranca", "/configurar-mfa", "/deep", "/deep/22222222-2222-4222-8222-222222222222", "/aceitar-termos", "/meus-dados"]) {
   test(`${path} sem login redireciona para entrar`, async ({ request }) => {
     const res = await request.get(path, { maxRedirects: 0 });
     expect(res.status()).toBe(307);

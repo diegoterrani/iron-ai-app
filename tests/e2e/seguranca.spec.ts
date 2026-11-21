@@ -47,7 +47,7 @@ test("página renderiza sem violação de CSP", async ({ page }) => {
   page.on("pageerror", (err) => violations.push(err.message));
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Cursos, comunidade e assessments de IA.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Assessments de IA da sua empresa.");
   await page.waitForLoadState("networkidle");
   expect(violations).toEqual([]);
 });

@@ -20,6 +20,7 @@ import {
 } from "@/lib/assessment/v06/apresentacao";
 import type { Certeza, Resultado06 } from "@/lib/assessment/v06/tipos";
 import { Barra, BarraEmpilhada, Escala, Regua, classeCerteza } from "./graficos-06";
+import { CONTATO_URL } from "@/lib/ui/textos";
 import { BotaoImprimir } from "./imprimir";
 
 /**
@@ -435,8 +436,11 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
         <h2 id="r-proximo">Próximo passo</h2>
         <p>Converse com a equipe IRON AI para levar este resultado à sessão executiva e agendar o Deep.</p>
         <div className="acoes">
+          <a className="btn btn-inline btn-link" href={CONTATO_URL} target="_blank" rel="noopener noreferrer">
+            Agendar conversa sobre o Deep
+          </a>
           {/* Link comum: o navegador baixa o arquivo; a rota confere a sessão e o RLS. */}
-          <a className="btn btn-inline" href={`/assessment/${assessmentId}/resultado/pdf`} download>
+          <a className="btn btn-inline btn-secondary btn-link" href={`/assessment/${assessmentId}/resultado/pdf`} download>
             Baixar relatório em PDF
           </a>
           <BotaoImprimir />

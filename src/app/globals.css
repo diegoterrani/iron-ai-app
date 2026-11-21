@@ -276,17 +276,6 @@ a {
   margin-bottom: var(--space-5);
 }
 
-.app-user {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.app-user .btn {
-  width: auto;
-}
-
 /* ---------- Backoffice ---------- */
 
 .admin-nav {
@@ -1791,4 +1780,206 @@ a {
 .empresa-escolhida {
   margin: 0 0 var(--space-2);
   font-size: 14px;
+}
+
+/* ---------- Menu da área logada (revisão de UX, 21/11/2026) ---------- */
+
+.app-marca {
+  display: inline-flex;
+}
+
+.menu-botao,
+.menu-conta-botao {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  padding: 6px var(--space-2);
+  cursor: pointer;
+}
+
+.menu-botao {
+  display: none;
+}
+
+.menu-conta-botao::after {
+  content: " ▾";
+}
+
+.menu-conta-botao[aria-expanded="true"]::after {
+  content: " ▴";
+}
+
+.menu-app {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-left: var(--space-4);
+}
+
+.menu-produtos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.menu-produtos a,
+.menu-conta-lista a,
+.admin-nav a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  padding-bottom: 2px;
+}
+
+.menu-produtos a:hover,
+.menu-conta-lista a:hover {
+  color: var(--link);
+}
+
+.menu-produtos a[aria-current="page"],
+.menu-conta-lista a[aria-current="page"],
+.admin-nav a[aria-current="page"] {
+  color: var(--accent-text);
+  border-bottom-color: var(--accent);
+}
+
+.menu-conta {
+  position: relative;
+}
+
+.menu-conta-lista {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 200px;
+  background: var(--paper);
+  border: 1px solid var(--faint);
+  padding: var(--space-2);
+}
+
+.menu-conta-lista.aberta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.menu-conta-lista nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.menu-conta-lista .btn {
+  width: 100%;
+  height: 40px;
+}
+
+@media (max-width: 760px) {
+  .menu-botao {
+    display: inline-block;
+  }
+
+  .menu-app {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 0;
+    gap: var(--space-2);
+  }
+
+  .menu-app.aberto {
+    display: flex;
+  }
+
+  .menu-produtos {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .menu-conta-botao {
+    display: none;
+  }
+
+  /* No celular a conta aparece aberta, logo abaixo dos produtos. */
+  .menu-conta-lista {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    position: static;
+    border: 0;
+    border-top: 1px solid var(--line);
+    padding: var(--space-2) 0 0;
+    background: transparent;
+  }
+}
+
+/* Ações perigosas recolhidas ("Mais opções") ao lado da ação principal. */
+.mais-opcoes summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.mais-opcoes[open] {
+  flex-basis: 100%;
+}
+
+.mais-opcoes .acao-form {
+  margin-top: var(--space-1);
+}
+
+.lista .acoes {
+  align-items: center;
+}
+
+/* Conversa: voltar ao fim depois de subir para reler. */
+.ir-para-fim {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + var(--space-1));
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--cta-bg);
+  color: var(--cta-text);
+  border: 0;
+  border-radius: 0;
+  padding: 6px var(--space-2);
+  cursor: pointer;
+}
+
+.conversa-erro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Painel: cartões com título curto em vez de número grande. */
+.painel-cartoes {
+  margin-top: var(--space-3);
+}
+
+.painel-cartoes strong {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.painel-detalhe {
+  display: block;
+  font-size: 13px;
+  color: var(--subtle);
 }

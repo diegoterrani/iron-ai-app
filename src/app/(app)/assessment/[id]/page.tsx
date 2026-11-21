@@ -8,14 +8,18 @@ import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
 import { MAX_TEXTO_CLIENTE } from "@/lib/assessment/agente/conversa";
 import { agenteConfigurado } from "@/lib/env";
+import { DURACAO_SELF } from "@/lib/ui/textos";
 import { aprofundamentoParaProgresso, eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
-import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { progresso06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { ConversaSelf } from "./conversa-self";
 import { EscolhaEmpresa } from "./escolha-empresa";
 import { Formulario06 } from "./formulario-06";
+import { IndicadorProgresso06 } from "./progresso-06";
 import { QuestionarioSelf } from "./questionario-self";
 
 export const metadata: Metadata = { title: "Self assessment" };
+
+const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
 export default async function ResponderPage({ params, searchParams }: PageProps<"/assessment/[id]">) {
   const perfil = await exigirContaAtiva();
@@ -50,6 +54,15 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       : (await supabase.rpc("tem_permissao", { p_permissao: "assessment.editar", p_org: linha.org_id })).data === true;
   if (!podeEditar) {
     if (linha.org_id === null) notFound();
+    // Leitura (RO-Cliente): quanto falta e quando mudou, sem mostrar as respostas.
+    const progresso = eFormato06(linha.respostas)
+      ? progresso06(
+          montarQuestionario06(),
+          (linha.respostas ?? {}) as Rascunho06,
+          linha.empresa ?? {},
+          aprofundamentoParaProgresso((linha.respostas ?? {}) as Rascunho06),
+        )
+      : null;
     return (
       <main>
         <p className="eyebrow">
@@ -60,6 +73,8 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
           O Self assessment da empresa está sendo respondido. Seu acesso é de leitura: o resultado aparece aqui quando
           ele for concluído.
         </p>
+        {progresso && <IndicadorProgresso06 p={progresso} />}
+        <p className="field-hint">Última alteração em {dataHora.format(new Date(linha.atualizado_em))}.</p>
       </main>
     );
   }
@@ -104,7 +119,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
         ) : (
           <>
             <p className="field-hint">
-              Cerca de 10 minutos. As respostas são salvas automaticamente; você pode sair e voltar depois.
+              {DURACAO_SELF[0].toUpperCase() + DURACAO_SELF.slice(1)}. As respostas são salvas automaticamente; você pode sair e voltar depois.
             </p>
             {agenteConfigurado() && (
               <p className="modo-troca">
@@ -129,7 +144,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
         <p className="eyebrow">
           <Link href="/assessment">Self assessment</Link> / Food service
         </p>
-        <h1 className="title">Self Assessment</h1>
+        <h1 className="title">Self assessment</h1>
         {pessoal ? (
           <EscolhaEmpresa
             key={chave}
@@ -154,7 +169,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       <p className="eyebrow">
         <Link href="/assessment">Self assessment</Link> / Food service
       </p>
-      <h1 className="title">{conversa ? "Self Assessment" : "Responder"}</h1>
+      <h1 className="title">Self assessment</h1>
       {conversa ? (
         <ConversaSelf
           formato="0.5"

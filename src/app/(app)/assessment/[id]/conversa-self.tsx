@@ -47,6 +47,11 @@ type Props = Formato & {
   maxTexto: number;
 };
 
+/** A pessoa está "no fim" da conversa se faltar menos que isto para o rodapé. */
+const DISTANCIA_DO_FIM_PX = 120;
+/** Janela em que eventos de rolagem são da própria tela (rolagem suave dura ~0,5 s). */
+const IGNORAR_ROLAGEM_AUTO_MS = 700;
+
 const ROTULO_SEGURO: Record<CampoSeguro, string> = { cnpj: "CNPJ da empresa", contato_telefone: "Telefone do contato" };
 
 export function ConversaSelf(props: Props) {
@@ -145,16 +150,47 @@ export function ConversaSelf(props: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId]);
 
-  // Rola até o fim da página a cada fala nova e a cada palavra digitada: a
-  // caixa de resposta é fixa no rodapé, então rolar só até a última fala a
-  // deixaria escondida atrás dela. Durante a digitação a rolagem é imediata,
-  // para não brigar com uma animação suave a cada palavra.
-  useEffect(() => {
-    const suave = !digitando && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Rolagem: acompanha o fim da página (a caixa de resposta é fixa no rodapé)
+  // só enquanto a pessoa está lá. Se ela subiu para reler, a tela não a puxa
+  // de volta; aparece "Ir para a última mensagem". Durante a digitação a
+  // rolagem é imediata, para não brigar com uma animação suave a cada palavra.
+  const noFim = useRef(true);
+  const rolagemAutoEm = useRef(0);
+  const [longeDoFim, setLongeDoFim] = useState(false);
+
+  const rolarAteOFim = useCallback((suave: boolean) => {
+    rolagemAutoEm.current = performance.now();
     requestAnimationFrame(() =>
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior: suave ? "smooth" : "auto" }),
     );
-  }, [falas, exibidas, reveladas, digitando, aguardando, campoSeguro, mostrarResumo, erro]);
+  }, []);
+
+  useEffect(() => {
+    const aoRolar = () => {
+      // Ignora os eventos da própria rolagem automática (inclusive a suave).
+      if (performance.now() - rolagemAutoEm.current < IGNORAR_ROLAGEM_AUTO_MS) return;
+      const resto = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+      const perto = resto < DISTANCIA_DO_FIM_PX;
+      noFim.current = perto;
+      setLongeDoFim(!perto);
+    };
+    window.addEventListener("scroll", aoRolar, { passive: true });
+    return () => window.removeEventListener("scroll", aoRolar);
+  }, []);
+
+  useEffect(() => {
+    if (!noFim.current) return;
+    const suave = !digitando && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rolarAteOFim(suave);
+  }, [falas, exibidas, reveladas, digitando, aguardando, campoSeguro, mostrarResumo, erro, rolarAteOFim]);
+
+  /** Volta ao fim e retoma o acompanhamento automático. */
+  const irParaOFim = () => {
+    noFim.current = true;
+    setLongeDoFim(false);
+    rolarAteOFim(!window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    entrada.current?.focus({ preventScroll: true });
+  };
 
   const aoEnviar = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -163,6 +199,8 @@ export function ConversaSelf(props: Props) {
     pularDigitacao();
     setTexto("");
     setMostrarResumo(false);
+    noFim.current = true;
+    setLongeDoFim(false);
     const ok = await enviar({ tipo: "mensagem", texto: t }, { autor: "cliente", texto: t });
     if (!ok) setTexto(t);
   };
@@ -184,6 +222,8 @@ export function ConversaSelf(props: Props) {
   const enviarVoz = async (t: string) => {
     pularDigitacao();
     setMostrarResumo(false);
+    noFim.current = true;
+    setLongeDoFim(false);
     return enviar({ tipo: "voz", texto: t }, { autor: "cliente", texto: t });
   };
 
@@ -264,12 +304,25 @@ export function ConversaSelf(props: Props) {
         </div>
 
         {erro && (
-          <p className="field-error" role="alert">
-            {erro}
-          </p>
+          <div className="conversa-erro">
+            <p className="field-error" role="alert">
+              {erro}
+            </p>
+            {/* A abertura falhou (nenhuma fala ainda): sem isto a pessoa fica diante de uma caixa vazia. */}
+            {falas.length === 0 && (
+              <button type="button" className="btn btn-inline btn-secondary" disabled={aguardando} onClick={() => void enviar({ tipo: "inicio" })}>
+                Tentar de novo
+              </button>
+            )}
+          </div>
         )}
 
         <form className="conversa-entrada" onSubmit={aoEnviar}>
+          {longeDoFim && (
+            <button type="button" className="ir-para-fim" onClick={irParaOFim}>
+              Ir para a última mensagem
+            </button>
+          )}
           <label htmlFor="mensagem" className="sr-only">
             Sua resposta
           </label>

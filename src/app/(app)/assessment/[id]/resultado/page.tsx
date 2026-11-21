@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { idValido } from "@/lib/validation/admin";
 import { formatarCnpj } from "@/lib/validation/cnpj";
 import type { Resultado06 } from "@/lib/assessment/v06/tipos";
+import { CONTATO_URL } from "@/lib/ui/textos";
 import { BotaoImprimir } from "./imprimir";
 import { Relatorio06 } from "./relatorio-06";
 
@@ -273,7 +274,12 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
       <section className="secao nao-imprimir" aria-labelledby="sec-proximo">
         <h2 id="sec-proximo">Próximo passo</h2>
         <p>Converse com a equipe IRON AI para levar este resultado à Sessão executiva e planejar o Deep dive.</p>
-        <BotaoImprimir />
+        <div className="acoes">
+          <a className="btn btn-inline btn-link" href={CONTATO_URL} target="_blank" rel="noopener noreferrer">
+            Agendar conversa sobre o Deep
+          </a>
+          <BotaoImprimir />
+        </div>
       </section>
 
       <p className="field-hint">
