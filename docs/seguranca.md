@@ -201,7 +201,9 @@ O cliente pode ligar, de forma opcional, o áudio na conversa do Self. Pergunta 
 | Origem da resposta forjada pelo modelo | O servidor registra a origem (`escuta` ou `escuta_confirmada`) com o valor gravado; o relatório compara com o valor atual para saber se foi editado depois | `self_escuta_test.sql` |
 | Reescrever transcrição ou consentimento | Texto do bloco e consentimento são imutáveis; o bloco só muda para processado | `self_escuta_test.sql` |
 | Guardar transcrição além do combinado | `self_escuta_apagar_expiradas` apaga blocos com mais de 90 dias e o trecho dos itens a confirmar (mesma retenção da conversa); consentimentos e itens ficam | `self_escuta_test.sql` |
-| Dado sensível dito em voz alta | O servidor mascara antes de gravar, como no Deep (controle de código) | PR do agente |
+| Dado sensível dito em voz alta | O servidor mascara CPF, CNPJ, cartão, banco e Pix antes de gravar o bloco e antes de a fala ditada entrar na conversa; marcadores do app ditos em voz alta são removidos (controle de código) | `tests/unit/self-escuta.test.ts` |
+| Modelo gravar algo que ninguém disse, ou obedecer instrução falada | Cada campo gravado precisa de um trecho que exista na transcrição do lote; um trecho falso recusa a chamada inteira. O valor passa pela mesma validação do formulário. A transcrição vai como dado, num agente separado da conversa, sem histórico | `tests/unit/self-escuta.test.ts` |
+| Escuta sobrescrever o que alguém salvou ao mesmo tempo | O rascunho só é gravado se a versão não mudou durante o turno; senão nada é marcado e o lote volta | `tests/unit/self-escuta.test.ts` |
 
 Ainda não entra na exportação LGPD (`meus_dados`): fica para o PR da tela, junto com o texto de consentimento.
 

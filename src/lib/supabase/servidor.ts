@@ -274,3 +274,80 @@ export async function deepFecharPendencia(pendenciaId: string, a: AnalistaDeep, 
   });
   return { error: erroBanco(error) };
 }
+
+// ------------------------------------------------------------ escuta no Self
+
+/** Quem pediu, como a sessão mostra: o banco confere de novo se pode editar e tem direito ao Self. */
+export interface PessoaSelf {
+  userId: string;
+  aal2: boolean;
+}
+
+/** Modo, validade do consentimento, minutos restantes e itens a confirmar da pessoa. */
+export async function selfEscutaEstado(assessmentId: string, p: PessoaSelf) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_estado", { p_assessment: assessmentId, p_user: p.userId, p_aal2: p.aal2 });
+  return { estado: data as unknown, error: erroBanco(error) };
+}
+
+/** Grava até 20 blocos transcritos (modo fluido ou ambos); repetidos são ignorados. */
+export async function selfEscutaGravarBlocos(
+  assessmentId: string,
+  p: PessoaSelf,
+  blocos: { seq: number; canal: "sala" | "remoto"; texto: string; inicio_ms?: number; fim_ms?: number }[],
+) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_gravar_blocos", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_blocos: blocos,
+  });
+  return { resultado: data as { gravados: number; repetidos: number } | null, error: erroBanco(error) };
+}
+
+/** Blocos ainda não processados, em ordem (até 40). */
+export async function selfEscutaPendentes(assessmentId: string, p: PessoaSelf) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_pendentes", { p_assessment: assessmentId, p_user: p.userId, p_aal2: p.aal2 });
+  return { blocos: (data ?? []) as unknown[], error: erroBanco(error) };
+}
+
+export async function selfEscutaMarcarProcessados(assessmentId: string, p: PessoaSelf, seqs: number[]) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_marcar_processados", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_seqs: seqs,
+  });
+  return { marcados: data as number | null, error: erroBanco(error) };
+}
+
+/** Registra que estes campos do rascunho foram gravados pela escuta, com o valor gravado. */
+export async function selfEscutaRegistrarOrigem(
+  assessmentId: string,
+  p: PessoaSelf,
+  itens: { pergunta_id: string; valor: unknown }[],
+  origem: "escuta" | "escuta_confirmada",
+) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_registrar_origem", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_itens: itens,
+    p_origem: origem,
+  });
+  return { registrados: data as number | null, error: erroBanco(error) };
+}
+
+/** Respostas ouvidas com pouca certeza: ficam "a confirmar" e não entram no rascunho. */
+export async function selfEscutaPropor(
+  assessmentId: string,
+  p: PessoaSelf,
+  itens: { pergunta_id: string; valor: unknown; motivo: string; trecho: string }[],
+) {
+  const { data, error } = await clienteServidor().rpc("self_escuta_propor", {
+    p_assessment: assessmentId,
+    p_user: p.userId,
+    p_aal2: p.aal2,
+    p_itens: itens,
+  });
+  return { guardadas: data as number | null, error: erroBanco(error) };
+}

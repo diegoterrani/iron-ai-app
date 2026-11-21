@@ -7,12 +7,13 @@ import {
   JANELA_TURNOS_ESCUTA,
   escolherLote,
   montarTextoEscuta,
-  neutralizarMarcadores,
+  prepararBlocos,
   type BlocoEscuta,
+  type BlocoRecebido,
   type ModoEscuta,
 } from "./escuta";
 import type { BancoDeep } from "./ferramentas";
-import { mascararDadosSensiveis, type TipoMascara } from "./mascara";
+import type { TipoMascara } from "./mascara";
 import { executarTurnoDeep, type FalaDeep, type ResultadoTurnoDeep } from "./turno";
 
 /**
@@ -139,23 +140,9 @@ const reuniaoComEscuta = (s: EstadoBanco["sessoes"][number]) => !!s.escuta_modo 
 
 // ------------------------------------------------------------------ escuta
 
-/** Um bloco como chega do Worker de transcrição (pelo navegador do analista). */
-export interface BlocoRecebido {
-  seq: number;
-  canal: "sala" | "remoto";
-  texto: string;
-  inicio_ms?: number;
-  fim_ms?: number;
-}
+export type { BlocoRecebido };
 
-const MAX_BLOCO = 4000;
 const POR_CHAMADA = 20;
-
-/** O mesmo tratamento da fala digitada: sem dado sensível e sem marcador do app, antes de gravar. */
-function prepararBloco(texto: string): { texto: string; contagem: Record<TipoMascara, number> } {
-  const m = mascararDadosSensiveis(texto.trim());
-  return { texto: neutralizarMarcadores(m.texto).slice(0, MAX_BLOCO), contagem: m.contagem };
-}
 
 /**
  * Guarda blocos transcritos. O texto é mascarado aqui, antes do banco: CPF,
@@ -169,18 +156,7 @@ export async function receberBlocosEscuta(args: {
   srv?: Pick<ServidorEscuta, "deepEscutaGravarBlocos">;
 }): Promise<{ gravados: number; repetidos: number; descartados: number; mascarados: Record<TipoMascara, number> }> {
   const srv = args.srv ?? servidor;
-  const mascarados: Record<TipoMascara, number> = { cpf: 0, cnpj: 0, cartao: 0, banco: 0, pix: 0 };
-  const prontos: BlocoRecebido[] = [];
-  let descartados = 0;
-  for (const b of args.blocos) {
-    const p = prepararBloco(b.texto);
-    if (!p.texto) {
-      descartados++;
-      continue;
-    }
-    for (const k of Object.keys(mascarados) as TipoMascara[]) mascarados[k] += p.contagem[k];
-    prontos.push({ ...b, texto: p.texto });
-  }
+  const { prontos, descartados, mascarados } = prepararBlocos(args.blocos);
   let gravados = 0;
   let repetidos = 0;
   for (let i = 0; i < prontos.length; i += POR_CHAMADA) {
