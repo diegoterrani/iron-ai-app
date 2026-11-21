@@ -49,8 +49,9 @@ const PARAMETROS_STT = {
   encoding: "linear16",
   sample_rate: "16000",
   language: "pt-BR",
-  interim_results: true,
-  smart_format: true,
+  // O Nova-3 por WebSocket recebe os parâmetros como texto: booleano puro volta 400 (AiError 8006).
+  interim_results: "true",
+  smart_format: "true",
   endpointing: "300",
 };
 
@@ -225,7 +226,7 @@ export class ReuniaoEscuta extends DurableObject<Env> {
       ) => Promise<Response>;
       const resposta = await executar("@cf/deepgram/nova-3", PARAMETROS_STT, { websocket: true });
       const ws = resposta.webSocket;
-      if (!ws) throw new Error(`sem websocket (status ${resposta.status})`);
+      if (!ws) throw new Error(`sem websocket (status ${resposta.status}) ${(await resposta.clone().text()).slice(0, 240)}`);
       ws.accept();
       ws.addEventListener("message", (e) => this.aoTranscrever(canal, e.data));
       ws.addEventListener("close", () => this.sttCaiu(canal, ws));
