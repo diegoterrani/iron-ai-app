@@ -17,6 +17,8 @@ export type Canal = "microfone" | "aba";
 export interface FalaFinal {
   canal: Canal;
   texto: string;
+  /** Voz na sala (separação de falantes do Nova-3), a partir de 0. Só no microfone. */
+  falante?: number;
 }
 
 export interface Bloco {
@@ -38,8 +40,30 @@ const MARGEM_MINIMA = 80;
 
 const ROTULO: Record<Canal, string> = { microfone: "Sala", aba: "Remoto" };
 
+/** Rótulo da linha: "Sala", "Sala · voz 2" (falante 1) ou "Remoto". */
+export function rotulo(canal: Canal, falante?: number): string {
+  return canal === "microfone" && falante !== undefined ? `${ROTULO.microfone} · voz ${falante + 1}` : ROTULO[canal];
+}
+
+/**
+ * Falante de uma fala final: o mais frequente entre as palavras (o Nova-3
+ * marca cada palavra). Sem marca válida, nenhum.
+ */
+export function falanteDominante(palavras: unknown): number | undefined {
+  if (!Array.isArray(palavras)) return undefined;
+  const contagem = new Map<number, number>();
+  for (const p of palavras) {
+    const f = (p as { speaker?: unknown } | null)?.speaker;
+    if (typeof f === "number" && Number.isInteger(f) && f >= 0 && f < 50) contagem.set(f, (contagem.get(f) ?? 0) + 1);
+  }
+  let melhor: number | undefined;
+  let max = 0;
+  for (const [f, n] of contagem) if (n > max || (n === max && melhor !== undefined && f < melhor)) [melhor, max] = [f, n];
+  return melhor;
+}
+
 export class Segmentador {
-  private linhas: { canal: Canal; texto: string }[] = [];
+  private linhas: { rotulo: string; texto: string }[] = [];
   private tamanho = 0;
   private ultimaFalaMs: number | null = null;
   private numero = 0;
@@ -57,9 +81,10 @@ export class Segmentador {
     if (!resto) return fechados;
     this.ultimaFalaMs = agoraMs;
 
+    const r = rotulo(fala.canal, fala.falante);
     while (resto) {
       // Custo de uma linha nova: "Rótulo: " + quebra de linha.
-      const prefixo = this.mesmaLinha(fala.canal) ? 1 : ROTULO[fala.canal].length + 3;
+      const prefixo = this.mesmaLinha(r) ? 1 : r.length + 3;
       const cabe = this.opcoes.maxCaracteres - this.tamanho - prefixo;
       // Sobra pouco espaço e o texto não cabe inteiro: melhor fechar o bloco
       // do que deixar três palavras soltas no fim dele.
@@ -68,7 +93,7 @@ export class Segmentador {
         continue;
       }
       const pedaco = cortarEmPalavra(resto, cabe);
-      this.acrescentar(fala.canal, pedaco);
+      this.acrescentar(r, pedaco);
       resto = resto.slice(pedaco.length).trim();
       if (resto) fechados.push(this.fechar("tamanho"));
     }
@@ -87,23 +112,23 @@ export class Segmentador {
     return this.tamanho > 0 ? this.fechar("encerramento") : null;
   }
 
-  private mesmaLinha(canal: Canal): boolean {
-    return this.linhas.at(-1)?.canal === canal;
+  private mesmaLinha(r: string): boolean {
+    return this.linhas.at(-1)?.rotulo === r;
   }
 
-  private acrescentar(canal: Canal, texto: string): void {
+  private acrescentar(r: string, texto: string): void {
     const ultima = this.linhas.at(-1);
-    if (ultima && ultima.canal === canal) {
+    if (ultima && ultima.rotulo === r) {
       ultima.texto += ` ${texto}`;
       this.tamanho += texto.length + 1;
     } else {
-      this.linhas.push({ canal, texto });
-      this.tamanho += texto.length + ROTULO[canal].length + 3;
+      this.linhas.push({ rotulo: r, texto });
+      this.tamanho += texto.length + r.length + 3;
     }
   }
 
   private fechar(motivo: Bloco["motivo"]): Bloco {
-    const texto = this.linhas.map((l) => `${ROTULO[l.canal]}: ${l.texto}`).join("\n");
+    const texto = this.linhas.map((l) => `${l.rotulo}: ${l.texto}`).join("\n");
     this.linhas = [];
     this.tamanho = 0;
     this.ultimaFalaMs = null;

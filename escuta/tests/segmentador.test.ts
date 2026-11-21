@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Segmentador } from "../src/segmentador";
+import { Segmentador, falanteDominante, rotulo } from "../src/segmentador";
 
 const opcoes = { pausaMs: 6000, minCaracteres: 40, maxCaracteres: 300 };
 
@@ -61,5 +61,30 @@ describe("segmentador de transcrição", () => {
   it("recusa opções incoerentes", () => {
     expect(() => new Segmentador({ pausaMs: 0, minCaracteres: 40, maxCaracteres: 300 })).toThrow();
     expect(() => new Segmentador({ pausaMs: 1000, minCaracteres: 300, maxCaracteres: 300 })).toThrow();
+  });
+});
+
+describe("vozes da sala", () => {
+  it("rotula cada voz da sala e não junta vozes diferentes na mesma linha", () => {
+    const s = new Segmentador(opcoes);
+    s.adicionar({ canal: "microfone", texto: "Quantos funcionários vocês têm hoje?", falante: 0 }, 0);
+    s.adicionar({ canal: "microfone", texto: "Uns duzentos, somando as lojas.", falante: 1 }, 1000);
+    s.adicionar({ canal: "microfone", texto: "Duzentos e dez, na verdade.", falante: 1 }, 2000);
+    s.adicionar({ canal: "aba", texto: "Confirmo, duzentos e dez." }, 3000);
+    expect(s.encerrar()?.texto).toBe(
+      "Sala · voz 1: Quantos funcionários vocês têm hoje?\nSala · voz 2: Uns duzentos, somando as lojas. Duzentos e dez, na verdade.\nRemoto: Confirmo, duzentos e dez.",
+    );
+  });
+
+  it("falante dominante: o mais frequente entre as palavras, ignorando marca inválida", () => {
+    expect(falanteDominante([{ speaker: 1 }, { speaker: 1 }, { speaker: 0 }])).toBe(1);
+    expect(falanteDominante([{ speaker: 2 }, { speaker: 0 }])).toBe(0);
+    expect(falanteDominante([{ speaker: "1" }, { speaker: -1 }, {}, null])).toBeUndefined();
+    expect(falanteDominante(undefined)).toBeUndefined();
+  });
+
+  it("áudio da aba nunca leva voz no rótulo", () => {
+    expect(rotulo("aba", 3)).toBe("Remoto");
+    expect(rotulo("microfone")).toBe("Sala");
   });
 });

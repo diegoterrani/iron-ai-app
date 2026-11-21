@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { Segmentador, type Bloco, type Canal } from "./segmentador";
+import { Segmentador, falanteDominante, type Bloco, type Canal } from "./segmentador";
 import { ARQUIVOS_TESTE, VALIDADE_TOKEN_TESTE_S, cabecalhosTeste, codigoConfere, modoTesteLigado } from "./teste";
 import { assinarToken, conferirToken } from "./token";
 
@@ -53,7 +53,20 @@ const PARAMETROS_STT = {
   interim_results: "true",
   smart_format: "true",
   endpointing: "300",
+  // Separa as vozes da sala (cada palavra volta com o número do falante). Testado
+  // por WebSocket com pt-BR em 21/11/2026. Nada da voz é guardado: o número só
+  // vale para esta conexão.
+  diarize: "true",
 };
+
+/** Folga depois do vencimento do token antes de cortar (relógio do navegador e rede). */
+const FOLGA_PRAZO_MS = 30_000;
+/** Pedido de renovação pelo WebSocket: só o token, em JSON pequeno. */
+const MAX_BYTES_RENOVACAO = 2048;
+/** Cabeçalhos que só o Worker põe no pedido ao Durable Object (o navegador não alcança o objeto). */
+const CAB_SESSAO = "X-Escuta-Sessao";
+const CAB_SUB = "X-Escuta-Sub";
+const CAB_EXP = "X-Escuta-Exp";
 
 function origemPermitida(env: Env, origem: string | null, origemDoWorker: string): boolean {
   if (!origem) return false;
@@ -141,15 +154,22 @@ export default {
     }
 
     // Um Durable Object por reunião: duas abas da mesma reunião caem no mesmo objeto.
+    // O token conferido segue em cabeçalhos: o objeto corta a escuta quando ele vence.
     const stub = env.REUNIAO.getByName(token.payload.sessao);
-    return stub.fetch(request);
+    // set() substitui qualquer valor que o navegador tenha mandado nesses nomes.
+    const cabecalhos = new Headers(request.headers);
+    cabecalhos.set(CAB_SESSAO, token.payload.sessao);
+    cabecalhos.set(CAB_SUB, token.payload.sub);
+    cabecalhos.set(CAB_EXP, String(token.payload.exp));
+    return stub.fetch(new Request(request, { headers: cabecalhos }));
   },
 } satisfies ExportedHandler<Env>;
 
 type MensagemCliente =
   | { tipo: "pronto" }
-  | { tipo: "parcial"; canal: Canal; texto: string }
-  | { tipo: "final"; canal: Canal; texto: string }
+  | { tipo: "parcial"; canal: Canal; texto: string; falante?: number }
+  | { tipo: "final"; canal: Canal; texto: string; falante?: number }
+  | { tipo: "renovado"; exp: number }
   | { tipo: "bloco"; numero: number; motivo: Bloco["motivo"]; texto: string }
   | { tipo: "erro"; codigo: string; detalhe?: string };
 
@@ -161,9 +181,17 @@ export class ReuniaoEscuta extends DurableObject<Env> {
   private relogio: ReturnType<typeof setInterval> | null = null;
   private inicioMs = 0;
   private blocos = 0;
+  private sessao = "";
+  private sub = "";
+  /** Fim da escuta: vencimento do token (mais a folga). Renovar empurra o prazo. */
+  private prazoMs = 0;
 
   // A validação (origem e token) já foi feita no Worker; só ele alcança este objeto.
-  async fetch(_request: Request): Promise<Response> {
+  async fetch(request: Request): Promise<Response> {
+    const exp = Number(request.headers.get(CAB_EXP));
+    const sessao = request.headers.get(CAB_SESSAO) ?? "";
+    const sub = request.headers.get(CAB_SUB) ?? "";
+    if (!Number.isFinite(exp) || !sessao || !sub) return new Response("Pedido inválido", { status: 400 });
     // Uma escuta por reunião: a conexão nova substitui a antiga (aba recarregada).
     if (this.cliente) this.encerrar(4001, "substituída por nova conexão");
 
@@ -176,6 +204,9 @@ export class ReuniaoEscuta extends DurableObject<Env> {
     this.segmentador = new Segmentador();
     this.inicioMs = Date.now();
     this.blocos = 0;
+    this.sessao = sessao;
+    this.sub = sub;
+    this.prazoMs = exp * 1000 + FOLGA_PRAZO_MS;
 
     servidor.addEventListener("message", (e) => this.aoReceber(servidor, e.data));
     servidor.addEventListener("close", () => this.aoFechar(servidor));
@@ -189,8 +220,11 @@ export class ReuniaoEscuta extends DurableObject<Env> {
 
   private async aoReceber(origem: WebSocket, dado: string | ArrayBuffer): Promise<void> {
     if (origem !== this.cliente) return;
-    // O cliente só manda áudio (binário). Texto é ignorado: não há comandos a aceitar.
-    if (typeof dado === "string") return;
+    // Texto: só o pedido de renovação do token. Qualquer outra coisa é ignorada.
+    if (typeof dado === "string") {
+      await this.renovar(dado);
+      return;
+    }
     if (dado.byteLength < 3 || dado.byteLength > MAX_BYTES_QUADRO) {
       this.enviar({ tipo: "erro", codigo: "quadro_invalido" });
       return;
@@ -202,6 +236,32 @@ export class ReuniaoEscuta extends DurableObject<Env> {
     }
     const stt = await this.conexaoStt(canal);
     if (stt && stt.readyState === WebSocket.OPEN) stt.send(dado.slice(1));
+  }
+
+  /**
+   * Renovação: o app emite um token novo (reservando minutos no banco) e o
+   * navegador o manda por aqui, sem derrubar a conexão nem a separação de
+   * falantes. Só vale token da mesma reunião e da mesma pessoa.
+   */
+  private async renovar(texto: string): Promise<void> {
+    let token: unknown;
+    try {
+      if (texto.length > MAX_BYTES_RENOVACAO) throw new Error("grande");
+      const msg = JSON.parse(texto) as { tipo?: unknown; token?: unknown };
+      if (msg.tipo !== "renovar") return;
+      token = msg.token;
+    } catch {
+      return;
+    }
+    const r = typeof token === "string" ? await conferirToken(token, this.env.ESCUTA_TOKEN_SECRET, Date.now()) : null;
+    if (!r?.ok || r.payload.sessao !== this.sessao || r.payload.sub !== this.sub) {
+      log("escuta.renovacao_recusada", { motivo: r && !r.ok ? r.motivo : "outra_reuniao" });
+      this.enviar({ tipo: "erro", codigo: "renovacao_recusada" });
+      return;
+    }
+    this.prazoMs = Math.max(this.prazoMs, r.payload.exp * 1000 + FOLGA_PRAZO_MS);
+    log("escuta.renovada");
+    this.enviar({ tipo: "renovado", exp: r.payload.exp });
   }
 
   /** Abre (uma vez por canal) a conexão com o Nova-3. */
@@ -254,25 +314,34 @@ export class ReuniaoEscuta extends DurableObject<Env> {
 
   private aoTranscrever(canal: Canal, dado: string | ArrayBuffer): void {
     if (typeof dado !== "string") return;
-    let msg: { is_final?: unknown; channel?: { alternatives?: { transcript?: unknown }[] } };
+    let msg: { is_final?: unknown; channel?: { alternatives?: { transcript?: unknown; words?: unknown }[] } };
     try {
       msg = JSON.parse(dado);
     } catch {
       return;
     }
-    const texto = msg.channel?.alternatives?.[0]?.transcript;
+    const alternativa = msg.channel?.alternatives?.[0];
+    const texto = alternativa?.transcript;
     if (typeof texto !== "string" || !texto.trim()) return;
+    // Vozes só fazem sentido na sala; no áudio da aba, todos são "Remoto".
+    const falante = canal === "microfone" ? falanteDominante(alternativa?.words) : undefined;
+    const extra = falante === undefined ? {} : { falante };
     if (msg.is_final !== true) {
-      this.enviar({ tipo: "parcial", canal, texto });
+      this.enviar({ tipo: "parcial", canal, texto, ...extra });
       return;
     }
-    this.enviar({ tipo: "final", canal, texto });
-    for (const bloco of this.segmentador.adicionar({ canal, texto }, Date.now())) this.entregar(bloco);
+    this.enviar({ tipo: "final", canal, texto, ...extra });
+    for (const bloco of this.segmentador.adicionar({ canal, texto, falante }, Date.now())) this.entregar(bloco);
   }
 
   private aCadaSegundo(): void {
     if (Date.now() - this.inicioMs > MAX_DURACAO_MS) {
       this.encerrar(4002, "tempo máximo de escuta");
+      return;
+    }
+    // Token vencido sem renovação: os minutos reservados acabaram.
+    if (Date.now() > this.prazoMs) {
+      this.encerrar(4003, "token vencido");
       return;
     }
     const bloco = this.segmentador.verificar(Date.now());

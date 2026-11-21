@@ -101,12 +101,23 @@ const llmSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(20),
 });
 
+/**
+ * Segredo do token curto da escuta (o mesmo cadastrado no Worker
+ * iron-ai-escuta). Só no servidor; sem ele, o áudio fica indisponível e a
+ * conversa por texto continua funcionando.
+ */
+const escutaSchema = z.object({
+  ESCUTA_TOKEN_SECRET: z.string().min(32),
+});
+
 export const publicEnv = () => parse(publicSchema);
 export const siteUrl = () => resolverSiteUrl(publicEnv());
 export const adminEnv = () => parse(adminSchema);
 export const serverEnv = () => parse(serverSchema);
 export const llmEnv = () => parse(llmSchema);
 export const agenteConfigurado = () => llmSchema.safeParse(process.env).success;
+export const escutaEnv = () => parse(escutaSchema);
+export const escutaConfigurada = () => escutaSchema.safeParse(process.env).success;
 
 export function isSupabaseConfigured(): boolean {
   return publicSchema.safeParse(process.env).success;

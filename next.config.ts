@@ -35,7 +35,20 @@ const nextConfig: NextConfig = {
     "/assessment/[id]/resultado/pdf": ["./src/fonts/pdf/**"],
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Só a página do assessment usa o microfone e o áudio de aba (escuta do Self).
+      // Mesma chave: a regra que vem depois substitui a geral nessas páginas.
+      {
+        source: "/assessment/:path*",
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=(), browsing-topics=()",
+          },
+        ],
+      },
+    ];
   },
 };
 
