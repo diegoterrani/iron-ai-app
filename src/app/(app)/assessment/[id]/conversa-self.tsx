@@ -174,7 +174,13 @@ export function ConversaSelf(props: Props) {
     setRespostas(r);
     versao.current = v;
   }, []);
-  // Pergunta a pergunta: a resposta falada entra na conversa como fala do cliente.
+  // Áudio ligado: a tela se divide (perguntas à esquerda, captação à direita).
+  const [audioAtivo, setAudioAtivo] = useState(false);
+  const perguntaAtual = useMemo(() => {
+    for (let i = falas.length - 1; i >= 0; i--) if (falas[i]?.autor === "agente") return falas[i]?.texto ?? null;
+    return null;
+  }, [falas]);
+  // Entrevista guiada: a resposta revisada entra na conversa como fala do cliente.
   const enviarVoz = async (t: string) => {
     pularDigitacao();
     setMostrarResumo(false);
@@ -182,119 +188,127 @@ export function ConversaSelf(props: Props) {
   };
 
   return (
-    <section className="conversa" aria-label="Conversa do Self assessment">
-      {props.formato === "0.6" && (
-        <IndicadorProgresso06 p={progresso06(props.questionario, respostas as Rascunho06, empresa, aprofundamento)} />
-      )}
-      <div className="conversa-falas" role="log" aria-live="polite" aria-relevant="additions">
-        {falas.slice(0, exibidas + 1).map((f, i) => {
-          const emDigitacao = i === exibidas;
-          if (f.autor === "cliente") {
+    <div className={audioAtivo ? "conversa-dividida" : "conversa-unica"}>
+      <section className="conversa" aria-label="Conversa do Self assessment">
+        {props.formato === "0.6" && (
+          <IndicadorProgresso06 p={progresso06(props.questionario, respostas as Rascunho06, empresa, aprofundamento)} />
+        )}
+        <div className="conversa-falas" role="log" aria-live="polite" aria-relevant="additions">
+          {falas.slice(0, exibidas + 1).map((f, i) => {
+            const emDigitacao = i === exibidas;
+            if (f.autor === "cliente") {
+              return (
+                <div key={i} className="fala fala-cliente">
+                  <span className="sr-only">Você:</span>
+                  <TextoFala texto={f.texto} />
+                </div>
+              );
+            }
+            // Leitor de tela recebe a fala inteira uma vez só; a parte que vai
+            // aparecendo fica escondida dele para não ser anunciada a cada palavra.
             return (
-              <div key={i} className="fala fala-cliente">
-                <span className="sr-only">Você:</span>
-                <TextoFala texto={f.texto} />
+              <div key={i} className={emDigitacao ? "fala fala-agente fala-digitando" : "fala fala-agente"}>
+                <span className="sr-only">Assistente: {f.texto}</span>
+                <div aria-hidden="true">
+                  <TextoFala texto={emDigitacao ? textoParcial(pedacos, reveladas) : f.texto} />
+                </div>
               </div>
             );
-          }
-          // Leitor de tela recebe a fala inteira uma vez só; a parte que vai
-          // aparecendo fica escondida dele para não ser anunciada a cada palavra.
-          return (
-            <div key={i} className={emDigitacao ? "fala fala-agente fala-digitando" : "fala fala-agente"}>
-              <span className="sr-only">Assistente: {f.texto}</span>
-              <div aria-hidden="true">
-                <TextoFala texto={emDigitacao ? textoParcial(pedacos, reveladas) : f.texto} />
-              </div>
+          })}
+          {aguardando && (
+            <p className="fala fala-agente fala-pensando" aria-label="O assistente está escrevendo">
+              Escrevendo…
+            </p>
+          )}
+
+          {campoSeguro && !digitando && (
+            <CampoSeguroCard
+              campo={campoSeguro}
+              aoSalvar={async (valor) => {
+                const novaEmpresa = { ...empresa, [campoSeguro]: valor };
+                const s = await salvarRascunho(assessmentId, { respostas, empresa: novaEmpresa }, versao.current);
+                if (!s.ok) return s.erro ?? "Não foi possível salvar.";
+                if (s.salvoEm) versao.current = s.salvoEm;
+                if (s.aprofundamento !== undefined) setAprofundamento(s.aprofundamento);
+                setEmpresa(novaEmpresa);
+                const campo = campoSeguro;
+                setCampoSeguro(null);
+                await enviar({ tipo: "campo_preenchido", campo });
+                return null;
+              }}
+            />
+          )}
+
+          {mostrarResumo && !digitando && (
+            <div className="resumo-conversa">
+              <h2 className="pergunta-titulo">Confira o que foi registrado</h2>
+              {props.formato === "0.6" ? (
+                <Resumo06 q={props.questionario} r={respostas as Rascunho06} e={empresa} />
+              ) : (
+                <Resumo q={props.questionario} r={respostas as RespostasSelf} e={empresa} />
+              )}
+              <p className="field-hint">Se algo estiver errado, escreva abaixo o que corrigir. Se estiver tudo certo, confirme.</p>
+              <form action={concluir}>
+                <input type="hidden" name="assessmentId" value={assessmentId} />
+                <button type="submit" className="btn btn-inline" disabled={concluindo}>
+                  {concluindo ? "Calculando…" : "Confirmo, ver resultado"}
+                </button>
+              </form>
+              {estadoConcluir.message && (
+                <p className="field-error" role="alert">
+                  {estadoConcluir.message}
+                </p>
+              )}
             </div>
-          );
-        })}
-        {aguardando && (
-          <p className="fala fala-agente fala-pensando" aria-label="O assistente está escrevendo">
-            Escrevendo…
+          )}
+        </div>
+
+        {erro && (
+          <p className="field-error" role="alert">
+            {erro}
           </p>
         )}
 
-        {campoSeguro && !digitando && (
-          <CampoSeguroCard
-            campo={campoSeguro}
-            aoSalvar={async (valor) => {
-              const novaEmpresa = { ...empresa, [campoSeguro]: valor };
-              const s = await salvarRascunho(assessmentId, { respostas, empresa: novaEmpresa }, versao.current);
-              if (!s.ok) return s.erro ?? "Não foi possível salvar.";
-              if (s.salvoEm) versao.current = s.salvoEm;
-              if (s.aprofundamento !== undefined) setAprofundamento(s.aprofundamento);
-              setEmpresa(novaEmpresa);
-              const campo = campoSeguro;
-              setCampoSeguro(null);
-              await enviar({ tipo: "campo_preenchido", campo });
-              return null;
+        <form className="conversa-entrada" onSubmit={aoEnviar}>
+          <label htmlFor="mensagem" className="sr-only">
+            Sua resposta
+          </label>
+          <textarea
+            id="mensagem"
+            ref={entrada}
+            rows={2}
+            maxLength={maxTexto}
+            value={texto}
+            placeholder="Escreva sua resposta"
+            onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter envia; Shift+Enter quebra a linha.
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                e.currentTarget.form?.requestSubmit();
+              }
             }}
           />
-        )}
-
-        {mostrarResumo && !digitando && (
-          <div className="resumo-conversa">
-            <h2 className="pergunta-titulo">Confira o que foi registrado</h2>
-            {props.formato === "0.6" ? (
-              <Resumo06 q={props.questionario} r={respostas as Rascunho06} e={empresa} />
-            ) : (
-              <Resumo q={props.questionario} r={respostas as RespostasSelf} e={empresa} />
-            )}
-            <p className="field-hint">Se algo estiver errado, escreva abaixo o que corrigir. Se estiver tudo certo, confirme.</p>
-            <form action={concluir}>
-              <input type="hidden" name="assessmentId" value={assessmentId} />
-              <button type="submit" className="btn btn-inline" disabled={concluindo}>
-                {concluindo ? "Calculando…" : "Confirmo, ver resultado"}
-              </button>
-            </form>
-            {estadoConcluir.message && (
-              <p className="field-error" role="alert">
-                {estadoConcluir.message}
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      {erro && (
-        <p className="field-error" role="alert">
-          {erro}
+          <button type="submit" className="btn btn-inline" disabled={aguardando || !texto.trim()}>
+            Enviar
+          </button>
+        </form>
+        <p className="field-hint">
+          Suas respostas são salvas a cada mensagem. CNPJ e telefone são digitados em campos próprios e não passam pelo
+          assistente. <Link href={`/assessment/${assessmentId}?modo=formulario`}>Prefiro preencher em formulário</Link>
         </p>
-      )}
-
+      </section>
       {props.formato === "0.6" && (
-        <PainelEscuta assessmentId={assessmentId} aoRespostas={aoRespostasDaEscuta} enviarVoz={enviarVoz} ocupado={aguardando} />
-      )}
-
-      <form className="conversa-entrada" onSubmit={aoEnviar}>
-        <label htmlFor="mensagem" className="sr-only">
-          Sua resposta
-        </label>
-        <textarea
-          id="mensagem"
-          ref={entrada}
-          rows={2}
-          maxLength={maxTexto}
-          value={texto}
-          placeholder="Escreva sua resposta"
-          onChange={(e) => setTexto(e.target.value)}
-          onKeyDown={(e) => {
-            // Enter envia; Shift+Enter quebra a linha.
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              e.currentTarget.form?.requestSubmit();
-            }
-          }}
+        <PainelEscuta
+          assessmentId={assessmentId}
+          perguntaAtual={perguntaAtual}
+          aoMudarAtivo={setAudioAtivo}
+          enviarVoz={enviarVoz}
+          aoRespostas={aoRespostasDaEscuta}
+          ocupado={aguardando}
         />
-        <button type="submit" className="btn btn-inline" disabled={aguardando || !texto.trim()}>
-          Enviar
-        </button>
-      </form>
-      <p className="field-hint">
-        Suas respostas são salvas a cada mensagem. CNPJ e telefone são digitados em campos próprios e não passam pelo
-        assistente. <Link href={`/assessment/${assessmentId}?modo=formulario`}>Prefiro preencher em formulário</Link>
-      </p>
-    </section>
+      )}
+    </div>
   );
 }
 

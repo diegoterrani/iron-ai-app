@@ -218,6 +218,17 @@ O cliente pode ligar, de forma opcional, o áudio na conversa do Self. Pergunta 
 | WebSocket para destino arbitrário | CSP `connect-src` lista só o Worker da escuta (sem curinga) | `tests/unit/csp.test.ts` |
 | Resposta por voz sem o áudio ligado | O servidor confere no banco o modo e o consentimento antes de aceitar a mensagem "voz" na conversa | revisão |
 
+### Entrevista guiada (21/11/2026)
+
+O áudio do Self virou um fluxo único: tela dividida (perguntas | captação), "Pergunta respondida", resposta consolidada revisada pelo consultor e "Enviar e seguir". Substitui os modos pergunta a pergunta, reunião livre e os dois.
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Guardar transcrição sem necessidade | A fala captada fica só no navegador. O servidor recebe a fala de uma pergunta para consolidar e não grava; só o texto que o consultor envia entra na conversa (com a retenção dela). A escuta não grava mais blocos | revisão |
+| Resposta inventada ou fala do consultor virar resposta | O consolidador só escreve o que o cliente disse ou confirmou; a saída passa por ferramenta obrigatória e limites no código; nada entra no Self sem o "Enviar" do consultor, e o assistente da conversa valida o registro | `tests/unit/self-escuta.test.ts` |
+| Dado sensível na consolidação | Máscara na entrada (fala e pergunta) e de novo na saída do modelo; marcadores do app neutralizados; papel de quem fala só de uma lista fechada | `tests/unit/self-escuta.test.ts` (mutação) |
+| Consolidar sem o áudio ligado | O servidor confere no banco o modo e o consentimento antes de chamar o modelo | revisão |
+
 A escuta ainda não entra na exportação LGPD (`meus_dados`). Fica como pendência: consentimentos e itens a confirmar da própria pessoa.
 
 ## Cadastro de empresas do Self (21/11/2026)
