@@ -19,6 +19,26 @@ const data = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "A
 const ROTULO_STATUS: Record<LinhaDeep["status"], string> = { em_andamento: "em andamento", concluido: "concluído", cancelado: "cancelado" };
 const SELO_STATUS: Record<LinhaDeep["status"], string> = { em_andamento: "selo selo-pendente", concluido: "selo selo-ativo", cancelado: "selo" };
 
+type Empresa = { id: string; nome: string };
+
+/**
+ * Empresas em que a pessoa pode conduzir o Deep, numa chamada só
+ * (deep_empresas_que_conduzo, migração 20261121200000). Se a função ainda
+ * não existir no banco (SQL não aplicado), cai na conferência empresa a
+ * empresa, que dá o mesmo resultado mais devagar.
+ */
+async function empresasQueConduzo(supabase: Awaited<ReturnType<typeof createClient>>, orgs: Empresa[]): Promise<Empresa[]> {
+  const { data, error } = await supabase.rpc("deep_empresas_que_conduzo");
+  if (!error) return (data ?? []) as Empresa[];
+  const permitidas = await Promise.all(
+    orgs.map(async (o) => {
+      const { data: pode } = await supabase.rpc("tem_permissao", { p_permissao: "deep.conduzir", p_org: o.id });
+      return pode === true ? o : null;
+    }),
+  );
+  return permitidas.filter((o): o is Empresa => o !== null);
+}
+
 /**
  * Lista os Deeps que o analista conduz (o RLS só devolve as empresas com
  * deep.conduzir) e abre um novo para uma empresa atribuída a ele.
@@ -38,14 +58,9 @@ export default async function DeepPage() {
   const nomeOrg = new Map(orgs.map((o) => [o.id, o.nome]));
 
   // Só as empresas em que o analista pode conduzir (a mesma regra do banco).
-  const permitidas = await Promise.all(
-    orgs.map(async (o) => {
-      const { data: pode } = await supabase.rpc("tem_permissao", { p_permissao: "deep.conduzir", p_org: o.id });
-      return pode === true ? o : null;
-    }),
-  );
+  const permitidas = await empresasQueConduzo(supabase, orgs);
   const andamento = new Set(deeps.filter((d) => d.status === "em_andamento").map((d) => d.org_id));
-  const paraAbrir = permitidas.filter((o): o is { id: string; nome: string } => o !== null && !andamento.has(o.id));
+  const paraAbrir = permitidas.filter((o) => !andamento.has(o.id));
 
   return (
     <main>

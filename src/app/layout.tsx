@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "IRON AI · Área do cliente", template: "%s · IRON AI" },
-  description: "Área logada da IRON AI: cursos, comunidade e assessments.",
+  description: "Área logada da IRON AI: assessments de IA da sua empresa.",
   robots: { index: false, follow: false },
 };
 

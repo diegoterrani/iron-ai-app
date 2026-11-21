@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AcaoForm } from "@/components/acao-form";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
 import { POR_PAGINA, ROTULO_PAPEL, ROTULO_STATUS, STATUS, lerFiltroUsuarios, type Status } from "@/lib/validation/admin";
+import { definirStatus } from "../actions";
 import { formatarDataHora } from "../formato";
 
 export const metadata: Metadata = { title: "Usuários" };
@@ -25,7 +27,7 @@ function linkPagina(status: Status | null, busca: string, pagina: number): strin
 }
 
 export default async function UsuariosPage({ searchParams }: PageProps<"/admin/usuarios">) {
-  await exigirSuperAdmin();
+  const eu = await exigirSuperAdmin();
   const filtro = lerFiltroUsuarios(await searchParams);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_listar_usuarios", {
@@ -37,6 +39,8 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
   const linhas = (data ?? []) as LinhaUsuario[];
   const total = linhas[0]?.total ?? 0;
   const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  // Aprovar direto da lista (o banco confere de novo; ninguém aprova a si mesmo).
+  const comAprovar = linhas.some((u) => u.status === "pendente" && u.id !== eu.id);
 
   return (
     <main>
@@ -85,6 +89,7 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                   <th scope="col">Papéis</th>
                   <th scope="col">Cadastro</th>
                   <th scope="col">Último acesso</th>
+                  {comAprovar && <th scope="col">Ação</th>}
                 </tr>
               </thead>
               <tbody>
@@ -100,11 +105,21 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
                     <td>{u.papeis.length ? u.papeis.map((p) => ROTULO_PAPEL[p] ?? p).join(", ") : "—"}</td>
                     <td>{formatarDataHora(u.criado_em)}</td>
                     <td>{formatarDataHora(u.ultimo_acesso)}</td>
+                    {comAprovar && (
+                      <td>
+                        {u.status === "pendente" && u.id !== eu.id && (
+                          <AcaoForm action={definirStatus} campos={{ userId: u.id, status: "ativo" }} rotulo="Aprovar" rotuloEnviando="Aprovando…" />
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          {comAprovar && (
+            <p className="field-hint">Depois de aprovar, abra a ficha para conceder um papel, vincular a uma empresa ou liberar produtos.</p>
+          )}
           {paginas > 1 && (
             <nav className="paginacao" aria-label="Páginas">
               {filtro.pagina > 1 && <Link href={linkPagina(filtro.status, filtro.busca, filtro.pagina - 1)}>Anterior</Link>}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
+import { CONTATO_URL } from "@/lib/ui/textos";
 
 /**
  * Página inicial da área do cliente: leva para entrar ou criar conta.
@@ -20,10 +21,10 @@ export default async function Home() {
         <Link href="/entrar">Entrar</Link>
       </header>
       <p className="eyebrow hero-eyebrow">Área do cliente</p>
-      <h1 className="title">Cursos, comunidade e assessments de IA.</h1>
+      <h1 className="title">Assessments de IA da sua empresa.</h1>
       <p className="lead">
-        Acesse seus cursos, o fórum da comunidade e os assessments da sua empresa. Novos cadastros são liberados
-        pela equipe IRON AI.
+        Responda o Self assessment, acompanhe o Deep e veja os resultados da sua empresa num lugar só. Novos cadastros
+        são liberados pela equipe IRON AI.
       </p>
       <div className="home-ctas">
         <Link href="/entrar" className="btn btn-inline btn-link">
@@ -35,7 +36,7 @@ export default async function Home() {
       </div>
       <div className="panel">
         <p className="panel-text">
-          Dúvidas? Fale com a equipe pelo <a href="https://iron-ai.io/contato.html">formulário de contato</a>.
+          Dúvidas? Fale com a equipe pelo <a href={CONTATO_URL}>formulário de contato</a>.
         </p>
       </div>
     </main>

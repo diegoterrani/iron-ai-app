@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { NavLinks } from "@/components/nav-links";
 import { exigirSuperAdmin } from "@/lib/auth/admin";
 
 export const metadata: Metadata = { title: { template: "%s · Backoffice", default: "Backoffice" } };
@@ -13,11 +13,16 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="admin">
       <nav className="admin-nav" aria-label="Backoffice">
-        <Link href="/admin">Visão geral</Link>
-        <Link href="/admin/usuarios">Usuários</Link>
-        <Link href="/admin/empresas">Empresas</Link>
-        <Link href="/admin/auditoria">Auditoria</Link>
-        <Link href="/admin/lgpd">LGPD</Link>
+        <NavLinks
+          exatos={["/admin"]}
+          itens={[
+            { href: "/admin", rotulo: "Visão geral" },
+            { href: "/admin/usuarios", rotulo: "Usuários" },
+            { href: "/admin/empresas", rotulo: "Empresas" },
+            { href: "/admin/auditoria", rotulo: "Auditoria" },
+            { href: "/admin/lgpd", rotulo: "LGPD" },
+          ]}
+        />
       </nav>
       {children}
     </div>
