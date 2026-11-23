@@ -7,6 +7,8 @@
  *   linha = base da conta × taxa (conservador ou base) × fator da resposta
  *   regime = Σ linhas (potencial depois da implantação)
  *   ano 1 = regime × R, com R = 0,30 + 0,60 × score de prontidão
+ *   retorno 24 meses = ganho acumulado ÷ investimento acumulado (fluxo.ts,
+ *   tabela de preço do pacote; o ganho de cada onda é a soma das suas linhas)
  *
  * A base de cada conta vem do retrato econômico que o cliente informou
  * (faturamento, folha, insumos, divisão da receita). Quando ele responde
@@ -16,6 +18,7 @@
 import { hashRespostas, nivel, fatorR } from "../motor";
 import { RespostaInvalida } from "../erros";
 import type { Modelo, Respostas } from "../tipos";
+import { fluxoCaixa } from "./fluxo";
 import { divisaoFecha } from "./questionario";
 import {
   FORMATO_06,
@@ -29,7 +32,7 @@ import {
   type Veredito,
 } from "./tipos";
 
-export const MOTOR_VERSAO_06 = "0.6.0";
+export const MOTOR_VERSAO_06 = "0.7.0";
 
 const ORDEM_CERTEZA: Record<Certeza, number> = { medido: 0, estimado: 1, hipotese: 2 };
 const pior = (a: Certeza, b: Certeza): Certeza => (ORDEM_CERTEZA[b] > ORDEM_CERTEZA[a] ? b : a);
@@ -332,12 +335,16 @@ export function calcularSelf06(r: Respostas06, pacote: Pacote06, modelo: Modelo)
 
   const incertas = ativas.filter((l) => l.certeza !== "medido" && l.conservador > 0).sort((a, b) => b.conservador - a.conservador);
 
+  // Fluxo de caixa de referência: cada linha cai na onda do pacote que a contém.
   const g = pacote.regua;
-  const investimento = Math.max(g.investimento_minimo_24m, ret.receita.valor * g.investimento_por_receita);
-  const mudanca = investimento * g.custo_mudanca_por_investimento;
-  const ganho24 = (total.conservador / 12) * g.meses_efetivos_24m;
-  const retornoX = ganho24 / (investimento + mudanca);
-  const veredito: Veredito = retornoX >= g.retorno_minimo_x ? "seguir" : retornoX >= g.retorno_deep_x ? "deep_para_confirmar" : "comecar_pequeno";
+  const ondas = g.ondas.map((o) => ({
+    ...o,
+    ganho_anual: ativas.filter((l) => o.alavancas.includes(l.alavanca)).reduce((a, l) => a + l.conservador, 0),
+  }));
+  const semOnda = ativas.filter((l) => l.conservador > 0 && !g.ondas.some((o) => o.alavancas.includes(l.alavanca)));
+  if (semOnda.length > 0) throw new Error(`pacote ${pacote.pacote}: alavanca sem onda (${semOnda.map((l) => l.alavanca).join(", ")})`);
+  const fc = fluxoCaixa(g.precos, ondas);
+  const veredito: Veredito = fc.retorno_x >= g.retorno_minimo_x ? "seguir" : fc.retorno_x >= g.retorno_deep_x ? "deep_para_confirmar" : "comecar_pequeno";
 
   const vermelhas = new Set(r.linhas_vermelhas ?? []);
   return {
@@ -384,7 +391,22 @@ export function calcularSelf06(r: Respostas06, pacote: Pacote06, modelo: Modelo)
       itens: incertas.map((l) => ({ nome: l.nome, valor: l.conservador, certeza: l.certeza, dado: l.dado_deep })),
       valor_em_jogo: incertas.reduce((a, l) => a + l.conservador, 0),
     },
-    regua: { investimento_24m: investimento, custo_mudanca_24m: mudanca, ganho_24m: ganho24, retorno_x: retornoX, veredito },
+    regua: {
+      investimento_24m: fc.investido,
+      fluxo: {
+        investimento_iron_24m: fc.investido_iron,
+        tecnologia_24m: fc.tecnologia,
+        cruzamento_mes: fc.cruzamento_mes,
+        exposicao_max: fc.exposicao_max,
+        sobra_socios_24m: fc.sobra_socios,
+        ir_csll: g.precos.ir_csll,
+        ondas: ondas.filter((o) => o.ganho_anual > 0).map(({ id, nome, go_live, ganho_anual }) => ({ id, nome, go_live, ganho_anual })),
+        meses: fc.meses,
+      },
+      ganho_24m: fc.ganho,
+      retorno_x: fc.retorno_x,
+      veredito,
+    },
     riscos: pacote.riscos,
   };
 }

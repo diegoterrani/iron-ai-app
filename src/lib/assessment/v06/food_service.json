@@ -1,6 +1,6 @@
 {
   "pacote": "food_service",
-  "versao": "0.4.0",
+  "versao": "0.5.0",
   "data": "2026-11-20",
   "status": "Self 0.6: roteiro curto (skill do Self). Taxas são hipóteses IRON a calibrar no Deep (20/11/2026).",
   "segmentos": [
@@ -140,11 +140,25 @@
     "dados_sem_resposta": 2
   },
   "regua": {
-    "nota": "Hipóteses IRON para a régua do relatório (sem tabela de preço aprovada): investimento de 24 meses proporcional à receita, custo de mudança proporcional ao investimento e ganho de 24 meses equivalente a 16 meses de regime (implantação em ondas com rampa).",
-    "investimento_minimo_24m": 250000,
-    "investimento_por_receita": 0.0064,
-    "custo_mudanca_por_investimento": 0.42,
-    "meses_efetivos_24m": 16,
+    "nota": "Tabela de preço de referência da IRON (23/11/2026), a mesma do deck: Deep dive em 2 meses; cada onda com 30% na entrada e 70% em 6 parcelas a partir do go-live; metade do Deep dive descontada da Onda 1; operação e tecnologia por onda a partir do go-live; rampa de 3 meses até o ritmo de cruzeiro. É referência para o porte, não proposta.",
+    "precos": {
+      "meses": 24,
+      "deep": { "preco": 63000, "meses": [1, 2] },
+      "onda": {
+        "preco": 360000,
+        "entrada": 0.3,
+        "parcelas": 6,
+        "desconto_deep_onda1": 0.5,
+        "operacao_mes": 8000,
+        "tecnologia_mes": 15000,
+        "rampa_meses": 3
+      },
+      "ir_csll": 0.34
+    },
+    "ondas": [
+      { "id": "onda1", "nome": "Onda 1: cozinha e compras", "inicio": 3, "go_live": 6, "alavancas": ["desperdicio", "compras"] },
+      { "id": "onda2", "nome": "Onda 2: equipe, retaguarda e salão", "inicio": 6, "go_live": 9, "alavancas": ["escala", "rotatividade", "retaguarda", "reservas", "giro", "eventos"] }
+    ],
     "retorno_minimo_x": 3,
     "retorno_deep_x": 2
   },

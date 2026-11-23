@@ -1,5 +1,10 @@
 import {
   FASES_PILOTO,
+  ROTULOS,
+  notaRetorno,
+  textoInvestimento,
+  textoPessoas,
+  textoRegua,
   NIVEIS,
   SELO,
   VEREDITO,
@@ -73,6 +78,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
   const espera = custoEspera(r);
   const maiorEspera = Math.max(1, ...espera.map((e) => e.valor));
   const dre = retratoDre(r);
+  const investimento = textoInvestimento(r);
   const lucro = Math.max(0, r.empresa.lucro);
   const maiorDeep = Math.max(1, ...r.deep.itens.map((i) => i.valor));
 
@@ -90,9 +96,9 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
             <p className="rel-kpi-nota">depois da implantação · base {curto(r.total.base)}</p>
           </div>
           <div className="rel-kpi">
-            <p className="rel-kpi-rotulo">Cada mês sem agir</p>
+            <p className="rel-kpi-rotulo">{ROTULOS.kpiAtraso}</p>
             <p className="rel-kpi-valor">{curto(r.por_mes)}</p>
-            <p className="rel-kpi-nota">valor conservador que fica na mesa</p>
+            <p className="rel-kpi-nota">{ROTULOS.kpiAtrasoNota}</p>
           </div>
           <div className="rel-kpi">
             <p className="rel-kpi-rotulo">Sobre o lucro de hoje</p>
@@ -102,7 +108,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
           <div className="rel-kpi">
             <p className="rel-kpi-rotulo">Retorno em 24 meses</p>
             <p className="rel-kpi-valor">{vezes(r.regua.retorno_x)}×</p>
-            <p className="rel-kpi-nota">conservador, já com custo de mudança</p>
+            <p className="rel-kpi-nota">{notaRetorno(r)}</p>
           </div>
         </div>
 
@@ -115,13 +121,11 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
           <div className="rel-bloco">
             <h3>Régua de 3 vezes em 24 meses</h3>
             <Regua retorno={regua.retorno} alvo={regua.alvo} max={regua.max} classe={CLASSE_VEREDITO[r.regua.veredito]} />
-            <p className="field-hint">
-              Retorno de {vezes(r.regua.retorno_x)} vezes no conservador, já descontado o custo de mudança das equipes; a linha marca 3 vezes. O
-              investimento é uma referência da IRON para empresas do seu porte, não uma proposta; a proposta sai do Deep.
-            </p>
+            {investimento && <p className="rel-investimento">{investimento}</p>}
+            <p className="field-hint">{textoRegua(r)} A proposta sai do Deep.</p>
           </div>
           <div className="rel-bloco">
-            <h3>O custo de esperar</h3>
+            <h3>{ROTULOS.blocoAtraso}</h3>
             <ul className="g-linhas g-linhas-compactas">
               {espera.map((e) => (
                 <li key={e.meses}>
@@ -131,6 +135,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
                 </li>
               ))}
             </ul>
+            <p className="field-hint">{ROTULOS.notaCruzeiro}</p>
             <p className="field-hint">No primeiro ano, com a prontidão de hoje, a captura estimada é de {curto(r.ano1.conservador)}.</p>
           </div>
         </div>
@@ -143,7 +148,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
               {dre.map((f) => (
                 <li key={f.id}>
                   <span className={`g-chave g-dre-${f.id}`} aria-hidden="true" />
-                  {f.nome}: {pct(f.fracao * 100)}% ({curto(f.valor)})
+                  {f.nome}: {f.pct}% ({curto(f.valor)})
                 </li>
               ))}
             </ul>
@@ -295,11 +300,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
                 </li>
               </ul>
             </div>
-            <p>
-              {pct(r.pessoas.pct_do_ganho * 100)}% do ganho ({curto(r.pessoas.horas_liberadas)} por ano) vem de horas liberadas na retaguarda e no
-              atendimento remoto. Isso não é corte: com contratações na faixa de {r.pessoas.contratacoes} por ano, o ganho vem de não repor parte das
-              vagas que já abrem e de levar pessoas para tarefas de mais valor. Se a empresa preferir repor todas, esse valor sai da conta.
-            </p>
+            <p>{textoPessoas(r)}</p>
           </>
         ) : (
           <p>Nenhuma linha deste relatório depende de deixar de repor vagas.</p>

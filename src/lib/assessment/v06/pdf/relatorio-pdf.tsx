@@ -4,6 +4,11 @@ import { Document, Font, G, Page, Path, StyleSheet, Svg, Text, View } from "@rea
 import type { ReactNode } from "react";
 import {
   FASES_PILOTO,
+  ROTULOS,
+  notaRetorno,
+  textoInvestimento,
+  textoPessoas,
+  textoRegua,
   NIVEIS,
   SELO,
   VEREDITO,
@@ -332,6 +337,7 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
   const espera = custoEspera(r);
   const maiorEspera = Math.max(1, ...espera.map((e) => e.valor));
   const dre = retratoDre(r);
+  const investimento = textoInvestimento(r);
   const lucro = Math.max(0, r.empresa.lucro);
   const maiorDeep = Math.max(1, ...r.deep.itens.map((i) => i.valor));
   const lucroPct = r.pct_lucro.conservador;
@@ -375,9 +381,9 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
             <Text style={[s.kpiNota, { color: C.surface2 }]}>depois da implantação · base {curto(r.total.base)}</Text>
           </View>
           <View style={s.kpi}>
-            <Text style={s.rotulo}>Cada mês sem agir</Text>
+            <Text style={s.rotulo}>{ROTULOS.kpiAtraso}</Text>
             <Text style={s.kpiValor}>{curto(r.por_mes)}</Text>
-            <Text style={s.kpiNota}>valor conservador que fica na mesa</Text>
+            <Text style={s.kpiNota}>{ROTULOS.kpiAtrasoNota}</Text>
           </View>
           <View style={s.kpi}>
             <Text style={s.rotulo}>Sobre o lucro de hoje</Text>
@@ -387,7 +393,7 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
           <View style={[s.kpi, { borderRightWidth: 0 }]}>
             <Text style={s.rotulo}>Retorno em 24 meses</Text>
             <Text style={s.kpiValor}>{vezes(r.regua.retorno_x)}×</Text>
-            <Text style={s.kpiNota}>conservador, com custo de mudança</Text>
+            <Text style={s.kpiNota}>{notaRetorno(r)}</Text>
           </View>
         </View>
 
@@ -406,16 +412,15 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
               corMarca={C.ink}
               rotulos={Array.from({ length: regua.max + 1 }, (_, i) => ({ em: i / regua.max, texto: `${i}×` }))}
             />
-            <Text style={s.dica}>
-              Retorno de {vezes(r.regua.retorno_x)} vezes no conservador, já descontado o custo de mudança; a linha marca 3 vezes. O investimento é uma
-              referência da IRON para o seu porte, não uma proposta.
-            </Text>
+            {investimento && <Text style={{ fontWeight: 700, marginTop: 4 }}>{investimento}</Text>}
+            <Text style={s.dica}>{textoRegua(r)}</Text>
           </View>
           <View style={s.bloco}>
-            <Text style={s.h3}>O custo de esperar</Text>
+            <Text style={s.h3}>{ROTULOS.blocoAtraso}</Text>
             {espera.map((e) => (
               <LinhaBarra key={e.meses} rotulo={`${e.meses} meses`} valor={curto(e.valor)} fracao={e.valor / maiorEspera} cor={C.accent} larguraRotulo="28%" />
             ))}
+            <Text style={s.dica}>{ROTULOS.notaCruzeiro}</Text>
             <Text style={s.dica}>No primeiro ano, com a prontidão de hoje, a captura estimada é de {curto(r.ano1.conservador)}.</Text>
           </View>
         </View>
@@ -424,7 +429,7 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
           <View style={[s.bloco, { marginTop: 12 }]} wrap={false}>
             <Text style={s.h3}>Onde o ganho cai no seu DRE</Text>
             <Empilhada fatias={dre.map((f) => ({ chave: f.id, fracao: f.fracao, cor: COR_DRE[f.id] }))} />
-            <Legenda itens={dre.map((f) => ({ cor: COR_DRE[f.id], texto: `${f.nome}: ${pct(f.fracao * 100)}% (${curto(f.valor)})` }))} />
+            <Legenda itens={dre.map((f) => ({ cor: COR_DRE[f.id], texto: `${f.nome}: ${f.pct}% (${curto(f.valor)})` }))} />
             {lucro > 0 && (
               <View style={{ marginTop: 6 }}>
                 <LinhaBarra rotulo="Lucro hoje" valor={curto(lucro)} fracao={lucro / (lucro + r.total.conservador)} cor={C.clay} />
@@ -551,11 +556,7 @@ export function RelatorioPdf06({ r, cab }: { r: Resultado06; cab: CabecalhoPdf }
                   { cor: C.surface2, texto: `Demais linhas: ${pct((1 - r.pessoas.pct_do_ganho) * 100)}%` },
                 ]}
               />
-              <Text style={[s.p, { marginTop: 6 }]}>
-                {pct(r.pessoas.pct_do_ganho * 100)}% do ganho ({curto(r.pessoas.horas_liberadas)} por ano) vem de horas liberadas na retaguarda e no
-                atendimento remoto. Isso não é corte: com contratações na faixa de {r.pessoas.contratacoes} por ano, o ganho vem de não repor parte das
-                vagas que já abrem e de levar pessoas para tarefas de mais valor. Se a empresa preferir repor todas, esse valor sai da conta.
-              </Text>
+              <Text style={[s.p, { marginTop: 6 }]}>{textoPessoas(r)}</Text>
             </View>
           ) : (
             <Text style={s.p}>Nenhuma linha deste relatório depende de deixar de repor vagas.</Text>

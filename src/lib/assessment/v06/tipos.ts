@@ -4,6 +4,8 @@
  * (motor.ts, tipos.ts) para os assessments antigos.
  */
 
+import type { PrecosReferencia } from "./fluxo";
+
 export const FORMATO_06 = "0.6";
 
 type Faixa = [number, number];
@@ -74,10 +76,9 @@ export interface Pacote06 {
     dados_sem_resposta: number;
   };
   regua: {
-    investimento_minimo_24m: number;
-    investimento_por_receita: number;
-    custo_mudanca_por_investimento: number;
-    meses_efetivos_24m: number;
+    precos: PrecosReferencia;
+    /** Cada alavanca entra em uma onda; a primeira onda recebe o desconto do Deep dive. */
+    ondas: { id: string; nome: string; inicio: number; go_live: number; alavancas: string[] }[];
     retorno_minimo_x: number;
     retorno_deep_x: number;
   };
@@ -173,8 +174,21 @@ export interface Resultado06 {
   alertas: { codigo: string; texto: string }[];
   deep: { itens: { nome: string; valor: number; certeza: Certeza; dado: string }[]; valor_em_jogo: number };
   regua: {
+    /** Investimento de referência em 24 meses (IRON + tecnologia). */
     investimento_24m: number;
-    custo_mudanca_24m: number;
+    /** Motor 0.6.0 (régua antiga): custo de mudança. Resultados do motor 0.7.0 em diante não têm. */
+    custo_mudanca_24m?: number;
+    /** Motor 0.7.0 em diante: fluxo de caixa com a tabela de preço do pacote. */
+    fluxo?: {
+      investimento_iron_24m: number;
+      tecnologia_24m: number;
+      cruzamento_mes: number | null;
+      exposicao_max: number;
+      sobra_socios_24m: number;
+      ir_csll: number;
+      ondas: { id: string; nome: string; go_live: number; ganho_anual: number }[];
+      meses: { mes: number; investido_acum: number; ganho_acum: number }[];
+    };
     ganho_24m: number;
     retorno_x: number;
     veredito: Veredito;

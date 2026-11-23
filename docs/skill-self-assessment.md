@@ -14,7 +14,7 @@ O Self é a primeira conversa entre a IRON AI e uma empresa. Em até 10 minutos,
 1. Mostrar quanto lucro a empresa deixa na mesa com processos que a IA ajuda, **em R$ e em % do lucro dela**.
 2. Dizer com honestidade o que é **medido**, o que é **estimado** e o que é **hipótese**.
 3. Proteger o que a empresa considera **intocável**. A IA serve ao toque humano, nunca o substitui.
-4. Sair com **um ganho rápido nomeado** (6 semanas) e o **custo de esperar**.
+4. Sair com **um ganho rápido nomeado** (6 semanas) e **quanto o atraso adia**.
 5. Deixar claro que o **Deep** é o jeito de transformar a estimativa em número assinado pelo financeiro da empresa.
 
 O Self não vende pela força do número. Ele vende porque o número é crível e porque mostra exatamente o que falta provar.
@@ -92,19 +92,19 @@ Se E1 for "pessoas usam por conta própria" ou "pilotos" e E2 for "não", regist
 
 O relatório é montado pelo app a partir do resultado do motor, nunca por você. A ordem das seções é fixa:
 
-1. **O número.** Ganho anual conservador em R$ e em % do lucro atual, com o cenário base ao lado. Abaixo, o valor mensal: "Cada mês sem agir: R$ X".
+1. **O número.** Ganho anual conservador em R$ e em % do lucro atual, com o cenário base ao lado. Abaixo, o valor mensal: "Cada mês de atraso: R$ X de ganho adiado, em ritmo de cruzeiro".
 2. **O que preservamos.** As linhas vermelhas do cliente, escritas com as palavras dele, e a frase "nenhuma alavanca deste relatório toca nesses pontos".
 3. **De onde vem.** Uma linha por alavanca, cada uma com:
    - valor conservador e base;
    - selo de certeza: **medido** (o cliente informou o número dele), **estimado** (o cliente informou uma faixa) ou **hipótese** (o cliente disse "não sei" e o valor usa a referência do setor);
    - para estimado e hipótese, o dado que fecha a dúvida no Deep (exemplo: "pesagem de sobras por 2 semanas na cozinha de produção").
-4. **Pessoas.** Quando houver horas liberadas, explicar que elas vêm de não repor parte das vagas que já abrem (resposta B6) e de realocar pessoas para tarefas de valor, sem corte.
-5. **Ganho rápido.** O piloto de 6 semanas que nasce da dor C1, com a meta medível e o KPI.
+4. **Pessoas.** Quando houver horas liberadas: ninguém é demitido; o ganho vem de hora extra, retrabalho e de vagas que já abrem com a rotatividade (resposta B6). Repor ou não cada vaga é sempre decisão da empresa, e o relatório mostra o ganho conservador se ela repuser todas.
+5. **Ganho rápido.** O piloto de 6 semanas que nasce da dor C1, com a meta medível e o KPI: semanas 1 e 2, linha de base assinada pelo financeiro; semanas 3 a 6, piloto; semana 6, resultado medido.
 6. **Prontidão e riscos.** Score em nível (sem casas decimais que contradigam o nível), trava ou alerta de governança e riscos regulatórios do setor.
 7. **O que o Deep resolve.** A lista de todas as hipóteses e estimativas, com o valor em jogo em cada uma, mais o prazo e o formato do Deep e a frase: "o Deep transforma R$ X estimados em linha de base assinada pelo seu financeiro".
 8. **Próximo passo.** Agendar a conversa do Deep. O preço só aparece se o pacote comercial estiver configurado.
 
-**Regra da verdade:** o motor compara o ganho conservador de 24 meses (16 meses de regime, pela implantação em ondas) com um investimento de referência para o porte (0,64% da receita, mínimo de R$ 250 mil) mais o custo de mudança (42% do investimento). Com 3 vezes ou mais, o relatório diz "vale seguir para o Deep". Entre 2 e 3 vezes, diz "vale o Deep para confirmar antes de decidir". Abaixo de 2 vezes, diz "hoje não recomendamos um projeto completo; comece pelo ganho rápido". Esses parâmetros são hipóteses da IRON (não há tabela de preço aprovada) e ficam no pacote. Um relatório que às vezes diz "não vale agora" é o que faz o cliente acreditar nos que dizem "vale".
+**Regra da verdade:** o motor monta o fluxo de caixa de 24 meses com a tabela de preço de referência do pacote (`regua.precos`): Deep dive de R$ 63 mil em 2 meses; duas ondas de R$ 360 mil cada (30% na entrada, 70% em 6 parcelas a partir do go-live, metade do Deep descontada da Onda 1); operação de R$ 8 mil e tecnologia de R$ 15 mil por mês por onda a partir do go-live; rampa de 3 meses até o ritmo de cruzeiro. Cada alavanca cai em uma onda (Onda 1: cozinha e compras, go-live no mês 6; Onda 2: equipe, retaguarda e salão, go-live no mês 9). O retorno é o ganho conservador acumulado em 24 meses dividido pelo investimento acumulado (IRON + tecnologia). Com 3 vezes ou mais, o relatório diz "vale seguir para o Deep". Entre 2 e 3 vezes, diz "vale o Deep para confirmar antes de decidir". Abaixo de 2 vezes, diz "hoje não recomendamos um projeto completo; comece pelo ganho rápido". O investimento é uma referência da IRON para o porte, não uma proposta. Um relatório que às vezes diz "não vale agora" é o que faz o cliente acreditar nos que dizem "vale".
 
 ## 6. Pacotes de setor
 
@@ -120,7 +120,7 @@ Cada pacote é um JSON versionado (exemplo: `food_service.json`) e precisa traze
 | `referencias` | Folha, custo principal e margem típicos, usados quando a resposta é "não sei". |
 | `riscos` | Regulação e cuidados do setor. |
 
-**Pacote `food_service` (0.4):**
+**Pacote `food_service` (0.5):**
 - linhas vermelhas: receitas e cardápio · modo de preparo · atendimento olho no olho · escolha de fornecedores · outro;
 - dores: desperdício · escala e hora extra · contratar e treinar · compras · reservas e atendimento · orçamento de eventos;
 - alavancas: desperdício e produção (CMV de uso), compras (preço antes da porta, bloqueada se "fornecedores" for linha vermelha), escala e horas (folha), retaguarda (horas administrativas), reservas e atendimento, eventos (receita: tempo e taxa de conversão de orçamento).
