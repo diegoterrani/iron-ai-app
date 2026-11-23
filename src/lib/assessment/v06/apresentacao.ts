@@ -116,13 +116,43 @@ export interface FatiaDre {
   nome: string;
   valor: number;
   fracao: number;
+  /** Percentual inteiro mostrado na tela; as fatias somam sempre 100. */
+  pct: number;
   certeza?: Certeza;
 }
 
 /**
+ * Percentuais inteiros que somam exatamente 100 (método do maior resto):
+ * cada item recebe o piso do seu percentual e os pontos que faltam vão para
+ * os maiores restos. Empate de resto: vence quem vem depois na lista (o
+ * lucro, que é o último), e depois o menor valor. Entradas não positivas
+ * ficam com 0; lista sem valor positivo devolve zeros.
+ */
+export function percentuaisInteiros(valores: number[]): number[] {
+  const vals = valores.map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
+  const soma = vals.reduce((a, v) => a + v, 0);
+  if (!(soma > 0)) return vals.map(() => 0);
+  const brutos = vals.map((v) => (v / soma) * 100);
+  const pisos = brutos.map((b) => Math.floor(b + 1e-9));
+  let faltam = 100 - pisos.reduce((a, v) => a + v, 0);
+  const ordem = brutos
+    .map((b, i) => ({ i, resto: b - pisos[i] }))
+    .filter(({ i }) => vals[i] > 0)
+    .sort((x, y) => {
+      const d = y.resto - x.resto;
+      if (Math.abs(d) > 1e-9) return d;
+      return y.i - x.i || vals[x.i] - vals[y.i];
+    });
+  for (let k = 0; faltam > 0 && ordem.length > 0; k = (k + 1) % ordem.length, faltam--) pisos[ordem[k].i] += 1;
+  return pisos;
+}
+
+/**
  * Retrato do DRE informado: como a receita se divide entre folha, insumos,
- * lucro e o resto. Lucro negativo não vira fatia (o texto do relatório já
- * diz que a margem não é positiva). Fatias somam a receita.
+ * o resto e o lucro. O lucro é a receita menos os custos (nunca arredondado à
+ * parte): o percentual dele é 100 menos os percentuais dos custos. Lucro
+ * negativo não vira fatia (o texto do relatório já diz que a margem não é
+ * positiva).
  */
 export function retratoDre(r: Resultado06, nomeCusto = "Insumos"): FatiaDre[] {
   const e = r.empresa;
@@ -130,13 +160,15 @@ export function retratoDre(r: Resultado06, nomeCusto = "Insumos"): FatiaDre[] {
   const lucro = Math.max(0, e.lucro);
   const outros = Math.max(0, e.receita - e.folha - e.custo - lucro);
   const fatias: FatiaDre[] = [
-    { id: "folha", nome: "Folha com encargos", valor: e.folha, fracao: 0, certeza: e.folha_certeza },
-    { id: "custo", nome: nomeCusto, valor: e.custo, fracao: 0, certeza: e.custo_certeza },
-    { id: "outros", nome: "Demais custos", valor: outros, fracao: 0 },
-    { id: "lucro", nome: "Lucro líquido", valor: lucro, fracao: 0, certeza: e.margem_certeza },
-  ];
+    { id: "folha", nome: "Folha com encargos", valor: e.folha, fracao: 0, pct: 0, certeza: e.folha_certeza },
+    { id: "custo", nome: nomeCusto, valor: e.custo, fracao: 0, pct: 0, certeza: e.custo_certeza },
+    { id: "outros", nome: "Demais custos", valor: outros, fracao: 0, pct: 0 },
+    { id: "lucro", nome: "Lucro líquido", valor: lucro, fracao: 0, pct: 0, certeza: e.margem_certeza },
+  ].filter((f) => f.valor > 0) as FatiaDre[];
   const soma = fatias.reduce((a, f) => a + f.valor, 0);
-  return fatias.filter((f) => f.valor > 0).map((f) => ({ ...f, fracao: f.valor / soma }));
+  const pcts = percentuaisInteiros(fatias.map((f) => f.valor));
+  const custos = fatias.reduce((a, f, i) => a + (f.id === "lucro" ? 0 : pcts[i]), 0);
+  return fatias.map((f, i) => ({ ...f, fracao: f.valor / soma, pct: f.id === "lucro" ? 100 - custos : pcts[i] }));
 }
 
 /** Notas de prontidão normalizadas de 0 a 1 (nota 1 a 5 do modelo), na ordem do relatório. */
@@ -154,7 +186,47 @@ export const travaAtiva = (r: Resultado06) => r.prontidao.teto !== null && r.pro
 
 /** Fases do piloto de 6 semanas, para o infográfico do ganho rápido. */
 export const FASES_PILOTO = [
-  { semanas: "Semana 1", titulo: "Linha de base", texto: "Medimos o indicador como ele está hoje." },
-  { semanas: "Semanas 2 a 5", titulo: "Piloto", texto: "A IA entra no processo escolhido, com a equipe aprovando cada passo." },
+  { semanas: "Semanas 1 e 2", titulo: "Linha de base, assinada pelo financeiro", texto: "Medimos o indicador como ele está hoje." },
+  { semanas: "Semanas 3 a 6", titulo: "Piloto", texto: "A IA entra no processo escolhido, com a equipe aprovando cada passo." },
   { semanas: "Semana 6", titulo: "Resultado medido", texto: "Comparamos com a linha de base e decidimos o próximo passo." },
 ] as const;
+
+// ------------------------------------------------------- textos do retorno
+/** Rótulos do quadro "o número" (tela e PDF usam os mesmos). */
+export const ROTULOS = {
+  kpiAtraso: "Cada mês de atraso",
+  kpiAtrasoNota: "de ganho adiado, em ritmo de cruzeiro",
+  blocoAtraso: "Quanto o atraso adia",
+  notaCruzeiro: "Valores em ritmo de cruzeiro: cada mês de atraso é um mês a menos de ganho.",
+  avisoReferencia: "O investimento é uma referência da IRON para o seu porte, não uma proposta.",
+} as const;
+
+/** Nota do KPI de retorno: resultados antigos (motor 0.6.0) ainda usam o custo de mudança. */
+export const notaRetorno = (r: Resultado06) =>
+  r.regua.fluxo ? "conservador, com investimento IRON e tecnologia" : "conservador, já com custo de mudança";
+
+/** "Investimento de referência em 24 meses: R$ X (IRON R$ Y + tecnologia R$ Z)"; null em resultados antigos. */
+export function textoInvestimento(r: Resultado06): string | null {
+  const f = r.regua.fluxo;
+  if (!f) return null;
+  return `Investimento de referência em 24 meses: ${curto(r.regua.investimento_24m)} (IRON ${curto(f.investimento_iron_24m)} + tecnologia ${curto(f.tecnologia_24m)})`;
+}
+
+/** Frase da régua: o que entra na conta do retorno. */
+export function textoRegua(r: Resultado06): string {
+  const base = r.regua.fluxo
+    ? `Retorno de ${vezes(r.regua.retorno_x)} vezes no conservador em 24 meses, já descontados o investimento IRON e a tecnologia; a linha marca 3 vezes.`
+    : `Retorno de ${vezes(r.regua.retorno_x)} vezes no conservador, já descontado o custo de mudança; a linha marca 3 vezes.`;
+  return `${base} ${ROTULOS.avisoReferencia}`;
+}
+
+/** Texto da seção Pessoas quando há ganho que depende de vagas. */
+export function textoPessoas(r: Resultado06): string {
+  const v = r.pessoas.horas_liberadas;
+  const semVagas = Math.max(0, r.total.conservador - v);
+  return (
+    `${pct(r.pessoas.pct_do_ganho * 100)}% do ganho (${curto(v)} por ano) vem de horas liberadas na retaguarda e no atendimento remoto. ` +
+    "Ninguém é demitido: o ganho vem de hora extra, retrabalho e de vagas que já abrem com a rotatividade. " +
+    `Repor ou não cada vaga é sempre decisão da empresa; se preferir repor todas, o ganho conservador fica em ${curto(semVagas)}.`
+  );
+}

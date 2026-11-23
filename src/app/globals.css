@@ -928,6 +928,11 @@ a {
   color: var(--surface-2);
 }
 
+.rel-investimento {
+  font-weight: 600;
+  margin: var(--space-1) 0 4px;
+}
+
 .rel-veredito {
   border-left: 4px solid var(--accent);
   background: var(--surface);

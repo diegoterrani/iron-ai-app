@@ -1,0 +1,87 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`M5: linha do tempo do piloto > snapshot da página 3 do PDF e do bloco do ganho rápido 1`] = `
+"SELF ASSESSMENT · RELATÓRIO EXECUTIVO
+Rede Piloto
+·
+20 de novembro de 2026
+· confidencial
+iron-ai.io · 3 de 5
+ONDE
+LINHA DO DRE
+CONSERVADOR
+BASE
+CERTEZA
+Retaguarda: horas liberadas em finanças,
+compras, RH e TI
+divisão entre operação e retaguarda pela referência do setor
+Despesas de apoio
+R$ 264 mil
+R$ 502 mil
+estimado
+Rotatividade: alerta de risco de saída e reposição
+planejada
+contratações por ano informadas por faixa
+Mão de obra da
+operação
+R$ 211 mil
+R$ 422 mil
+estimado
+Lugares a mais no pico: reserva confirmada, fila
+organizada e mesa preparada mais rápido, sem
+apressar o cliente
+divisão da receita informada de forma aproximada
+Receita (pela
+margem)
+R$ 142 mil
+R$ 284 mil
+estimado
+Reservas e pedidos de orçamento respondidos por
+agente, com a equipe aprovando
+divisão da receita informada de forma aproximada
+Despesas de
+atendimento
+R$ 99 mil
+R$ 198 mil
+estimado
+TOTAL POR ANO
+R$ 2 mi
+R$ 3,9 mi
+Não entraram:
+Orçamento de evento em horas, não em dias, a partir do histórico (não se aplica: sem receita de eventos e bufê)
+.
+Pessoas
+Horas liberadas: 18% (R$ 363 mil)
+Demais linhas: 82%
+18%
+do ganho (R$ 363 mil por ano) vem de horas liberadas na retaguarda e no atendimento remoto. Ninguém é
+demitido: o ganho vem de hora extra, retrabalho e de vagas que já abrem com a rotatividade. Repor ou não cada vaga
+é sempre decisão da empresa; se preferir repor todas, o ganho conservador fica em R$ 1,7 mi.
+Ganho rápido em 6 semanas
+Previsão de refeições e registro de sobra em uma unidade
+META
+Reduzir a sobra da unidade piloto em
+20% em 6 semanas
+INDICADOR
+Sobra em kg por refeição servida
+LINHA EM JOGO
+R$ 616 mil
+por ano no conservador
+SEMANAS 1 E 2
+Linha de base, assinada
+pelo financeiro
+Medimos o indicador como
+ele está hoje.
+SEMANAS 3 A 6
+Piloto
+A IA entra no processo escolhido, com a equipe aprovando
+cada passo.
+SEMANA 6
+Resultado medido
+Comparamos com a linha de
+base e decidimos o próximo
+passo.
+Nasce do problema que você escolheu (
+desperdício e sobra
+). O piloto prova o ganho antes de qualquer projeto maior."
+`;

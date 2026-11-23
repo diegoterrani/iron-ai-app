@@ -50,9 +50,14 @@ describe("motor 0.6: contas por alavanca", () => {
   });
 
   it("aplica a régua de 3× e diz a verdade quando não fecha", () => {
-    expect(r.regua.retorno_x).toBeGreaterThan(2);
-    expect(r.regua.retorno_x).toBeLessThan(3);
-    expect(r.regua.veredito).toBe("deep_para_confirmar");
+    // Rede Piloto (R$ 110 mi, R$ 2 mi conservador) com a tabela de 23/11: 1,8× em 24 meses.
+    expect(r.regua.retorno_x).toBeGreaterThan(1.7);
+    expect(r.regua.retorno_x).toBeLessThan(2);
+    expect(r.regua.veredito).toBe("comecar_pequeno");
+    const media = calcularSelf06({ ...base, receita_valor: 140_000_000 }, P, M);
+    expect(media.regua.veredito).toBe("deep_para_confirmar");
+    const grande = calcularSelf06({ ...base, receita_valor: 200_000_000, pessoas: "501 a 2.000" }, P, M);
+    expect(grande.regua.veredito).toBe("seguir");
     const pequena = calcularSelf06({ ...base, receita_valor: 3_000_000, pessoas: "21 a 100" }, P, M);
     expect(pequena.regua.veredito).toBe("comecar_pequeno");
   });
