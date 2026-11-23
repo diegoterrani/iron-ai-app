@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AcaoState } from "@/lib/acao/tipos";
 import type { FalaTela } from "@/lib/assessment/agente/conversa";
@@ -249,6 +248,9 @@ export function ConversaSelf(props: Props) {
             return (
               <div key={i} className={emDigitacao ? "fala fala-agente fala-digitando" : "fala fala-agente"}>
                 <span className="sr-only">Assistente: {f.texto}</span>
+                <span className="fala-autor" aria-hidden="true">
+                  Assistente IRON AI
+                </span>
                 <div aria-hidden="true">
                   <TextoFala texto={emDigitacao ? textoParcial(pedacos, reveladas) : f.texto} />
                 </div>
@@ -257,7 +259,12 @@ export function ConversaSelf(props: Props) {
           })}
           {aguardando && (
             <p className="fala fala-agente fala-pensando" aria-label="O assistente está escrevendo">
-              Escrevendo…
+              <span className="pontos" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              Escrevendo
             </p>
           )}
 
@@ -346,9 +353,8 @@ export function ConversaSelf(props: Props) {
             Enviar
           </button>
         </form>
-        <p className="field-hint">
-          Suas respostas são salvas a cada mensagem. CNPJ e telefone são digitados em campos próprios e não passam pelo
-          assistente. <Link href={`/assessment/${assessmentId}?modo=formulario`}>Prefiro preencher em formulário</Link>
+        <p className="field-hint conversa-nota">
+          Enter envia, Shift+Enter quebra a linha. Salvo a cada mensagem; CNPJ e telefone vão em campos próprios e não passam pelo assistente.
         </p>
       </section>
       {props.formato === "0.6" && (

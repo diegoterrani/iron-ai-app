@@ -79,7 +79,7 @@ export function Relatorio06({ r, assessmentId }: { r: Resultado06; assessmentId:
   return (
     <>
       {/* 1. O número */}
-      <section className="rel-capa" aria-labelledby="r-numero">
+      <section id="r-topo" className="rel-capa" aria-labelledby="r-numero">
         <h2 id="r-numero" className="sr-only">
           O número
         </h2>

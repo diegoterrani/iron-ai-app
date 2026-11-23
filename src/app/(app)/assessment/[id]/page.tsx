@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { exigirContaAtiva } from "@/lib/auth/session";
 import { paraEscolhaMultipla, paraUnidades, type EmpresaSelf, type RespostasGravadas } from "@/lib/assessment/questionario";
@@ -11,6 +10,7 @@ import { agenteConfigurado } from "@/lib/env";
 import { DURACAO_SELF } from "@/lib/ui/textos";
 import { aprofundamentoParaProgresso, eFormato06, montarQuestionario06 } from "@/lib/assessment/v06/self";
 import { progresso06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { CabecalhoSelf } from "./cabecalho-self";
 import { ConversaSelf } from "./conversa-self";
 import { EscolhaEmpresa } from "./escolha-empresa";
 import { Formulario06 } from "./formulario-06";
@@ -64,11 +64,8 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
         )
       : null;
     return (
-      <main>
-        <p className="eyebrow">
-          <Link href="/assessment">Self assessment</Link> / Food service
-        </p>
-        <h1 className="title">Em preenchimento</h1>
+      <main className="as-trabalho">
+        <CabecalhoSelf assessmentId={id} titulo={linha.empresa?.nome ?? "Self assessment"} detalhe="Food service · em preenchimento" modo={null} />
         <p className="notice" role="note">
           O Self assessment da empresa está sendo respondido. Seu acesso é de leitura: o resultado aparece aqui quando
           ele for concluído.
@@ -118,14 +115,6 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
           />
         ) : (
           <>
-            <p className="field-hint">
-              {DURACAO_SELF[0].toUpperCase() + DURACAO_SELF.slice(1)}. As respostas são salvas automaticamente; você pode sair e voltar depois.
-            </p>
-            {agenteConfigurado() && (
-              <p className="modo-troca">
-                <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
-              </p>
-            )}
             <Formulario06
               key={chave}
               assessmentId={id}
@@ -140,11 +129,13 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
       </>
     );
     return (
-      <main>
-        <p className="eyebrow">
-          <Link href="/assessment">Self assessment</Link> / Food service
-        </p>
-        <h1 className="title">Self assessment</h1>
+      <main className="as-trabalho">
+        <CabecalhoSelf
+          assessmentId={id}
+          titulo={dadosEmpresa.nome ?? "Self assessment"}
+          detalhe={`Food service · ${DURACAO_SELF} · salvo automaticamente`}
+          modo={agenteConfigurado() ? (conversa ? "conversa" : "formulario") : null}
+        />
         {pessoal ? (
           <EscolhaEmpresa
             key={chave}
@@ -165,11 +156,13 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
   const questionario = montarQuestionario();
 
   return (
-    <main>
-      <p className="eyebrow">
-        <Link href="/assessment">Self assessment</Link> / Food service
-      </p>
-      <h1 className="title">Self assessment</h1>
+    <main className="as-trabalho">
+      <CabecalhoSelf
+        assessmentId={id}
+        titulo={linha.empresa?.nome ?? "Self assessment"}
+        detalhe="Food service · salvo automaticamente"
+        modo={agenteConfigurado() ? (conversa ? "conversa" : "formulario") : null}
+      />
       {conversa ? (
         <ConversaSelf
           formato="0.5"
@@ -182,12 +175,6 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
         />
       ) : (
         <>
-          <p className="field-hint">As respostas são salvas automaticamente. Você pode sair e voltar depois.</p>
-          {agenteConfigurado() && (
-            <p className="modo-troca">
-              <Link href={`/assessment/${id}`}>Voltar para a conversa com o assistente</Link>
-            </p>
-          )}
           <QuestionarioSelf
             assessmentId={id}
             questionario={questionario}
