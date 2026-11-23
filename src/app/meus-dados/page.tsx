@@ -61,9 +61,9 @@ export default async function MeusDadosPage() {
 
   if (ativo && perfil) {
     return (
-      <div className="shell">
+      <div className="shell app-shell">
         <CabecalhoApp perfil={perfil} />
-        <main className="meus-dados">
+        <main id="conteudo" className="meus-dados app-conteudo">
           <p className="eyebrow">Conta</p>
           <h1 className="title">Meus dados</h1>
           {conteudo}

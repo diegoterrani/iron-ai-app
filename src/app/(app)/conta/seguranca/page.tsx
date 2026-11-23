@@ -15,7 +15,7 @@ export default async function SegurancaPage() {
       <p className="eyebrow">Conta</p>
       <h1 className="title">Segurança</h1>
       <section className="panel">
-        <h2 className="auth-title">Verificação em duas etapas</h2>
+        <h2 className="panel-titulo">Verificação em duas etapas</h2>
         {fator ? (
           <p className="lead">Ativa com app autenticador desde {new Date(fator.created_at).toLocaleDateString("pt-BR")}.</p>
         ) : (

@@ -22,6 +22,14 @@
   --cta-bg: #141413;
   --cta-hover: #3d3d3a;
   --cta-text: #faf9f5;
+  --card: #ffffff;
+  --success: #2f6b3a;
+  --success-bg: #e9f1ea;
+  --danger-bg: #fbecec;
+  --accent-bg: #f7e9e2;
+  --neutral-bg: #eeede7;
+  --dur-rapida: 150ms;
+  --dur: 200ms;
 
   --space-1: 8px;
   --space-2: 12px;
@@ -402,8 +410,8 @@ a {
 }
 
 .selo-ativo {
-  border-color: #2f6b3a;
-  color: #2f6b3a;
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .selo-suspenso {
@@ -474,7 +482,7 @@ a {
   flex-basis: 100%;
   margin: 0;
   font-size: 13px;
-  color: #2f6b3a;
+  color: var(--success);
 }
 
 .acao-msg-erro {
@@ -835,8 +843,8 @@ a {
 
 /* Self 0.6: selo de certeza da base de cada conta. */
 .selo-medido {
-  border-color: #2f6b3a;
-  color: #2f6b3a;
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .selo-estimado {
@@ -938,7 +946,7 @@ a {
 }
 
 .rel-veredito-seguir {
-  border-left-color: #2f6b3a;
+  border-left-color: var(--success);
 }
 
 .rel-veredito-comecar_pequeno {
@@ -1000,7 +1008,7 @@ a {
 
 .rel-cartoes li {
   border: 1px solid var(--line);
-  border-left: 3px solid #2f6b3a;
+  border-left: 3px solid var(--success);
   background: var(--surface);
   padding: var(--space-1) var(--space-2);
   font-weight: 600;
@@ -1055,7 +1063,7 @@ a {
 }
 
 .rel-linha-tempo li:last-child {
-  border-top-color: #2f6b3a;
+  border-top-color: var(--success);
 }
 
 .rel-tempo-quando {
@@ -1106,8 +1114,8 @@ a {
 }
 
 .g-medido {
-  fill: #2f6b3a;
-  background: #2f6b3a;
+  fill: var(--success);
+  background: var(--success);
 }
 
 .g-estimado {
@@ -1123,7 +1131,7 @@ a {
 }
 
 .g-bom {
-  fill: #2f6b3a;
+  fill: var(--success);
 }
 
 .g-alerta {
@@ -1582,7 +1590,7 @@ a {
 .deep-aviso {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #2f6b3a;
+  color: var(--success);
 }
 
 .deep-fala-bloco {
@@ -1982,4 +1990,687 @@ a {
   display: block;
   font-size: 13px;
   color: var(--subtle);
+}
+
+/* =====================================================================
+ * Revisão visual da área logada (23/11/2026)
+ * Minimalista e funcional, sem trocar a marca: creme/argila, cantos retos,
+ * sem sombras. Tudo escopado em .app-shell para não mexer no login nem na
+ * página inicial. Regras do guia de UI/UX: texto base 16px, alvos de toque
+ * de 44px, foco visível, contraste 4.5:1, nada de rolagem lateral no celular
+ * e movimento curto que some com prefers-reduced-motion.
+ * ===================================================================== */
+
+.app-shell {
+  font-size: 16px;
+  line-height: 1.6;
+  max-width: 1200px;
+  padding-top: 0;
+}
+
+/* Pular para o conteúdo: só aparece no foco do teclado. */
+.pular-conteudo {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 50;
+  background: var(--ink);
+  color: var(--paper);
+  padding: var(--space-1) var(--space-2);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.pular-conteudo:focus {
+  top: var(--space-1);
+}
+
+.app-conteudo {
+  padding-bottom: var(--space-6);
+}
+
+.app-conteudo:focus {
+  outline: none;
+}
+
+/* ---------- Cabeçalho fixo, mais baixo ---------- */
+
+.app-shell .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--paper);
+  padding: var(--space-2) 0;
+  margin-bottom: var(--space-5);
+  min-height: 72px;
+}
+
+.app-shell .app-marca img {
+  width: 122px;
+  height: auto;
+}
+
+.app-shell .menu-produtos {
+  gap: var(--space-1);
+}
+
+.app-shell .menu-produtos a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-2);
+  border-bottom: 0;
+  color: var(--muted);
+  transition: color var(--dur-rapida) ease, background-color var(--dur-rapida) ease;
+}
+
+.app-shell .menu-produtos a:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.app-shell .menu-produtos a[aria-current="page"] {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.app-shell .menu-botao,
+.app-shell .menu-conta-botao {
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border-color: var(--line);
+  background: var(--card);
+  transition: border-color var(--dur-rapida) ease;
+}
+
+.app-shell .menu-botao:hover,
+.app-shell .menu-conta-botao:hover {
+  border-color: var(--faint);
+}
+
+.app-shell .menu-conta-lista {
+  background: var(--card);
+  border-color: var(--line);
+  min-width: 220px;
+  padding: var(--space-1);
+}
+
+.app-shell .menu-conta-lista nav a {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-1);
+  border-bottom: 0;
+}
+
+.app-shell .menu-conta-lista nav a:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.app-shell .menu-conta-lista nav a[aria-current="page"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+@media (max-width: 760px) {
+  .app-shell .app-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .app-shell .menu-app.aberto {
+    padding-bottom: var(--space-2);
+  }
+
+  .app-shell .menu-produtos a,
+  .app-shell .menu-conta-lista nav a {
+    min-height: 44px;
+  }
+
+  .app-shell .menu-conta-lista {
+    background: transparent;
+    padding: var(--space-2) 0 0;
+  }
+}
+
+/* ---------- Tipografia de aplicativo (não de página de venda) ---------- */
+
+.app-shell .eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  margin: 0;
+}
+
+.app-shell .eyebrow a {
+  color: inherit;
+  text-underline-offset: 3px;
+}
+
+.app-shell .title {
+  font-size: clamp(28px, 3.4vw, 40px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  margin: var(--space-1) 0 var(--space-2);
+}
+
+.app-shell .lead {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0 0 var(--space-2);
+}
+
+.app-shell .field-hint {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.app-shell h2 {
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Seções e cartões ---------- */
+
+.app-shell .secao {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.app-shell .secao h2 {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+.app-shell .secao h3 {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--subtle);
+  margin: var(--space-4) 0 var(--space-1);
+}
+
+.app-shell .panel {
+  background: var(--card);
+  margin-top: var(--space-3);
+}
+
+.panel-titulo {
+  font-size: 19px;
+  margin: 0 0 var(--space-1);
+}
+
+.app-shell .stats {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.app-shell .stats a {
+  position: relative;
+  height: 100%;
+  background: var(--card);
+  border-color: var(--line);
+  padding: var(--space-3) var(--space-3) var(--space-5);
+  color: var(--muted);
+  font-size: 15px;
+  transition: border-color var(--dur) ease, background-color var(--dur) ease;
+}
+
+/* Seta discreta: o cartão inteiro é clicável. */
+.app-shell .stats a::after {
+  content: "→";
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-2);
+  color: var(--subtle);
+  transition: transform var(--dur) ease, color var(--dur) ease;
+}
+
+.app-shell .stats a:hover {
+  border-color: var(--ink);
+}
+
+.app-shell .stats a:hover::after {
+  color: var(--accent-text);
+  transform: translateX(4px);
+}
+
+.app-shell .stats strong {
+  color: var(--text);
+  font-size: 32px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.app-shell .painel-cartoes strong {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: var(--space-1);
+}
+
+/* ---------- Formulários ---------- */
+
+.app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.app-shell select,
+.app-shell textarea {
+  min-height: 44px;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--faint);
+  border-radius: 0;
+  background-color: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  transition: border-color var(--dur-rapida) ease;
+}
+
+.app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.app-shell select {
+  height: 44px;
+  padding: 0 var(--space-2);
+}
+
+.app-shell textarea {
+  padding: var(--space-1) var(--space-2);
+}
+
+.app-shell input:not([type="checkbox"]):not([type="radio"]):hover,
+.app-shell select:hover,
+.app-shell textarea:hover {
+  border-color: var(--subtle);
+}
+
+.app-shell input:not([type="checkbox"]):not([type="radio"]):focus-visible,
+.app-shell select:focus-visible,
+.app-shell textarea:focus-visible {
+  border-color: var(--ink);
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.app-shell input::placeholder,
+.app-shell textarea::placeholder {
+  color: var(--faint);
+}
+
+/* Seta própria: o select nativo ficava pequeno e diferente em cada sistema. */
+.app-shell select {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%233d3d3a' stroke-width='1.6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.app-shell input[type="checkbox"],
+.app-shell input[type="radio"] {
+  accent-color: var(--ink);
+  width: 16px;
+  height: 16px;
+}
+
+.app-shell .field label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.app-shell .field {
+  gap: 6px;
+  min-width: 0;
+}
+
+.app-shell .form,
+.app-shell .questionario {
+  gap: var(--space-3);
+}
+
+/* ---------- Botões ---------- */
+
+.app-shell .btn {
+  height: 44px;
+  font-size: 14px;
+  padding: 0 var(--space-3);
+  transition: background-color var(--dur-rapida) ease, border-color var(--dur-rapida) ease;
+}
+
+.app-shell .btn-secondary {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.app-shell .btn-secondary:hover {
+  background: var(--surface);
+  border-color: var(--faint);
+}
+
+.app-shell .btn:disabled {
+  cursor: not-allowed;
+}
+
+.app-shell .tabela .btn {
+  height: 36px;
+  padding: 0 var(--space-2);
+  font-size: 13px;
+}
+
+.app-shell .link-botao {
+  min-height: 32px;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Listas: linhas limpas com ação à direita ---------- */
+
+.app-shell .lista {
+  border-top: 1px solid var(--line);
+}
+
+.app-shell .lista li {
+  padding: var(--space-2) 0;
+}
+
+.app-shell .lista a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.app-shell .lista a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.app-shell .secao-acao {
+  margin-bottom: var(--space-3);
+}
+
+.app-shell .lista .acao-form {
+  flex-wrap: nowrap;
+}
+
+/* Coluna com quebra de linha mede pelo maior conteúdo (um <option> longo
+   empurrava a tela para o lado no celular). */
+.app-shell .acao-form-coluna {
+  flex-wrap: nowrap;
+  max-width: 480px;
+}
+
+@media (max-width: 600px) {
+  .app-shell .lista li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-shell .lista .acao-form {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Tabelas ---------- */
+
+.app-shell .tabela-rolagem {
+  border-color: var(--line);
+  background: var(--card);
+}
+
+.app-shell .tabela {
+  background: var(--card);
+}
+
+.app-shell .tabela th,
+.app-shell .tabela td {
+  padding: var(--space-2);
+  vertical-align: middle;
+}
+
+.app-shell .tabela thead th {
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  background: var(--card);
+  border-bottom-color: var(--faint);
+  white-space: nowrap;
+}
+
+/* Cabeçalho de linha (ex.: área no Deep): texto normal, não versal. */
+.app-shell .tabela tbody th {
+  background: var(--card);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.app-shell .tabela tbody tr {
+  transition: background-color var(--dur-rapida) ease;
+}
+
+.app-shell .tabela tbody tr:hover td,
+.app-shell .tabela tbody tr:hover th {
+  background: var(--surface);
+}
+
+.app-shell .tabela tbody tr:last-child td,
+.app-shell .tabela tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+.app-shell .tabela td a {
+  font-weight: 600;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Selos: etiquetas preenchidas, legíveis sem depender da cor ---------- */
+
+.app-shell .selo {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 5px 8px;
+  border: 0;
+  background: var(--neutral-bg);
+  color: var(--muted);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.app-shell .selo-ativo,
+.app-shell .selo-medido {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.app-shell .selo-pendente,
+.app-shell .selo-hipotese {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+.app-shell .selo-suspenso {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.app-shell .selo-estimado {
+  background: var(--neutral-bg);
+  color: var(--muted);
+}
+
+/* ---------- Avisos ---------- */
+
+.app-shell .notice {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--faint);
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  font-size: 15px;
+}
+
+.app-shell .notice-error {
+  background: var(--danger-bg);
+  border-color: var(--danger-bg);
+  border-left-color: var(--danger);
+  color: #8f1c26;
+}
+
+.app-shell .convites {
+  background: var(--card);
+  border-color: var(--line);
+  border-left: 3px solid var(--accent);
+}
+
+/* ---------- Navegação do backoffice: abas ---------- */
+
+.app-shell .admin-nav {
+  gap: var(--space-1);
+  padding-bottom: 0;
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  scrollbar-width: none;
+}
+
+.app-shell .admin-nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+
+.app-shell .admin-nav a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.app-shell .admin-nav a[aria-current="page"] {
+  color: var(--text);
+  border-bottom-color: var(--ink);
+}
+
+/* ---------- Ficha (dados em pares) ---------- */
+
+.app-shell .ficha {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: var(--space-3);
+  gap: var(--space-1) var(--space-4);
+}
+
+.app-shell .ficha dt {
+  font-weight: 600;
+  color: var(--subtle);
+  font-size: 14px;
+}
+
+/* ---------- Self: questionário e conversa ---------- */
+
+.app-shell .opcao {
+  background: var(--card);
+  border-color: var(--line);
+  min-height: 44px;
+  transition: border-color var(--dur-rapida) ease, background-color var(--dur-rapida) ease;
+}
+
+.app-shell .opcao:hover {
+  border-color: var(--subtle);
+}
+
+.app-shell .opcao:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.app-shell .pergunta {
+  gap: var(--space-1);
+}
+
+.app-shell .pergunta + .pergunta {
+  margin-top: var(--space-1);
+}
+
+.app-shell .passo-conteudo h2,
+.app-shell .questionario > section > h2 {
+  font-size: 20px;
+}
+
+.app-shell .progresso-self {
+  top: 72px;
+  padding-top: var(--space-2);
+}
+
+.app-shell .progresso-faixas li {
+  height: 4px;
+}
+
+.app-shell .fala {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.app-shell .fala-agente {
+  background: var(--card);
+  border-color: var(--line);
+}
+
+.app-shell .fala-cliente {
+  background: var(--surface-2);
+  border-color: var(--surface-2);
+}
+
+.app-shell .conversa-entrada textarea {
+  border-color: var(--faint);
+}
+
+.app-shell .campo-seguro,
+.app-shell .resumo-conversa,
+.app-shell .empresa-escolha,
+.app-shell .escuta-cartao,
+.app-shell .escuta-coluna {
+  background: var(--card);
+}
+
+.app-shell .ajuda summary,
+.app-shell .mais-opcoes summary,
+.app-shell .deep-area summary,
+.app-shell .deep-corrigir summary {
+  min-height: 32px;
+  display: list-item;
+}
+
+/* ---------- Relatório ---------- */
+
+.app-shell .rel-bloco,
+.app-shell .resultado-numeros > div {
+  background: var(--card);
+}
+
+/* ---------- Movimento reduzido ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell *,
+  .app-shell *::before,
+  .app-shell *::after {
+    transition: none !important;
+  }
+}
+
+@media print {
+  .pular-conteudo {
+    display: none;
+  }
+
+  .app-shell .app-header {
+    position: static;
+  }
 }

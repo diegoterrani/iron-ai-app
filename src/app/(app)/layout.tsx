@@ -7,9 +7,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   await connection();
   const perfil = await exigirContaAtiva();
   return (
-    <div className="shell">
+    <div className="shell app-shell">
+      <a href="#conteudo" className="pular-conteudo">
+        Pular para o conteúdo
+      </a>
       <CabecalhoApp perfil={perfil} />
-      {children}
+      <div id="conteudo" className="app-conteudo">
+        {children}
+      </div>
     </div>
   );
 }
