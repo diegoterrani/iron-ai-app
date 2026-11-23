@@ -1,26 +1,25 @@
 import type { Progresso06 } from "@/lib/assessment/v06/questionario";
 
 /**
- * Indicador de progresso do Self 0.6: quantos passos foram dados, quantos
- * faltam e qual é o próximo. Fica fixo no topo enquanto a pessoa rola.
- * As faixas são só visuais (aria-hidden); o texto carrega a informação para
- * leitor de tela, anunciada com educação (role="status").
+ * Indicador de progresso do Self 0.6: passos feitos, porcentagem e o próximo
+ * passo. A barra é um <progress> nativo (acessível, sem estilo inline); o
+ * texto é anunciado com educação (role="status").
  */
-export function IndicadorProgresso06({ p }: { p: Progresso06 }) {
+export function IndicadorProgresso06({ p, compacto = false }: { p: Progresso06; compacto?: boolean }) {
   const faltam = p.total - p.feitos;
+  const pct = p.total > 0 ? Math.round((p.feitos / p.total) * 100) : 0;
   return (
-    <div className="progresso-self">
-      <p className="progresso-texto" role="status" aria-live="polite">
+    <div className={compacto ? "progresso-self progresso-compacto" : "progresso-self"}>
+      <div className="progresso-topo">
         <strong>
           {p.feitos} de {p.total} passos
         </strong>
-        <span>{faltam === 0 ? "Tudo respondido: falta só confirmar." : `Faltam ${faltam}${p.proximo ? `. Próximo: ${p.proximo.nome.toLowerCase()}` : ""}.`}</span>
+        <span aria-hidden="true">{pct}%</span>
+      </div>
+      <progress className="as-barra" max={p.total} value={p.feitos} aria-hidden="true" />
+      <p className="progresso-texto" role="status" aria-live="polite">
+        {faltam === 0 ? "Tudo respondido: falta só confirmar." : p.proximo ? `Próximo: ${p.proximo.nome.toLowerCase()}.` : `Faltam ${faltam}.`}
       </p>
-      <ol className="progresso-faixas" aria-hidden="true">
-        {p.passos.map((x) => (
-          <li key={x.id} className={x.feito ? "feito" : x.id === p.proximo?.id ? "atual" : undefined} title={x.nome} />
-        ))}
-      </ol>
     </div>
   );
 }

@@ -1292,59 +1292,6 @@ a {
   }
 }
 
-/* ------------------------------------------- Self 0.6: indicador de progresso */
-.progresso-self {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--paper);
-  border-bottom: 1px solid var(--line);
-  padding: var(--space-1) 0 var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.progresso-texto {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-2);
-  align-items: baseline;
-  margin: 0 0 var(--space-1);
-  font-size: 14px;
-}
-
-.progresso-texto strong {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: var(--accent-text);
-}
-
-.progresso-texto span {
-  color: var(--muted);
-}
-
-.progresso-faixas {
-  display: flex;
-  gap: 3px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.progresso-faixas li {
-  flex: 1;
-  height: 6px;
-  background: var(--surface-2);
-}
-
-.progresso-faixas li.feito {
-  background: var(--accent);
-}
-
-.progresso-faixas li.atual {
-  background: var(--ink);
-}
-
 /* ---------------------------------------------------------- Self em conversa */
 .conversa {
   display: flex;
@@ -2604,15 +2551,6 @@ a {
   font-size: 20px;
 }
 
-.app-shell .progresso-self {
-  top: 72px;
-  padding-top: var(--space-2);
-}
-
-.app-shell .progresso-faixas li {
-  height: 4px;
-}
-
 .app-shell .fala {
   font-size: 15px;
   line-height: 1.6;
@@ -2673,4 +2611,883 @@ a {
   .app-shell .app-header {
     position: static;
   }
+}
+
+/* =====================================================================
+ * Self assessment reconstruído (23/11/2026)
+ * Lista em cartões, área de trabalho com abas Conversa/Formulário,
+ * formulário em etapas com navegação lateral, conversa em coluna de chat e
+ * relatório com índice lateral. Prefixo as-. Sem estilo inline (CSP):
+ * barras de progresso são <progress> nativo.
+ * ===================================================================== */
+
+.as-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.as-cartao-tipo {
+  margin: 0;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* Barra de progresso nativa */
+.as-barra {
+  display: block;
+  width: 100%;
+  height: 6px;
+  appearance: none;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+.as-barra::-webkit-progress-bar {
+  background: var(--surface-2);
+}
+
+.as-barra::-webkit-progress-value {
+  background: var(--accent);
+  transition: width var(--dur) ease;
+}
+
+.as-barra::-moz-progress-bar {
+  background: var(--accent);
+}
+
+/* ---------- Lista (hub) ---------- */
+
+.as-cabecalho {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: end;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-4);
+}
+
+.as-cabecalho .lead {
+  max-width: 52ch;
+  margin-bottom: 0;
+}
+
+.as-fatos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+
+.as-fatos li {
+  background: var(--card);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.as-fatos strong {
+  font-weight: 700;
+}
+
+.as-fatos span {
+  color: var(--subtle);
+  text-align: right;
+}
+
+.as-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.as-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--ink);
+  padding: var(--space-3);
+}
+
+.as-cartao-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--space-1);
+}
+
+.as-cartao-topo .as-cartao-tipo {
+  flex-basis: 100%;
+}
+
+.as-cartao-topo h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  margin-right: auto;
+}
+
+.as-cartao-texto {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.as-estado {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-2);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.as-estado-topo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.as-cartao-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 4px;
+}
+
+.as-cartao-acoes .acao-form {
+  margin: 0;
+}
+
+.as-cartao-acoes .notice {
+  margin: 0;
+  flex-basis: 100%;
+}
+
+.as-historico {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+}
+
+.as-historico-titulo {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+.as-historico ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.as-historico a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 40px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.as-historico li:last-child a {
+  border-bottom: 0;
+}
+
+.as-historico a:hover {
+  color: var(--accent-text);
+}
+
+.as-nota {
+  margin: var(--space-4) 0 0;
+  font-size: 13px;
+  color: var(--subtle);
+  max-width: 80ch;
+}
+
+@media (max-width: 860px) {
+  .as-cabecalho {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
+@media (max-width: 420px) {
+  .as-grade {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Área de trabalho: cabeçalho e abas ---------- */
+
+.as-trabalho-topo,
+.as-resultado-topo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-4);
+}
+
+.as-trabalho-titulo h1 {
+  margin: 4px 0 2px;
+  font-size: clamp(26px, 3vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.as-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.as-voltar:hover {
+  color: var(--text);
+}
+
+.as-abas {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 3px;
+  gap: 3px;
+}
+
+.as-abas a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  transition: background-color var(--dur-rapida) ease, color var(--dur-rapida) ease;
+}
+
+.as-abas a:hover {
+  color: var(--text);
+}
+
+.as-abas a[aria-current="page"] {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Empresa vinculada (assessment pessoal) */
+.as-trabalho .empresa-escolhida {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 var(--space-3);
+}
+
+.as-trabalho .btn-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Progresso ---------- */
+
+.progresso-self {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 var(--space-3);
+}
+
+.progresso-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+}
+
+.progresso-topo strong {
+  font-weight: 700;
+}
+
+.progresso-topo span {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 13px;
+  color: var(--accent-text);
+}
+
+.progresso-texto {
+  margin: 0;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.progresso-compacto {
+  margin: 0;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------- Formulário em etapas ---------- */
+
+.as-wizard {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.as-lateral {
+  position: sticky;
+  top: 88px;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.as-etapas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.as-etapa-botao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 52px;
+  padding: 6px var(--space-1);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color var(--dur-rapida) ease;
+}
+
+.as-etapa-botao:hover {
+  background: var(--surface);
+}
+
+.as-etapa-botao[aria-current="step"] {
+  background: var(--card);
+  box-shadow: inset 3px 0 0 var(--ink), inset 0 0 0 1px var(--line);
+}
+
+.as-etapa-marca {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--faint);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card);
+}
+
+.as-etapa-feita .as-etapa-marca,
+.as-etapa-pronta .as-etapa-marca {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.as-etapa-parcial .as-etapa-marca {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.as-etapa-botao[aria-current="step"] .as-etapa-marca {
+  border-color: var(--ink);
+}
+
+.as-etapa-nome {
+  display: grid;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.as-etapa-nome small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--subtle);
+}
+
+.as-salvamento {
+  margin: 0;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.as-etapa {
+  scroll-margin-top: 88px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: var(--space-4);
+  min-width: 0;
+}
+
+.as-etapa-conta {
+  margin: 0 0 4px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.as-etapa-corpo {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.as-etapa-corpo > h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.as-etapa-corpo > h2:focus {
+  outline: none;
+}
+
+.as-etapa-corpo > .field-hint {
+  margin-top: -12px;
+}
+
+/* Cada pergunta com respiro e título forte (fieldset sem borda: a legenda cortaria a linha). */
+.as-etapa .pergunta {
+  margin-top: var(--space-2);
+  gap: var(--space-2);
+}
+
+.as-etapa .pergunta-titulo {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 0;
+}
+
+/* Opções em ladrilhos: alvo grande, estado marcado claro */
+.as-etapa .opcoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: var(--space-1);
+}
+
+.as-etapa .opcao {
+  min-height: 52px;
+  padding: var(--space-1) var(--space-2);
+  background: var(--paper);
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.as-etapa .opcao:has(input:checked) {
+  background: var(--card);
+  font-weight: 600;
+}
+
+.as-etapa-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line);
+}
+
+.as-etapa-nav .btn:only-child {
+  margin-left: auto;
+}
+
+.as-etapa .pendencias {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-2) var(--space-2) var(--space-2) 2.2em;
+  background: var(--accent-bg);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .as-wizard {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  /* No celular as etapas viram uma faixa que rola de lado, no topo. */
+  .as-lateral {
+    position: static;
+  }
+
+  .as-etapas {
+    display: flex;
+    overflow-x: auto;
+    gap: var(--space-1);
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .as-etapas li {
+    flex: none;
+  }
+
+  .as-etapa-botao {
+    min-height: 44px;
+    padding: 4px var(--space-2) 4px 4px;
+    border: 1px solid var(--line);
+    background: var(--card);
+  }
+
+  .as-etapa-nome small {
+    display: none;
+  }
+
+  .as-etapa {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .as-etapa .opcoes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Conversa: coluna de chat ---------- */
+
+.as-trabalho .conversa-unica {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.as-trabalho .conversa {
+  min-height: calc(100dvh - 300px);
+}
+
+.as-trabalho .conversa .progresso-self {
+  position: sticky;
+  top: 72px;
+  z-index: 3;
+  background: var(--paper);
+  padding: var(--space-2) 0;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.as-trabalho .conversa-falas {
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+}
+
+.as-trabalho .fala {
+  max-width: min(640px, 88%);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+}
+
+.as-trabalho .fala-agente {
+  background: var(--card);
+  border-left: 3px solid var(--accent);
+}
+
+.as-trabalho .fala-cliente {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.fala-autor {
+  display: block;
+  margin-bottom: 4px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+.as-trabalho .fala-opcoes {
+  list-style: decimal;
+}
+
+.as-trabalho .fala-pensando {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 14px;
+}
+
+.pontos {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.pontos span {
+  width: 5px;
+  height: 5px;
+  background: var(--accent);
+  animation: pontos 1.2s infinite ease-in-out;
+}
+
+.pontos span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.pontos span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes pontos {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+
+  40% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pontos span {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+/* Caixa de resposta: cartão fixo no rodapé, campo sem borda própria */
+.as-trabalho .conversa-entrada {
+  bottom: var(--space-2);
+  align-items: flex-end;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--card);
+  border: 1px solid var(--faint);
+  border-top: 1px solid var(--faint);
+  box-shadow: 0 -16px 0 0 var(--paper);
+}
+
+.as-trabalho .conversa-entrada:focus-within {
+  border-color: var(--ink);
+}
+
+.as-trabalho .conversa-entrada textarea {
+  border: 0;
+  background: transparent;
+  min-height: 44px;
+  max-height: 40vh;
+  resize: none;
+  padding: 10px var(--space-1);
+}
+
+.as-trabalho .conversa-entrada textarea:focus-visible {
+  outline: none;
+}
+
+.as-trabalho .ir-para-fim {
+  right: 50%;
+  transform: translateX(50%);
+  bottom: calc(100% + var(--space-2));
+  min-height: 36px;
+}
+
+.conversa-nota {
+  margin: var(--space-1) 0 0;
+  text-align: center;
+  font-size: 12px;
+}
+
+.as-trabalho .resumo-conversa,
+.as-trabalho .campo-seguro {
+  max-width: 640px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--accent);
+}
+
+.as-trabalho .empresa-escolha {
+  max-width: 720px;
+  border-top: 3px solid var(--ink);
+  padding: var(--space-4);
+}
+
+.as-trabalho .empresa-escolha h2 {
+  font-size: 22px;
+}
+
+/* Com o áudio ligado a conversa ocupa a largura toda (duas colunas) */
+.as-trabalho .conversa-dividida .fala {
+  max-width: 92%;
+}
+
+/* ---------- Resultado ---------- */
+
+.as-resultado-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.as-relatorio {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.as-indice {
+  position: sticky;
+  top: 88px;
+}
+
+.as-indice p {
+  margin: 0 0 var(--space-1);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+.as-indice ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--line);
+}
+
+.as-indice a {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding-left: var(--space-2);
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  font-size: 14px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.as-indice a:hover {
+  color: var(--text);
+  border-left-color: var(--accent);
+}
+
+.as-resultado [id^="r-"] {
+  scroll-margin-top: 96px;
+}
+
+.as-relatorio-corpo .rel-capa {
+  margin-top: 0;
+}
+
+.as-relatorio-corpo > .secao:first-of-type,
+.as-relatorio-corpo .secao {
+  margin-top: var(--space-5);
+}
+
+@media (max-width: 1000px) {
+  .as-relatorio {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+
+  /* Índice vira faixa horizontal fixa sob o cabeçalho */
+  .as-indice {
+    top: 72px;
+    z-index: 4;
+    background: var(--paper);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .as-indice p {
+    display: none;
+  }
+
+  .as-indice ol {
+    display: flex;
+    gap: var(--space-1);
+    overflow-x: auto;
+    border-left: 0;
+    scrollbar-width: none;
+  }
+
+  .as-indice li {
+    flex: none;
+  }
+
+  .as-indice a {
+    min-height: 36px;
+    padding: 0 var(--space-2);
+    margin: 0;
+    border: 1px solid var(--line);
+    background: var(--card);
+    white-space: nowrap;
+  }
+
+  .as-indice a:hover {
+    border-color: var(--ink);
+  }
+}
+
+@media print {
+  .as-relatorio {
+    display: block;
+  }
+}
+
+/* Falas seguidas do assistente: o nome aparece só na primeira. */
+.fala-agente + .fala-agente .fala-autor {
+  display: none;
 }

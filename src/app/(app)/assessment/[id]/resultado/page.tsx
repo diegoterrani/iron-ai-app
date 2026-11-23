@@ -34,6 +34,18 @@ const SITUACAO: Record<string, string> = {
  * começa em 50%), então 49,8% aparece como 49%, nunca como "50% Exploratório".
  * O 1e-9 só absorve erro de ponto flutuante (0,5 × 100 = 49,999…).
  */
+/** Índice lateral do relatório 0.6 (âncoras das seções de relatorio-06.tsx). */
+const INDICE_06: [string, string][] = [
+  ["#r-topo", "O número"],
+  ["#r-preserva", "O que preservamos"],
+  ["#r-origem", "De onde vem"],
+  ["#r-pessoas", "Pessoas"],
+  ["#r-rapido", "Ganho em 6 semanas"],
+  ["#r-prontidao", "Prontidão e riscos"],
+  ["#r-deep", "O que o Deep resolve"],
+  ["#r-proximo", "Próximo passo"],
+];
+
 const pctScore = (v: number) => pct.format(Math.floor(v * 100 + 1e-9));
 
 /**
@@ -69,20 +81,48 @@ export default async function ResultadoPage({ params }: PageProps<"/assessment/[
   if ("formato" in res.resultado && res.resultado.formato === "0.6") {
     const r6 = res.resultado;
     return (
-      <main className="resultado">
-        <p className="eyebrow">
-          <Link href="/assessment">Self assessment</Link> / resultado
-        </p>
-        <h1 className="title">{emp.nome ? `Resultado: ${emp.nome}` : "Resultado"}</h1>
-        <p className="field-hint">
-          {[emp.cidade && emp.uf ? `${emp.cidade}/${emp.uf}` : null, "Food service", `calculado em ${dataHora.format(new Date(res.criado_em))}`]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        <Relatorio06 r={r6} assessmentId={id} />
-        <p className="field-hint">
-          Motor {r6.versoes.motor} · modelo {r6.versoes.modelo} · pacote {r6.versoes.pacote} · código {r6.hash_respostas}
-        </p>
+      <main className="resultado as-resultado">
+        <header className="as-resultado-topo">
+          <div className="as-trabalho-titulo">
+            <Link href="/assessment" className="as-voltar nao-imprimir">
+              <span aria-hidden="true">←</span> Self assessment
+            </Link>
+            <p className="as-cartao-tipo">Resultado do Self assessment</p>
+            <h1>{emp.nome ?? "Resultado"}</h1>
+            <p className="as-meta">
+              {[emp.cidade && emp.uf ? `${emp.cidade}/${emp.uf}` : null, "Food service", `calculado em ${dataHora.format(new Date(res.criado_em))}`]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </div>
+          <div className="as-resultado-acoes nao-imprimir">
+            {/* Link comum: o navegador baixa o arquivo; a rota confere a sessão e o RLS. */}
+            <a className="btn btn-inline btn-secondary btn-link" href={`/assessment/${id}/resultado/pdf`} download>
+              Baixar PDF
+            </a>
+            <a className="btn btn-inline btn-link" href={CONTATO_URL} target="_blank" rel="noopener noreferrer">
+              Agendar o Deep
+            </a>
+          </div>
+        </header>
+        <div className="as-relatorio">
+          <nav className="as-indice nao-imprimir" aria-label="Seções do relatório">
+            <p>Neste relatório</p>
+            <ol>
+              {INDICE_06.map(([href, rotulo]) => (
+                <li key={href}>
+                  <a href={href}>{rotulo}</a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+          <div className="as-relatorio-corpo">
+            <Relatorio06 r={r6} assessmentId={id} />
+            <p className="field-hint">
+              Motor {r6.versoes.motor} · modelo {r6.versoes.modelo} · pacote {r6.versoes.pacote} · código {r6.hash_respostas}
+            </p>
+          </div>
+        </div>
       </main>
     );
   }
