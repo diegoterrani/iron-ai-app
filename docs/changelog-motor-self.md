@@ -4,6 +4,21 @@ Toda mudança que altera números do Self sobe a versão do motor (`MOTOR_VERSAO
 ou do pacote do setor (`versao` no JSON). Resultados já gravados guardam as
 versões com que foram calculados e não são recalculados.
 
+## Entrada do motor 0.7.0: "Não possui essa informação" (24/11/2026)
+
+Motor e pacote **não mudam** (motor congelado até a reunião de 25/11; decisão
+do Terrani em 24/11). Só a camada de entrada (`paraMotor06` em `v06/self.ts`):
+- A tela mostra o "não sei" como "Não possui essa informação". O valor gravado
+  continua "não sei", e folha, insumos, margem, contratações e aprofundamento
+  seguem o tratamento que o motor já tinha (referência do setor, selo hipótese).
+- Novas respostas aceitas: linhas vermelhas "não sei", que vai ao motor como
+  "nada específico" (nada fica de fora da conta), e prontidão (uso de IA, regra
+  escrita, patrocínio) "não sei", que vai ao motor como o nível mais baixo da
+  pergunta (veredito mais cauteloso).
+- "Gerar relatório com o que temos" (modo reunião) preenche com "não sei" o
+  que ficou em aberto entre esses itens. Faturamento, pessoas, divisão da
+  receita, problema de 6 semanas e cadastro continuam obrigatórios.
+
 ## Motor 0.7.0 · pacote food_service 0.5.0 (23/11/2026)
 
 **Investimento e retorno (M1).**

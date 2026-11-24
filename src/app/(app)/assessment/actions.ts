@@ -31,11 +31,13 @@ import { agente06 } from "@/lib/assessment/agente/v06";
 import { calcularSelf06 } from "@/lib/assessment/v06/motor";
 import {
   aprofundamentoParaProgresso,
+  completarComNaoSei,
   eFormato06,
   faltasParaConcluir06,
   montarQuestionario06,
   normalizarRascunho06,
   pacote06,
+  paraMotor06,
 } from "@/lib/assessment/v06/self";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import type { Respostas06 } from "@/lib/assessment/v06/tipos";
@@ -219,7 +221,7 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
   let resultado;
   try {
     resultado = formato06
-      ? calcularSelf06(linha.respostas as unknown as Respostas06, pacote06, modelo)
+      ? calcularSelf06(paraMotor06(linha.respostas as unknown as Respostas06), pacote06, modelo)
       : calcularSelf(linha.respostas, pacote, modelo);
   } catch (err) {
     if (err instanceof RespostaInvalida) {
@@ -248,6 +250,52 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
   }
   log("info", "self.concluir.ok", { trace, ator: userId, motor: resultado.versoes.motor });
   redirect(`/assessment/${id}/resultado`);
+}
+
+/**
+ * "Gerar relatório com o que temos" (modo reunião, 24/11/2026): pula a
+ * revisão. O que ficou em aberto e o motor aceita como "não sei" vira "não
+ * sei" (entra no relatório como hipótese); faturamento, pessoas, divisão da
+ * receita, problema de 6 semanas e cadastro seguem obrigatórios. Grava só se
+ * nada mudou desde a leitura e conclui pelo mesmo caminho do formulário.
+ */
+export async function gerarRelatorioComOQueTem(id: string): Promise<AcaoState> {
+  if (!idSchema.safeParse(id).success) return { message: "Assessment inválido." };
+  const sessao = await getSessao();
+  if (!sessao?.perfil?.id || sessao.perfil.status !== "ativo") return { message: "Sessão expirada. Entre de novo." };
+
+  const supabase = await createClient();
+  const { data: linha } = await supabase
+    .from("assessments")
+    .select("setor, status, respostas, empresa, atualizado_em")
+    .eq("id", id)
+    .maybeSingle<{ setor: string; status: string; respostas: unknown; empresa: EmpresaSelf; atualizado_em: string }>();
+  if (!linha) return { message: "Assessment não encontrado." };
+  if (linha.status !== "rascunho") redirect(`/assessment/${id}/resultado`);
+  if (!eFormato06(linha.respostas)) return { message: "Este assessment usa o formulário antigo; conclua pela revisão." };
+
+  const norm = normalizarRascunho06(completarComNaoSei(linha.respostas as Rascunho06), linha.setor);
+  if (!norm.ok) return { message: norm.erro };
+  const faltas = faltasParaConcluir06(norm.respostas, linha.empresa ?? {});
+  if (faltas.length > 0) return { message: `Para gerar o relatório ainda falta: ${faltas.join("; ")}. Complete pela revisão.` };
+
+  // RLS decide quem pode gravar; a versão evita sobrescrever quem salvou agora.
+  const { data: gravado, error } = await supabase
+    .from("assessments")
+    .update({ respostas: norm.respostas })
+    .eq("id", id)
+    .eq("status", "rascunho")
+    .eq("atualizado_em", linha.atualizado_em)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+  if (error || !gravado) {
+    const trace = newTraceId();
+    log("warn", "self.gerar_relatorio.recusado", { trace, code: error?.code ?? "sem_linha" });
+    return { message: error ? `Não foi possível gravar agora. (código ${trace})` : CONFLITO };
+  }
+  const form = new FormData();
+  form.set("assessmentId", id);
+  return concluirSelf({}, form);
 }
 
 // ------------------------------------------------------------- conversa com o agente

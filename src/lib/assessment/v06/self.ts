@@ -33,9 +33,9 @@ export function montarQuestionario06(): Questionario06 {
       custo: [...chaves(p.faixas.custo), NAO_SEI],
       margem: [...chaves(p.faixas.margem), NAO_SEI],
       contratacoes: [...chaves(p.faixas.contratacoes), NAO_SEI],
-      usoIa: chaves(p.prontidao.uso_ia),
-      politica: chaves(p.prontidao.politica),
-      patrocinio: chaves(p.prontidao.patrocinio),
+      usoIa: [...chaves(p.prontidao.uso_ia), NAO_SEI],
+      politica: [...chaves(p.prontidao.politica), NAO_SEI],
+      patrocinio: [...chaves(p.prontidao.patrocinio), NAO_SEI],
     },
   };
 }
@@ -44,6 +44,7 @@ const q = montarQuestionario06();
 const enumDe = (valores: string[], msg: string) => z.enum(valores as [string, ...string[]], { error: msg });
 const segIds = q.segmentos.map((s) => s.id) as [string, ...string[]];
 const lvIds = q.linhasVermelhas.map((l) => l.id) as [string, ...string[]];
+const lvValores = [...lvIds, NAO_SEI] as [string, ...string[]];
 const perguntaIds = q.perguntas.map((p) => p.id) as [string, ...string[]];
 const opcoesPergunta = new Map(q.perguntas.map((p) => [p.id, p.opcoes]));
 const pctExato = (min: number) => z.number({ error: "Percentual inválido." }).min(min, "Percentual baixo demais.").max(95, "Percentual alto demais.");
@@ -51,13 +52,14 @@ const pctExato = (min: number) => z.number({ error: "Percentual inválido." }).m
 /** Rascunho 0.6: tudo opcional, mas cada valor presente precisa ser válido. Chaves extras são descartadas. */
 export const rascunho06Schema = z.object({
   linhas_vermelhas: z
-    .array(z.enum(lvIds, { error: "Opção inválida." }))
-    .max(lvIds.length)
+    .array(z.enum(lvValores, { error: "Opção inválida." }))
+    .max(lvValores.length)
     .transform((l) => {
       const marcadas = new Set(l);
-      // "Nada específico" não convive com outras marcações.
+      // "Não possui essa informação" e "Nada específico" não convivem com outras marcações.
+      if (marcadas.size > 1) marcadas.delete(NAO_SEI);
       if (marcadas.size > 1) marcadas.delete("nenhuma");
-      return lvIds.filter((id) => marcadas.has(id));
+      return lvValores.filter((id) => marcadas.has(id));
     })
     .optional(),
   linhas_vermelhas_outro: z.string().trim().max(200, "Use até 200 caracteres.").optional(),
@@ -123,6 +125,46 @@ export function normalizarRascunho06(entrada: unknown, setor: string): { ok: tru
   if (d.custo_exato !== undefined) delete d.custo;
   if (d.margem_exata !== undefined) delete d.margem;
   return { ok: true, respostas: { ...d, formato: FORMATO_06, setor } };
+}
+
+/**
+ * Leva as respostas "não sei" que o motor 0.7 não conhece aos valores que ele
+ * já trata, sem mudar nenhuma conta (24/11/2026):
+ * - linhas vermelhas "não sei" = "nada específico" (nada fica de fora da conta);
+ * - prontidão "não sei" = nível mais baixo da pergunta (veredito mais cauteloso).
+ * Folha, insumos, margem, contratações e aprofundamento já têm "não sei" no
+ * motor (referência do setor, selo hipótese) e passam como estão.
+ */
+export function paraMotor06(r: Respostas06): Respostas06 {
+  const out: Respostas06 = { ...r };
+  if (r.linhas_vermelhas?.includes(NAO_SEI)) {
+    const outras = r.linhas_vermelhas.filter((l) => l !== NAO_SEI);
+    out.linhas_vermelhas = outras.length > 0 ? outras : ["nenhuma"];
+  }
+  const maisBaixo = (t: Record<string, number>) => Object.entries(t).sort((a, b) => a[1] - b[1])[0][0];
+  const pr = pacote06.prontidao;
+  if (r.uso_ia === NAO_SEI) out.uso_ia = maisBaixo(pr.uso_ia);
+  if (r.politica === NAO_SEI) out.politica = maisBaixo(pr.politica);
+  if (r.patrocinio === NAO_SEI) out.patrocinio = maisBaixo(pr.patrocinio);
+  return out;
+}
+
+/**
+ * "Gerar relatório com o que temos": o que ficou em aberto e o motor aceita
+ * como "não sei" passa a "não sei". Faturamento, pessoas, divisão da receita e
+ * o problema de 6 semanas não têm "não sei" no motor e continuam pendentes.
+ */
+export function completarComNaoSei(r: Rascunho06): Rascunho06 {
+  const out: Rascunho06 = { ...r };
+  if (!r.linhas_vermelhas?.length) out.linhas_vermelhas = [NAO_SEI];
+  if (r.folha === undefined && r.folha_exata === undefined) out.folha = NAO_SEI;
+  if (r.custo === undefined && r.custo_exato === undefined) out.custo = NAO_SEI;
+  if (r.margem === undefined && r.margem_exata === undefined) out.margem = NAO_SEI;
+  if (!r.contratacoes) out.contratacoes = NAO_SEI;
+  if (!r.uso_ia) out.uso_ia = NAO_SEI;
+  if (!r.politica) out.politica = NAO_SEI;
+  if (!r.patrocinio) out.patrocinio = NAO_SEI;
+  return out;
 }
 
 export function faltasParaConcluir06(r: Rascunho06, e: Empresa06): string[] {

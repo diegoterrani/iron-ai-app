@@ -5,6 +5,7 @@
  * Não grava nem calcula nada do resultado.
  */
 import { textoFaixa, type Questionario06, type Rascunho06 } from "./questionario";
+import { NAO_SEI, ROTULO_NAO_SEI, rotuloOpcao } from "./tipos";
 
 export type SituacaoPergunta = "respondida" | "a_confirmar" | "pendente";
 
@@ -21,7 +22,9 @@ export interface PerguntaReuniao {
 }
 
 const reais = new Intl.NumberFormat("pt-BR");
-const nome = (lista: { id: string; nome: string }[], id: string) => lista.find((i) => i.id === id)?.nome ?? id;
+const nome = (lista: { id: string; nome: string }[], id: string) => (id === NAO_SEI ? ROTULO_NAO_SEI : (lista.find((i) => i.id === id)?.nome ?? id));
+/** Opção gravada como texto da tela ("não sei" aparece como "Não possui essa informação"). */
+const texto = (v: string | undefined) => (v === undefined ? null : rotuloOpcao(v));
 
 /**
  * Campos do rascunho que cada pergunta da lista cobre (faixa e exato contam
@@ -51,9 +54,9 @@ export function perguntasDaReuniao(q: Questionario06, r: Rascunho06, aConfirmar:
   const item = (campo: string, bloco: string, pergunta: string, opcoes: string[], valor: string | null): PerguntaReuniao => {
     const cobertos = CAMPOS[campo] ?? [campo];
     const situacao: SituacaoPergunta = cobertos.some((c) => duvida.has(c)) ? "a_confirmar" : valor !== null ? "respondida" : "pendente";
-    return { campo, bloco, pergunta, opcoes: opcoes.join(" · "), valor, situacao };
+    return { campo, bloco, pergunta, opcoes: opcoes.map(rotuloOpcao).join(" · "), valor, situacao };
   };
-  const faixa = (f: string | undefined, exata: number | undefined) => (f === undefined && exata === undefined ? null : textoFaixa(f, exata));
+  const faixa = (f: string | undefined, exata: number | undefined) => (f === undefined && exata === undefined ? null : f === NAO_SEI && exata === undefined ? ROTULO_NAO_SEI : textoFaixa(f, exata));
 
   const linhas = r.linhas_vermelhas?.length
     ? [...r.linhas_vermelhas.map((id) => nome(q.linhasVermelhas, id)), ...(r.linhas_vermelhas_outro ? [r.linhas_vermelhas_outro] : [])].join(", ")
@@ -67,19 +70,19 @@ export function perguntasDaReuniao(q: Questionario06, r: Rascunho06, aConfirmar:
       : null;
 
   return [
-    item("linhas_vermelhas", "O que é intocável", "O que a IA nunca pode tocar no negócio?", q.linhasVermelhas.map((l) => l.nome), linhas),
+    item("linhas_vermelhas", "O que é intocável", "O que a IA nunca pode tocar no negócio?", [...q.linhasVermelhas.map((l) => l.nome), NAO_SEI], linhas),
     item("receita", "Retrato econômico", "Faturamento anual (valor aproximado ou faixa)", q.opcoes.receita, receita),
-    item("pessoas", "Retrato econômico", "Quantas pessoas trabalham na empresa?", q.opcoes.pessoas, r.pessoas ?? null),
+    item("pessoas", "Retrato econômico", "Quantas pessoas trabalham na empresa?", q.opcoes.pessoas, texto(r.pessoas)),
     item("divisao", "Retrato econômico", "Como a receita se divide por negócio (% que soma 100)?", q.segmentos.map((s) => s.nome), divisao),
     item("folha", "Retrato econômico", "Peso da folha com encargos na receita", q.opcoes.folha, faixa(r.folha, r.folha_exata)),
     item("custo", "Retrato econômico", q.custoPrincipal.pergunta, q.opcoes.custo, faixa(r.custo, r.custo_exato)),
-    item("contratacoes", "Retrato econômico", "Contratações por ano, comparadas ao quadro", q.opcoes.contratacoes, r.contratacoes ?? null),
+    item("contratacoes", "Retrato econômico", "Contratações por ano, comparadas ao quadro", q.opcoes.contratacoes, texto(r.contratacoes)),
     item("margem", "Retrato econômico", "Margem líquida hoje", q.opcoes.margem, faixa(r.margem, r.margem_exata)),
     item("dor", "Onde dói", "Se pudesse resolver um problema em 6 semanas, qual seria?", q.dores.map((d) => d.nome), r.dor ? nome(q.dores, r.dor) : null),
-    ...q.perguntas.map((p) => item(`nucleo.${p.id}`, "Aprofundamento", p.texto, p.opcoes, r.nucleo?.[p.id] ?? null)),
-    item("uso_ia", "Prontidão", "Como a empresa usa IA hoje?", q.opcoes.usoIa, r.uso_ia ?? null),
-    item("politica", "Prontidão", "Existe regra escrita sobre IA e dados?", q.opcoes.politica, r.politica ?? null),
-    item("patrocinio", "Prontidão", "Quem patrocina e há orçamento?", q.opcoes.patrocinio, r.patrocinio ?? null),
+    ...q.perguntas.map((p) => item(`nucleo.${p.id}`, "Aprofundamento", p.texto, p.opcoes, texto(r.nucleo?.[p.id]))),
+    item("uso_ia", "Prontidão", "Como a empresa usa IA hoje?", q.opcoes.usoIa, texto(r.uso_ia)),
+    item("politica", "Prontidão", "Existe regra escrita sobre IA e dados?", q.opcoes.politica, texto(r.politica)),
+    item("patrocinio", "Prontidão", "Quem patrocina e há orçamento?", q.opcoes.patrocinio, texto(r.patrocinio)),
   ];
 }
 

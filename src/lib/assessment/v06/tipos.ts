@@ -88,6 +88,15 @@ export interface Pacote06 {
 /** "não sei" vale em toda pergunta do retrato econômico. */
 export const NAO_SEI = "não sei";
 
+/**
+ * Como a tela mostra o "não sei" (pedido do Terrani, 24/11/2026). O valor
+ * gravado continua "não sei"; só o texto muda.
+ */
+export const ROTULO_NAO_SEI = "Não possui essa informação";
+
+/** Texto de uma opção na tela. */
+export const rotuloOpcao = (o: string) => (o === NAO_SEI ? ROTULO_NAO_SEI : o);
+
 /** Respostas do Self 0.6, como são gravadas e como o motor recebe. */
 export interface Respostas06 {
   formato: typeof FORMATO_06;
