@@ -1680,6 +1680,17 @@ a {
   font: inherit;
 }
 
+/* Última resposta que a captação mandou à conversa. */
+.escuta-enviada {
+  border-left: 3px solid #2f6b3a;
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.escuta-enviada-texto {
+  white-space: pre-wrap;
+}
+
 .escuta-confirmar {
   list-style: none;
   margin: 0;

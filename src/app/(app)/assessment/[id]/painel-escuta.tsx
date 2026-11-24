@@ -23,8 +23,11 @@ import {
  * Com o áudio ligado, a conversa se divide: à esquerda as perguntas e a caixa
  * de texto; à direita esta captação. O consultor conduz, e quando o cliente
  * termina clica em "Pergunta respondida": a fala daquela pergunta vira uma
- * resposta consolidada, que ele revisa, corrige se precisar e envia à
- * conversa. O assistente registra e faz a próxima pergunta.
+ * resposta consolidada, que vai direto à conversa. O assistente registra,
+ * confirma o que entendeu e faz a próxima pergunta, e a captação recomeça
+ * (pedido do Terrani, 24/11/2026). A última resposta enviada fica à vista no
+ * painel; para corrigir, o consultor escreve a correção na conversa. Se o
+ * envio falhar, a resposta consolidada abre para revisão e nada se perde.
  *
  * A fala captada fica só neste navegador; o que vai ao servidor é a fala da
  * pergunta (para consolidar, sem gravar) e o texto que o consultor envia.
@@ -33,6 +36,12 @@ import {
 
 type Etapa = "fechado" | "aviso" | "ativo";
 type Fase = "captando" | "consolidando" | "revisando";
+
+/** Última resposta enviada à conversa pela captação (para o consultor conferir). */
+interface Enviada {
+  texto: string;
+  observacao: string | null;
+}
 
 /** Renova o token 60 s antes de vencer. */
 const ANTECEDENCIA_RENOVAR_S = 60;
@@ -86,6 +95,7 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
   const [fase, setFase] = useState<Fase>("captando");
   const [rascunho, setRascunho] = useState("");
   const [observacao, setObservacao] = useState<string | null>(null);
+  const [enviada, setEnviada] = useState<Enviada | null>(null);
   const [suporte] = useState(suportaEscuta);
 
   const conexao = useRef<ConexaoEscuta | null>(null);
@@ -289,9 +299,22 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
       setFase("captando");
       return setAviso(r.erro);
     }
-    setRascunho(textoParaEnviar(r.consolidada));
-    setObservacao(r.consolidada.observacao);
-    setFase("revisando");
+    const texto = textoParaEnviar(r.consolidada).trim();
+    if (!texto) {
+      setFase("captando");
+      return setAviso("Não deu para tirar uma resposta da fala captada. Peça para o cliente responder de novo.");
+    }
+    // Envio direto: o assistente registra, confirma e já faz a próxima pergunta.
+    const ok = await enviarVoz(texto);
+    if (!ok) {
+      // Falhou (rede, limite, conflito): a resposta abre para revisão e reenvio.
+      setRascunho(texto);
+      setObservacao(r.consolidada.observacao);
+      setFase("revisando");
+      return;
+    }
+    setEnviada({ texto, observacao: r.consolidada.observacao });
+    responderDeNovo();
   };
 
   const responderDeNovo = () => {
@@ -309,6 +332,7 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
     const ok = await enviarVoz(texto);
     setTrabalhando(false);
     if (!ok) return;
+    setEnviada({ texto, observacao });
     // Próxima pergunta: a captação recomeça do zero.
     responderDeNovo();
   };
@@ -469,8 +493,17 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
 
       {fase === "consolidando" && (
         <p className="field-hint" role="status">
-          Organizando a resposta…
+          Organizando a resposta e registrando no Self…
         </p>
+      )}
+
+      {enviada && fase === "captando" && (
+        <div className="escuta-cartao escuta-enviada">
+          <p className="escuta-quem">Resposta registrada na conversa</p>
+          <p className="escuta-enviada-texto">{enviada.texto}</p>
+          {enviada.observacao && <p className="field-hint">Atenção: {enviada.observacao}</p>}
+          <p className="field-hint">Se algo saiu errado, escreva a correção na caixa da conversa.</p>
+        </div>
       )}
 
       {fase === "revisando" && (
@@ -480,7 +513,7 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
           </label>
           <textarea id="escuta-resposta" rows={6} maxLength={4000} value={rascunho} onChange={(e) => setRascunho(e.target.value)} />
           {observacao && <p className="field-hint">Atenção: {observacao}</p>}
-          <p className="field-hint">Confira e corrija o texto se precisar. Só vai para o Self quando você enviar.</p>
+          <p className="field-hint">O envio automático falhou. Confira o texto e envie de novo.</p>
           <div className="escuta-linha">
             <button
               type="button"
@@ -488,7 +521,7 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
               disabled={ocupado || trabalhando || !rascunho.trim()}
               onClick={() => void enviarEseguir()}
             >
-              {trabalhando ? "Enviando…" : "Enviar e seguir"}
+              {trabalhando ? "Enviando…" : "Enviar de novo"}
             </button>
             <button type="button" className="btn btn-inline btn-secondary" disabled={trabalhando} onClick={responderDeNovo}>
               Responder de novo por áudio
