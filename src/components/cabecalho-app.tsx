@@ -2,8 +2,8 @@ import Link from "next/link";
 import { SairButton } from "@/components/sair-button";
 import { podeUsarBackoffice } from "@/lib/auth/admin";
 import { eAnalistaDeep } from "@/lib/auth/deep";
-import { eGestorDeEmpresa } from "@/lib/auth/empresa";
 import type { Perfil } from "@/lib/auth/session";
+import { temAreaDeEmpresa } from "@/lib/empresa/area";
 import { MenuApp } from "./menu-app";
 import type { ItemNav } from "./nav-links";
 
@@ -12,12 +12,13 @@ import type { ItemNav } from "./nav-links";
  * pode usá-los; quem decide o acesso de verdade são as páginas e o banco.
  */
 export async function CabecalhoApp({ perfil }: { perfil: Perfil }) {
-  const [admin, gestor, analista] = await Promise.all([podeUsarBackoffice(), eGestorDeEmpresa(), eAnalistaDeep()]);
+  const [admin, empresas, analista] = await Promise.all([podeUsarBackoffice(), temAreaDeEmpresa(), eAnalistaDeep()]);
   const produtos: ItemNav[] = [
     { href: "/painel", rotulo: "Painel" },
     { href: "/assessment", rotulo: "Self assessment" },
     ...(analista ? [{ href: "/deep", rotulo: "Deep assessment" }] : []),
-    ...(gestor ? [{ href: "/empresa", rotulo: "Minha empresa" }] : []),
+    // Área da empresa: cadastro, pessoas, Self, Deep e resumo (Minha empresa fica dentro dela).
+    ...(empresas ? [{ href: "/empresas", rotulo: "Empresas" }] : []),
     ...(admin ? [{ href: "/admin", rotulo: "Backoffice" }] : []),
   ];
   const conta: ItemNav[] = [

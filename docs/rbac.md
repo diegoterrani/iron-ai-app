@@ -118,3 +118,40 @@ Só super-admin com MFA; só assessment pessoal; o dono precisa ser ADM ou
 RW-Cliente da empresa; rascunho só entra se a empresa não tiver outro do mesmo
 setor. Respostas, resultado e autor não mudam; a conversa continua só da pessoa.
 Auditado como `assessment_transferido` com o motivo.
+
+## Excluir empresa e excluir usuário (24/11/2026)
+
+Migração `20261124100000_exclusoes.sql`. Só super-admin com MFA, no backoffice.
+
+- **Excluir empresa** (ficha da empresa, seção "Excluir empresa"):
+  `admin_excluir_empresa(empresa, nome digitado, motivo)`. O nome digitado precisa
+  conferir com o da empresa (ignora caixa, acento e espaços). Numa transação só,
+  apaga o Deep (reuniões, falas, respostas, evidências, relatórios e escuta), o
+  Self da empresa (resultados, conversas e escuta), vínculos, atribuições,
+  convites e acessos. As contas das pessoas continuam. As tabelas do Deep são
+  "somente inserção" por gatilho; a exclusão liga a chave local `iron.purga`
+  (como a retenção faz com `iron.deep_retencao`). Auditado como
+  `empresa_excluida`, com nome, motivo e contagens.
+- **Excluir usuário** (ficha do usuário, seção "Excluir conta"):
+  `admin_autorizar_exclusao_usuario(usuário, e-mail digitado, motivo)` confere o
+  e-mail, recusa a própria conta e super-admin e registra
+  `usuario_exclusao_autorizada`; o servidor apaga a conta no Auth (chave
+  secreta); `admin_registrar_exclusao_usuario(usuário)` só registra
+  (`usuario_excluido`, sem nome nem e-mail) se a conta sumiu e houve
+  autorização. Pode ser repetido sem duplicar, se falhar depois do Auth.
+- **Self da empresa sobrevive à conta de quem o iniciou**: `assessments.user_id`
+  passou a ser `ON DELETE SET NULL`; o Self pessoal sai junto com a conta
+  (gatilho `profiles_apagar_assessments_pessoais`). Vale também para a exclusão
+  por pedido LGPD.
+- Tirar uma pessoa da empresa (sem apagar a conta) continua com o ADM-Cliente
+  (`/empresa`) ou o super-admin (ficha da empresa).
+
+## Área da empresa (24/11/2026)
+
+`/empresas` e `/empresas/[id]`: cadastro, pessoas, Self, Deep e resumo da
+empresa numa página. Cada leitura usa a sessão de quem abriu (RLS): ADM, RW e
+RO-Cliente veem a própria empresa; Equipe IRON, as que atende; super-admin,
+todas. A lista de pessoas aparece para o ADM-Cliente (com e-mail) e para o
+super-admin. Empresa fora do alcance dá 404. As contagens do Deep vêm de
+`empresa_resumo_deep(empresa)`: o ADM-Cliente vê só relatórios publicados (não
+lê `deep_assessments`); quem conduz vê também as reuniões.

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AcaoForm } from "@/components/acao-form";
 import { CONTATO_URL } from "@/lib/ui/textos";
@@ -165,7 +166,9 @@ export default async function EmpresaPage() {
 
   return (
     <main>
-      <p className="eyebrow">Minha empresa</p>
+      <p className="eyebrow">
+        <Link href="/empresas">Área da empresa</Link> / pessoas
+      </p>
       <h1 className="title">Pessoas e convites</h1>
       {empresas.map((orgId) => (
         <SecaoEmpresa key={orgId} orgId={orgId} euId={perfil.id} />

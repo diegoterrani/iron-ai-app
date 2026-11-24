@@ -42,6 +42,11 @@ export default async function EmpresasPage({ searchParams }: PageProps<"/admin/e
     <main>
       <p className="eyebrow">Backoffice</p>
       <h1 className="title">Empresas</h1>
+      {params.excluida === "1" && (
+        <p className="notice" role="status">
+          Empresa excluída. O registro ficou na auditoria.
+        </p>
+      )}
 
       {error ? (
         <p className="notice notice-error" role="alert">

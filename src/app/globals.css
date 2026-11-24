@@ -3632,3 +3632,35 @@ a {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---------- Ação irreversível (excluir empresa/conta) ---------- */
+
+.app-shell .secao-perigo {
+  border-top: 2px solid var(--danger);
+}
+
+.app-shell .secao-perigo h2 {
+  color: var(--danger);
+}
+
+/* ---------- Área da empresa (24/11/2026) ---------- */
+
+/* Cartão do resumo sem link (dado só para leitura). */
+.app-shell .stats .painel-cartao-estatico {
+  display: block;
+  height: 100%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: var(--space-3);
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Atalhos para as seções: quebram linha no celular, sem rolagem lateral. */
+.area-empresa-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin-top: var(--space-3);
+  font-size: 15px;
+}

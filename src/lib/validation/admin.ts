@@ -110,6 +110,29 @@ export const remocaoAssessmentSchema = z.object({
     .max(300, "Máximo de 300 caracteres."),
 });
 
+const motivo = z
+  .string({ error: "Informe o motivo." })
+  .trim()
+  .min(5, "Informe o motivo (mínimo de 5 caracteres).")
+  .max(300, "Máximo de 300 caracteres.");
+
+/**
+ * Excluir empresa: o super-admin digita o nome da empresa (o banco confere,
+ * ignorando caixa e acento) e o motivo, que vai para a auditoria.
+ */
+export const exclusaoEmpresaSchema = z.object({
+  orgId: id,
+  confirmacao: z.string({ error: "Digite o nome da empresa." }).trim().min(1, "Digite o nome da empresa.").max(200),
+  motivo,
+});
+
+/** Excluir usuário: o super-admin digita o e-mail da conta (o banco confere) e o motivo. */
+export const exclusaoUsuarioSchema = z.object({
+  userId: id,
+  confirmacao: z.string({ error: "Digite o e-mail da conta." }).trim().min(3, "Digite o e-mail da conta.").max(254),
+  motivo,
+});
+
 /** Transferência de Self pessoal para a empresa: o motivo vai para a auditoria. */
 export const transferenciaAssessmentSchema = remocaoAssessmentSchema.extend({ orgId: id });
 

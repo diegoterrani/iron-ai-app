@@ -44,6 +44,10 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
 
   switch (linha.tabela) {
     case "profiles": {
+      if (linha.acao === "usuario_exclusao_autorizada") {
+        return `Exclusão da conta autorizada pelo backoffice: ${texto((linha.dados as Record<string, unknown> | null)?.motivo)}`;
+      }
+      if (linha.acao === "usuario_excluido") return `Conta excluída pelo backoffice: ${texto((linha.dados as Record<string, unknown> | null)?.motivo)}`;
       const de = ROTULO_STATUS[texto(antes.status) as Status] ?? texto(antes.status);
       const para = ROTULO_STATUS[texto(depois.status) as Status] ?? texto(depois.status);
       return `Status: ${de} → ${para}`;
@@ -58,6 +62,9 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
     case "staff_assignments":
       return linha.acao === "delete" ? "Atribuição a empresa removida" : "Atribuído a uma empresa";
     case "organizations":
+      if (linha.acao === "empresa_excluida") {
+        return `Empresa excluída: ${texto((linha.dados as Record<string, unknown> | null)?.nome)} (${texto((linha.dados as Record<string, unknown> | null)?.motivo)})`;
+      }
       if (linha.acao === "update" && antes.assentos !== depois.assentos) {
         return `Assentos: ${texto(antes.assentos)} → ${texto(depois.assentos)}`;
       }
