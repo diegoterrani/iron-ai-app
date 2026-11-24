@@ -16,8 +16,13 @@ import { EscolhaEmpresa } from "./escolha-empresa";
 import { Formulario06 } from "./formulario-06";
 import { IndicadorProgresso06 } from "./progresso-06";
 import { QuestionarioSelf } from "./questionario-self";
+import { ReuniaoSelf } from "./reuniao-self";
 
 export const metadata: Metadata = { title: "Self assessment" };
+
+// A compilação do modo reunião lê a reunião inteira numa Server Action desta
+// página e pode levar alguns minutos.
+export const maxDuration = 300;
 
 const dataHora = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 
@@ -85,7 +90,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
 
   // Conversa é o padrão (03/11/2026); o formulário fica como alternativa e
   // como reserva se a chave da API não estiver configurada.
-  const conversa = modo !== "formulario" && agenteConfigurado();
+  const conversa = modo !== "formulario" && modo !== "reuniao" && agenteConfigurado();
 
   // 0.6 (20/11/2026): rascunho novo segue o roteiro curto da skill do Self.
   if (eFormato06(linha.respostas)) {
@@ -99,9 +104,14 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
     const dadosEmpresa = linha.empresa ?? {};
     const local = [dadosEmpresa.cidade, dadosEmpresa.uf].filter(Boolean).join("/") || null;
     const chave = `${linha.empresa_id ?? "sem-empresa"}-${linha.atualizado_em}`;
+    // Modo reunião (24/11/2026): lista de perguntas, captação contínua e
+    // compilação no fim. Só no 0.6 e com o assistente configurado.
+    const reuniao = modo === "reuniao" && agenteConfigurado();
     const miolo = (
       <>
-        {conversa ? (
+        {reuniao ? (
+          <ReuniaoSelf key={chave} assessmentId={id} questionario={q06} inicial={inicial06} />
+        ) : conversa ? (
           <ConversaSelf
             key={chave}
             formato="0.6"
@@ -134,7 +144,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
           assessmentId={id}
           titulo={dadosEmpresa.nome ?? "Self assessment"}
           detalhe={`Food service · ${DURACAO_SELF} · salvo automaticamente`}
-          modo={agenteConfigurado() ? (conversa ? "conversa" : "formulario") : null}
+          modo={agenteConfigurado() ? (reuniao ? "reuniao" : conversa ? "conversa" : "formulario") : null}
         />
         {pessoal ? (
           <EscolhaEmpresa

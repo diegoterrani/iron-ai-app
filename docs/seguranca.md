@@ -233,6 +233,20 @@ Também em 24/11/2026: a captação do Self deixou de separar consultor e client
 | Dado sensível na consolidação | Máscara na entrada (fala e pergunta) e de novo na saída do modelo; marcadores do app neutralizados; desde 24/11/2026 o consolidador não recebe quem falou (só os trechos, na ordem) | `tests/unit/self-escuta.test.ts` (mutação) |
 | Consolidar sem o áudio ligado | O servidor confere no banco o modo e o consentimento antes de chamar o modelo | revisão |
 
+### Modo reunião (24/11/2026)
+
+Terceira aba ao lado de Conversa e Formulário, a pedido do Terrani: a tela mostra a lista de todas as perguntas, a captação corre sem interrupção e, ao encerrar, o servidor lê a reunião inteira de uma vez e responde o que a conversa permite. Usa o modo `fluido` e as funções `self_escuta_*` que já estavam no banco (sem migração nova). O relatório sai pelo formulário de sempre (revisão, cadastro e conclusão), então o motor não muda.
+
+| Risco | Controle | Teste |
+| --- | --- | --- |
+| Perder a reunião ao recarregar a página | Os trechos são gravados no servidor a cada 15 s (ou 1200 caracteres), já mascarados, em `self_escuta_blocos`, coberto pelo texto de consentimento (90 dias). Reenvio do mesmo `seq` é ignorado | `self_escuta_test.sql` |
+| Modelo inventar resposta a partir da reunião inteira | Cada campo gravado precisa de trecho literal da transcrição; trecho falso recusa a chamada. Dúvida vai para "a confirmar", e o Self não conclui com item pendente. A pergunta lida em voz alta pelo consultor não conta como resposta | `tests/unit/self-escuta.test.ts` |
+| Reunião longa estourar custo ou tempo | Teto de 600 mil caracteres por compilação (o final excedente fica de fora e a tela avisa), uma chamada por compilação sem nova tentativa, 240 s de limite e `maxDuration` de 300 s na página. Minutos de transcrição seguem o teto de 240 por pessoa e assessment | `tests/unit/self-escuta.test.ts` |
+| Compilar com a escuta desligada ou o consentimento vencido | O servidor confere no banco o modo `fluido` antes de chamar o modelo | `tests/unit/self-escuta.test.ts` |
+| Compilação sobrescrever o que alguém salvou | Grava só se a versão do rascunho não mudou; em conflito nada é gravado e a tela pede para compilar de novo | `tests/unit/self-escuta.test.ts` |
+| Texto da reunião em log | Logs só com contagens (blocos, campos, tokens) e código de rastreio | revisão |
+| CNPJ, telefone ou nomes na compilação | Os blocos são mascarados antes de gravar; o prompt não pede cadastro e o CNPJ continua digitado no formulário | `tests/unit/self-escuta.test.ts` |
+
 A escuta ainda não entra na exportação LGPD (`meus_dados`). Fica como pendência: consentimentos e itens a confirmar da própria pessoa.
 
 ## Cadastro de empresas do Self (21/11/2026)
