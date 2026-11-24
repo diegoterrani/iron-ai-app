@@ -359,7 +359,7 @@ describe("entrevista guiada: resposta consolidada", () => {
     expect(enviado).not.toContain("Cliente (voz 2)");
     expect(enviado).not.toContain("Consultor:");
     expect(enviado).not.toContain("123.456");
-    expect(api.recebidas[0].tool_choice).toEqual({ type: "tool", name: "entregar_resposta" });
+    expect(api.recebidas[0].tool_choice).toEqual({ type: "auto", disable_parallel_tool_use: true });
     expect(textoParaEnviar(r.consolidada)).toBe("A folha com encargos pesa uns 20% da receita.\n\nTambém mencionou:\n- Somos uns 200 funcionários.");
   });
 

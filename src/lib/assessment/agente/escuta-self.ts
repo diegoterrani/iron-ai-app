@@ -568,7 +568,7 @@ const PROMPT_CONSOLIDAR = `Você ajuda um consultor da IRON AI que entrevista um
 - Se falaram de assuntos que respondem outras perguntas do Self (faturamento, número de pessoas, margem, folha, uso de IA, problemas, regras sobre dados), coloque cada fato em uma linha de "tambem_mencionou". Conversa sem relação com o Self fica de fora.
 - Se não houve resposta clara à pergunta, escreva "Sem resposta clara." em resposta e explique em observacao. Use observacao também para hesitação, contradição ou trecho que o áudio cortou.
 
-Entregue sempre pela ferramenta entregar_resposta.`;
+Responda sempre e só chamando a ferramenta entregar_resposta, uma vez, sem texto fora dela.`;
 
 const FERRAMENTA_CONSOLIDAR: Anthropic.Beta.BetaTool = {
   name: "entregar_resposta",
@@ -622,7 +622,9 @@ export async function consolidarResposta(args: {
     max_tokens: 1200,
     system: PROMPT_CONSOLIDAR,
     tools: [FERRAMENTA_CONSOLIDAR],
-    tool_choice: { type: "tool", name: "entregar_resposta" },
+    // claude-opus-5-5 recusa tool_choice forçado ("tool"/"any") com 400; o prompt
+    // pede a ferramenta e, se ela não vier, a tela mostra o erro e mantém a fala.
+    tool_choice: { type: "auto", disable_parallel_tool_use: true },
     messages: [
       {
         role: "user",
