@@ -44,6 +44,9 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
 
   switch (linha.tabela) {
     case "profiles": {
+      if (linha.acao === "usuario_exclusao_autorizada") {
+        return `Exclusão da conta autorizada pelo backoffice: ${texto((linha.dados as Record<string, unknown> | null)?.motivo)}`;
+      }
       if (linha.acao === "usuario_excluido") return `Conta excluída pelo backoffice: ${texto((linha.dados as Record<string, unknown> | null)?.motivo)}`;
       const de = ROTULO_STATUS[texto(antes.status) as Status] ?? texto(antes.status);
       const para = ROTULO_STATUS[texto(depois.status) as Status] ?? texto(depois.status);

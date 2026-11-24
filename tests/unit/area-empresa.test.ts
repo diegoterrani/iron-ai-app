@@ -45,6 +45,11 @@ describe("auditoria das exclusões", () => {
     expect(resumoAuditoria(linha as never)).toBe("Empresa excluída: Capim (fim do piloto)");
   });
 
+  it("mostra o motivo da exclusão autorizada (antes de apagar no login)", () => {
+    const linha = { acao: "usuario_exclusao_autorizada", tabela: "profiles", dados: { motivo: "pedido do cliente" } };
+    expect(resumoAuditoria(linha as never)).toBe("Exclusão da conta autorizada pelo backoffice: pedido do cliente");
+  });
+
   it("mostra o motivo da conta excluída", () => {
     const linha = { acao: "usuario_excluido", tabela: "profiles", dados: { motivo: "pedido do cliente" } };
     expect(resumoAuditoria(linha as never)).toBe("Conta excluída pelo backoffice: pedido do cliente");
