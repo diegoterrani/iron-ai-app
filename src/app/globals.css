@@ -3530,3 +3530,105 @@ a {
 .fala-agente + .fala-agente .fala-autor {
   display: none;
 }
+
+/* Modo reunião do Self (24/11/2026): lista de todas as perguntas à esquerda,
+   captação à direita. A situação de cada pergunta aparece no selo, por cor e
+   por texto (a cor nunca é a única pista). */
+.conversa-dividida.reuniao {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+.reuniao-perguntas {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.reuniao-topo {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.reuniao-topo p,
+.reuniao-topo h2 {
+  margin: 0;
+}
+
+.reuniao-lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.reuniao-item {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-2);
+  border: 1px solid var(--hairline);
+  border-left-width: 3px;
+  background: var(--card);
+}
+
+.reuniao-item p {
+  margin: 0;
+}
+
+.reuniao-respondida {
+  border-left-color: var(--success);
+}
+
+.reuniao-a_confirmar {
+  border-left-color: var(--accent);
+}
+
+.reuniao-pendente {
+  border-left-color: var(--line);
+}
+
+.reuniao-bloco {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+
+.reuniao-pergunta {
+  font-weight: 600;
+}
+
+.reuniao-opcoes {
+  font-size: 0.875rem;
+  color: var(--subtle);
+}
+
+.reuniao-resposta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+
+.reuniao-selo {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  background: var(--neutral-bg);
+  color: var(--muted);
+}
+
+.reuniao-respondida .reuniao-selo {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.reuniao-a_confirmar .reuniao-selo {
+  background: var(--accent-bg);
+  color: var(--accent-text);
+}
+
+@media (max-width: 760px) {
+  .conversa-dividida.reuniao {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

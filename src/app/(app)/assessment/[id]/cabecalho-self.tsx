@@ -5,12 +5,12 @@ interface Props {
   titulo: string;
   detalhe?: string | null;
   /** Modo atual; null esconde a troca (sem assistente configurado ou só leitura). */
-  modo: "conversa" | "formulario" | null;
+  modo: "conversa" | "formulario" | "reuniao" | null;
 }
 
 /**
  * Cabeçalho da área de trabalho do Self: volta para a lista, nome da empresa
- * e a troca entre conversa e formulário como abas (links comuns: funcionam
+ * e a troca entre conversa, formulário e reunião como abas (links comuns: funcionam
  * sem JavaScript e o voltar do navegador continua previsível).
  */
 export function CabecalhoSelf({ assessmentId, titulo, detalhe, modo }: Props) {
@@ -30,6 +30,9 @@ export function CabecalhoSelf({ assessmentId, titulo, detalhe, modo }: Props) {
           </Link>
           <Link href={`/assessment/${assessmentId}?modo=formulario`} aria-current={modo === "formulario" ? "page" : undefined}>
             Formulário
+          </Link>
+          <Link href={`/assessment/${assessmentId}?modo=reuniao`} aria-current={modo === "reuniao" ? "page" : undefined}>
+            Reunião
           </Link>
         </nav>
       )}

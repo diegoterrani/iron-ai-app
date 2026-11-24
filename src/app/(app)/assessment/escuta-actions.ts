@@ -5,7 +5,9 @@ import { chamarAnthropic, detalheErroApi } from "@/lib/assessment/agente/convers
 import {
   ErroEscutaSelf,
   aplicarConfirmado,
+  compilarReuniaoSelf,
   consolidarResposta,
+  receberBlocosSelf,
   rotuloDoCampo,
   valorLegivel,
   type AcessoRascunho,
@@ -35,6 +37,8 @@ const modoSchema = z.enum(["desligada", "pergunta", "fluido", "ambos"]);
 
 export interface ItemAConfirmar {
   id: string;
+  /** Campo do rascunho ("nucleo.<id>" no aprofundamento). */
+  campo: string;
   pergunta: string;
   valor: string;
   motivo: string;
@@ -94,6 +98,7 @@ function paraTela(bruto: unknown): EstadoEscutaTela {
     minutosRestantes: typeof o.minutos_restantes === "number" ? o.minutos_restantes : 0,
     aConfirmar: lerItens(bruto).map((i) => ({
       id: i.id,
+      campo: i.pergunta_id,
       pergunta: rotuloDoCampo(q, i.pergunta_id),
       valor: valorLegivel(q, i.pergunta_id, i.valor),
       motivo: i.motivo,
@@ -308,5 +313,143 @@ export async function consolidarRespostaEscuta(
     }
     log("error", "self.escuta.llm_erro", { trace, ator: ctx.pessoa.userId, ...detalheErroApi(err) });
     return { ok: false, erro: `O assistente não respondeu agora. A fala captada continua aqui; tente de novo. (código ${trace})` };
+  }
+}
+
+// ------------------------------------------------------------- reunião
+
+/** Até 3000 blocos por pessoa e assessment (self_escuta_max_blocos); o PostgREST devolve até 1000 por vez. */
+const PAGINA_BLOCOS = 1000;
+const MAX_PAGINAS_BLOCOS = 3;
+
+/** Blocos da reunião da pessoa, em ordem (RLS: cada pessoa só lê os seus). */
+async function lerBlocosDaReuniao(supabase: Awaited<ReturnType<typeof createClient>>, id: string, userId: string) {
+  const blocos: { seq: number; texto: string }[] = [];
+  for (let pagina = 0; pagina < MAX_PAGINAS_BLOCOS; pagina++) {
+    const { data, error } = await supabase
+      .from("self_escuta_blocos")
+      .select("seq, texto")
+      .eq("assessment_id", id)
+      .eq("user_id", userId)
+      .order("seq", { ascending: true })
+      .range(pagina * PAGINA_BLOCOS, (pagina + 1) * PAGINA_BLOCOS - 1);
+    if (error) throw new ErroEscutaSelf("blocos", error.code ?? "leitura");
+    blocos.push(...((data ?? []) as { seq: number; texto: string }[]));
+    if (!data || data.length < PAGINA_BLOCOS) break;
+  }
+  return blocos;
+}
+
+/** Quanto da reunião já está guardado: para continuar a numeração depois de recarregar a página. */
+export async function lerReuniao(id: string): Promise<RespostaEscuta<{ estado: EstadoEscutaTela; disponivel: boolean; ultimoSeq: number; blocos: number }>> {
+  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
+  const ctx = await pessoaDaSessao();
+  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const trace = newTraceId();
+  const r = await servidor.selfEscutaEstado(id, ctx.pessoa);
+  if (r.error) {
+    log("info", "self.reuniao.estado_recusado", { trace, ator: ctx.pessoa.userId, code: r.error.code });
+    return { ok: false, erro: mensagemDoBanco(r.error.code, r.error.message, trace) };
+  }
+  const { data, count } = await ctx.supabase
+    .from("self_escuta_blocos")
+    .select("seq", { count: "exact" })
+    .eq("assessment_id", id)
+    .eq("user_id", ctx.pessoa.userId)
+    .order("seq", { ascending: false })
+    .limit(1);
+  const ultimoSeq = typeof data?.[0]?.seq === "number" ? (data[0].seq as number) : 0;
+  return { ok: true, estado: paraTela(r.estado), disponivel: escutaConfigurada() && agenteConfigurado(), ultimoSeq, blocos: count ?? 0 };
+}
+
+const blocosSchema = z
+  .array(
+    z.object({
+      seq: z.number().int().min(1).max(1_000_000),
+      canal: z.enum(["sala", "remoto"]),
+      texto: z.string().min(1).max(4000),
+      inicio_ms: z.number().int().min(0).optional(),
+      fim_ms: z.number().int().min(0).optional(),
+    }),
+  )
+  .min(1)
+  .max(20);
+
+/**
+ * Guarda a fala da reunião enquanto ela acontece. O texto é mascarado antes
+ * do banco; reenviar o mesmo bloco é seguro (o banco ignora o repetido).
+ */
+export async function guardarFalaReuniao(id: string, blocos: unknown): Promise<RespostaEscuta<{ gravados: number }>> {
+  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
+  const b = blocosSchema.safeParse(blocos);
+  if (!b.success) return { ok: false, erro: "Trecho da reunião inválido." };
+  const ctx = await pessoaDaSessao();
+  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const trace = newTraceId();
+  try {
+    const r = await receberBlocosSelf({ assessmentId: id, pessoa: ctx.pessoa, blocos: b.data });
+    const mascarados = Object.values(r.mascarados).reduce((a, n) => a + n, 0);
+    if (mascarados > 0) log("info", "self.reuniao.mascarados", { trace, ator: ctx.pessoa.userId, mascarados });
+    return { ok: true, gravados: r.gravados };
+  } catch (err) {
+    const codigo = err instanceof ErroEscutaSelf ? err.codigo : "desconhecido";
+    log("warn", "self.reuniao.guardar_falhou", { trace, ator: ctx.pessoa.userId, codigo });
+    return { ok: false, erro: "Não foi possível guardar o último trecho. A captação continua e tenta de novo." };
+  }
+}
+
+/**
+ * Fim da reunião: uma leitura da reunião inteira preenche o Self pelo
+ * contexto. Pode ser repetida; cada vez lê tudo desde o início.
+ */
+export async function compilarReuniao(
+  id: string,
+): Promise<RespostaEscuta<{ estado: EstadoEscutaTela; gravados: number; propostas: number; cortado: boolean; respostas?: Rascunho06; versao?: string }>> {
+  if (!idSchema.safeParse(id).success) return { ok: false, erro: "Assessment inválido." };
+  const ctx = await pessoaDaSessao();
+  if (!ctx) return { ok: false, erro: "Sessão expirada. Entre de novo." };
+  const trace = newTraceId();
+  if (!agenteConfigurado()) return { ok: false, erro: INDISPONIVEL };
+  const inicio = Date.now();
+  try {
+    const r = await compilarReuniaoSelf({
+      assessmentId: id,
+      pessoa: ctx.pessoa,
+      // A leitura da reunião inteira pensa mais: mais tempo e uma só repetição.
+      chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY, { timeoutMs: 240_000, tentativas: 1 }),
+      rascunho: acessoRascunho(ctx.supabase, id),
+      blocos: { ler: () => lerBlocosDaReuniao(ctx.supabase, id, ctx.pessoa.userId) },
+    });
+    log("info", "self.reuniao.compilada", {
+      trace,
+      ator: ctx.pessoa.userId,
+      blocos: r.blocos,
+      cortado: r.cortado,
+      gravados: r.gravados.length,
+      propostas: r.propostas,
+      fim: r.turno?.fim,
+      ms: Date.now() - inicio,
+      tokens_entrada: r.turno?.uso.entrada,
+      tokens_saida: r.turno?.uso.saida,
+    });
+    const e = await servidor.selfEscutaEstado(id, ctx.pessoa);
+    return {
+      ok: true,
+      estado: paraTela(e.estado),
+      gravados: r.gravados.length,
+      propostas: r.propostas,
+      cortado: r.cortado,
+      ...(r.versao ? { versao: r.versao, respostas: r.respostas } : {}),
+    };
+  } catch (err) {
+    if (err instanceof ErroEscutaSelf) {
+      log("warn", "self.reuniao.compilar_falhou", { trace, ator: ctx.pessoa.userId, etapa: err.etapa, codigo: err.codigo });
+      if (err.codigo === "sem_fala") return { ok: false, erro: "Nada da reunião foi captado ainda." };
+      if (err.codigo === "modo") return { ok: false, erro: "O áudio da reunião está desligado ou o consentimento venceu. Ligue o áudio de novo." };
+      if (err.etapa === "conflito") return { ok: false, erro: "Alguém salvou o assessment durante a leitura. Compile de novo." };
+      return { ok: false, erro: `Não foi possível ler a reunião. A fala continua guardada; tente de novo. (código ${trace})` };
+    }
+    log("error", "self.reuniao.llm_erro", { trace, ator: ctx.pessoa.userId, ...detalheErroApi(err) });
+    return { ok: false, erro: `O assistente não respondeu agora. A fala continua guardada; tente de novo. (código ${trace})` };
   }
 }

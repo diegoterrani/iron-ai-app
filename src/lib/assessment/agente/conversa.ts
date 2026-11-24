@@ -37,6 +37,10 @@ export interface AgenteSelf<E = EstadoAgente> {
   sistema: string;
   ferramentas: Anthropic.Beta.BetaTool[];
   executar: (nome: string, entrada: unknown, estado: E) => { conteudo: string; erro: boolean; estado: E; sinal?: Sinal; alterou: boolean };
+  /** Esforço do modelo (padrão "low": a conversa guiada precisa responder rápido). */
+  esforco?: "low" | "medium" | "high";
+  /** Teto de tokens por resposta (padrão MAX_TOKENS_RESPOSTA). */
+  maxTokens?: number;
 }
 
 /** Agente do formato 0.5, montado do questionário. */
@@ -107,12 +111,12 @@ export function parametros<E>(
   const agente = "sistema" in qOuAgente ? qOuAgente : agenteDoQuestionario(qOuAgente);
   return {
     model: MODELO_AGENTE,
-    max_tokens: MAX_TOKENS_RESPOSTA,
+    max_tokens: agente.maxTokens ?? MAX_TOKENS_RESPOSTA,
     system: [{ type: "text", text: agente.sistema, cache_control: { type: "ephemeral" } }],
     tools: agente.ferramentas,
     messages: mensagens,
     // Conversa guiada: esforço baixo responde rápido e gasta menos (custo do doc de proposta).
-    output_config: { effort: "low" },
+    output_config: { effort: agente.esforco ?? "low" },
     // Cache do histórico: o último bloco vira ponto de cache a cada chamada.
     cache_control: { type: "ephemeral" },
     // Se o modelo recusar por política, a API tenta o modelo de reserva recomendado.
@@ -197,8 +201,8 @@ export async function executarTurno<E = EstadoAgente>(args: {
 }
 
 /** Cliente da API com tempo e retentativas limitados (o SDK já repete 429 e 5xx). */
-export function chamarAnthropic(apiKey: string): ChamarLLM {
-  const cliente = new Anthropic({ apiKey, maxRetries: 2, timeout: 60_000 });
+export function chamarAnthropic(apiKey: string, opcoes: { timeoutMs?: number; tentativas?: number } = {}): ChamarLLM {
+  const cliente = new Anthropic({ apiKey, maxRetries: opcoes.tentativas ?? 2, timeout: opcoes.timeoutMs ?? 60_000 });
   return (params) => cliente.beta.messages.create(params);
 }
 
