@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { chamarAnthropicComPrazo, ErroPrazoLLM } from "@/lib/assessment/agente/conversa";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { contagemDaReuniao, perguntasDaReuniao } from "@/lib/assessment/v06/reuniao";
 import { montarQuestionario06 } from "@/lib/assessment/v06/self";
@@ -49,5 +50,14 @@ describe("modo reunião: lista de perguntas", () => {
     expect(por("receita").situacao).toBe("a_confirmar");
     expect(por(`nucleo.${q.perguntas[0].id}`).situacao).toBe("a_confirmar");
     expect(contagemDaReuniao(lista)).toMatchObject({ respondidas: 0, aConfirmar: 3 });
+  });
+});
+
+describe("modo reunião: prazo total da compilação", () => {
+  it("recusa a chamada que não cabe no que sobra do prazo, sem ir à rede", async () => {
+    let agora = 1_000_000;
+    const chamar = chamarAnthropicComPrazo("chave-de-teste", 270_000, () => agora);
+    agora += 266_000; // sobram 4 s
+    await expect(chamar({} as Parameters<typeof chamar>[0])).rejects.toBeInstanceOf(ErroPrazoLLM);
   });
 });

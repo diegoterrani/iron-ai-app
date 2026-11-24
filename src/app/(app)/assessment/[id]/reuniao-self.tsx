@@ -132,6 +132,8 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
 
   const aoFinal = useCallback(
     (canal: CanalAudio, texto: string) => {
+      // Depois de pausar ou encerrar, fala que ainda chegue do socket não entra.
+      if (parando.current) return;
       const c = CANAL[canal];
       setParcial("");
       setLinhas((l) => [...l, texto].slice(-MAX_LINHAS_TELA));
@@ -334,6 +336,9 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
     setAviso(null);
     desconectar();
     fecharTrecho();
+    // Sai de "ativo" antes do envio final: o envio periódico para e nada entra
+    // na fila depois desta foto da reunião.
+    setEtapa("fechado");
     setCompilando(true);
     const guardou = await enviarFila();
     if (!guardou) {
@@ -541,9 +546,13 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
 
         {(resultado || contagem.respondidas > 0) && etapa !== "ativo" && !compilando && (
           <div className="escuta-linha">
-            <Link className="btn btn-inline" href={`/assessment/${assessmentId}?modo=formulario`} aria-disabled={pendentesConfirmar.length > 0}>
-              Revisar e gerar o relatório
-            </Link>
+            {pendentesConfirmar.length > 0 ? (
+              <p className="field-hint">Confirme ou descarte os itens acima para revisar e gerar o relatório.</p>
+            ) : (
+              <Link className="btn btn-inline" href={`/assessment/${assessmentId}?modo=formulario`}>
+                Revisar e gerar o relatório
+              </Link>
+            )}
           </div>
         )}
 
