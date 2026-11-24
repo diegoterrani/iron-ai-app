@@ -16,7 +16,7 @@
 --    um rascunho ligado a ele perde também a cópia, para que concluir não
 --    recrie o cadastro excluído.
 
-create function public.excluir_assessment(p_assessment uuid)
+create or replace function public.excluir_assessment(p_assessment uuid)
 returns void
 language plpgsql
 security definer
@@ -45,7 +45,7 @@ begin
 end;
 $$;
 
-create function public.excluir_empresa_cadastro(p_empresa uuid)
+create or replace function public.excluir_empresa_cadastro(p_empresa uuid)
 returns void
 language plpgsql
 security definer
