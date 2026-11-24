@@ -73,7 +73,7 @@ export default async function AreaEmpresaPage({ params }: PageProps<"/empresas/[
   const meuPapel = sessao?.vinculos.find((v) => v.orgId === id)?.role ?? null;
   const superAdmin = (sessao?.papeis ?? []).includes("super_admin");
 
-  const [selfsRes, deepsRes, direitoRes, usaSelfRes, gereRes, analistaRes, relatoriosRes] = await Promise.all([
+  const [selfsRes, deepsRes, direitoRes, usaSelfRes, gereRes, analistaRes, resumoDeepRes] = await Promise.all([
     supabase
       .from("assessments")
       .select("id, status, criado_em, atualizado_em, concluido_em")
@@ -86,19 +86,20 @@ export default async function AreaEmpresaPage({ params }: PageProps<"/empresas/[
     supabase.rpc("tem_direito", { p_produto: "self_assessment", p_org: id }),
     supabase.rpc("tem_permissao", { p_permissao: "empresa.membros", p_org: id }),
     supabase.rpc("tem_permissao", { p_permissao: "deep.conduzir", p_org: id }),
-    supabase.rpc("tem_permissao", { p_permissao: "deep.relatorio_ver", p_org: id }),
+    // Contagens do Deep: o cliente não lê deep_assessments, só os relatórios publicados.
+    supabase.rpc("empresa_resumo_deep", { p_org: id }),
   ]);
   const selfs = (selfsRes.data ?? []) as Self[];
   const deeps = (deepsRes.data ?? []) as Deep[];
   const selfLiberado = (direitoRes.data ?? []).some((d) => d.produto === "self_assessment") || usaSelfRes.data === true;
   const gerePessoas = gereRes.data === true;
   const conduzDeep = analistaRes.data === true;
-  const leRelatorios = relatoriosRes.data === true;
+  const resumoDeep = (resumoDeepRes.data ?? null) as { publicados: number; reunioes: number | null } | null;
 
   // Resultado mais recente do último Self concluído (RLS: quem vê o assessment lê).
   const concluido = selfs.find((s) => s.status === "concluido") ?? null;
   const rascunho = selfs.find((s) => s.status === "rascunho") ?? null;
-  const [resultadoRes, pessoas, sessoesRes, publicadosRes] = await Promise.all([
+  const [resultadoRes, pessoas] = await Promise.all([
     concluido
       ? supabase
           .from("assessment_resultados")
@@ -109,21 +110,11 @@ export default async function AreaEmpresaPage({ params }: PageProps<"/empresas/[
           .maybeSingle<{ resultado: unknown }>()
       : Promise.resolve({ data: null }),
     carregarPessoas(supabase, id, gerePessoas, superAdmin),
-    conduzDeep && deeps.length > 0
-      ? supabase.from("deep_sessoes").select("id", { count: "exact", head: true }).in("deep_id", deeps.map((d) => d.id))
-      : Promise.resolve({ count: null }),
-    deeps.length > 0 && (conduzDeep || leRelatorios)
-      ? supabase
-          .from("deep_relatorios")
-          .select("id", { count: "exact", head: true })
-          .in("deep_id", deeps.map((d) => d.id))
-          .not("publicado_em", "is", null)
-      : Promise.resolve({ count: null }),
   ]);
   const resumo = resumoResultado(resultadoRes.data?.resultado ?? null);
   const deepAtual = deeps.find((d) => d.status === "em_andamento") ?? deeps[0] ?? null;
-  const reunioes = sessoesRes.count ?? 0;
-  const publicados = publicadosRes.count ?? 0;
+  const reunioes = resumoDeep?.reunioes ?? 0;
+  const publicados = resumoDeep?.publicados ?? 0;
 
   return (
     <main className="area-empresa">

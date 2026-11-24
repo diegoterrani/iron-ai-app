@@ -133,10 +133,12 @@ Migração `20261124100000_exclusoes.sql`. Só super-admin com MFA, no backoffic
   (como a retenção faz com `iron.deep_retencao`). Auditado como
   `empresa_excluida`, com nome, motivo e contagens.
 - **Excluir usuário** (ficha do usuário, seção "Excluir conta"):
-  `admin_autorizar_exclusao_usuario(usuário, e-mail digitado)` confere o e-mail
-  e recusa a própria conta e super-admin; o servidor apaga a conta no Auth
-  (chave secreta); `admin_registrar_exclusao_usuario(usuário, motivo)` só
-  registra se a conta sumiu (`usuario_excluido`, sem nome nem e-mail).
+  `admin_autorizar_exclusao_usuario(usuário, e-mail digitado, motivo)` confere o
+  e-mail, recusa a própria conta e super-admin e registra
+  `usuario_exclusao_autorizada`; o servidor apaga a conta no Auth (chave
+  secreta); `admin_registrar_exclusao_usuario(usuário)` só registra
+  (`usuario_excluido`, sem nome nem e-mail) se a conta sumiu e houve
+  autorização. Pode ser repetido sem duplicar, se falhar depois do Auth.
 - **Self da empresa sobrevive à conta de quem o iniciou**: `assessments.user_id`
   passou a ser `ON DELETE SET NULL`; o Self pessoal sai junto com a conta
   (gatilho `profiles_apagar_assessments_pessoais`). Vale também para a exclusão
@@ -150,4 +152,6 @@ Migração `20261124100000_exclusoes.sql`. Só super-admin com MFA, no backoffic
 empresa numa página. Cada leitura usa a sessão de quem abriu (RLS): ADM, RW e
 RO-Cliente veem a própria empresa; Equipe IRON, as que atende; super-admin,
 todas. A lista de pessoas aparece para o ADM-Cliente (com e-mail) e para o
-super-admin. Empresa fora do alcance dá 404.
+super-admin. Empresa fora do alcance dá 404. As contagens do Deep vêm de
+`empresa_resumo_deep(empresa)`: o ADM-Cliente vê só relatórios publicados (não
+lê `deep_assessments`); quem conduz vê também as reuniões.

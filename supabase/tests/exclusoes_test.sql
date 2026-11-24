@@ -79,10 +79,35 @@ select pg_temp.como('b1000000-0000-0000-0000-000000000002', 'aal2');
 do $$ begin
   perform pg_temp.falha($q$select public.admin_excluir_empresa('b2000000-0000-0000-0000-000000000001', 'Restaurante Árvore LTDA', 'teste de exclusão')$q$,
     'ADM-Cliente excluiu a empresa');
-  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'beto@cliente.com')$q$,
+  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'beto@cliente.com', 'pedido do cliente')$q$,
     'ADM-Cliente autorizou excluir usuário');
   perform pg_temp.falha($q$delete from public.organizations where id = 'b2000000-0000-0000-0000-000000000001'$q$,
     'cliente apagou empresa direto na tabela');
+end $$;
+
+-- ===== Resumo do Deep: ADM-Cliente vê só publicados; RW nada; analista tudo
+reset role;
+update public.deep_relatorios set publicado_em = now(), publicado_por = 'b1000000-0000-0000-0000-000000000001'
+where deep_id = 'b4000000-0000-0000-0000-000000000001';
+set local role authenticated;
+select pg_temp.como('b1000000-0000-0000-0000-000000000002');
+do $$ begin
+  if public.empresa_resumo_deep('b2000000-0000-0000-0000-000000000001') ->> 'publicados' <> '1'
+     or public.empresa_resumo_deep('b2000000-0000-0000-0000-000000000001') ->> 'reunioes' is not null then
+    raise exception 'FALHA: resumo do Deep errado para o ADM-Cliente';
+  end if;
+end $$;
+select pg_temp.como('b1000000-0000-0000-0000-000000000003');
+do $$ begin
+  if public.empresa_resumo_deep('b2000000-0000-0000-0000-000000000001') is not null then
+    raise exception 'FALHA: RW-Cliente viu o resumo do Deep';
+  end if;
+end $$;
+select pg_temp.como('b1000000-0000-0000-0000-000000000001', 'aal2');
+do $$ begin
+  if public.empresa_resumo_deep('b2000000-0000-0000-0000-000000000001') ->> 'reunioes' <> '1' then
+    raise exception 'FALHA: resumo do Deep errado para o analista';
+  end if;
 end $$;
 
 -- ===== Super-admin sem MFA não exclui
@@ -156,18 +181,22 @@ end $$;
 set local role authenticated;
 select pg_temp.como('b1000000-0000-0000-0000-000000000001', 'aal2');
 do $$ begin
-  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000001', 'admin@iron.io')$q$,
+  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000001', 'admin@iron.io', 'pedido do cliente')$q$,
     'autorizou excluir a própria conta');
-  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000004', 'admin2@iron.io')$q$,
+  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000004', 'admin2@iron.io', 'pedido do cliente')$q$,
     'autorizou excluir super-admin');
-  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'ana@cliente.com')$q$,
+  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'ana@cliente.com', 'pedido do cliente')$q$,
     'autorizou com e-mail de outra pessoa');
-  perform pg_temp.falha($q$select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'saiu')$q$,
-    'registrou exclusão de conta que ainda existe');
-  if public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', ' BETO@cliente.com ')
+  perform pg_temp.falha($q$select public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'beto@cliente.com', 'ab')$q$,
+    'autorizou sem motivo');
+  perform pg_temp.falha($q$select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003')$q$,
+    'registrou exclusão sem autorização');
+  if public.admin_autorizar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', ' BETO@cliente.com ', 'pedido do cliente')
      <> 'b1000000-0000-0000-0000-000000000003' then
     raise exception 'FALHA: autorização devolveu outra conta';
   end if;
+  perform pg_temp.falha($q$select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003')$q$,
+    'registrou exclusão de conta que ainda existe');
 end $$;
 
 -- Passo do servidor (Auth Admin API) simulado: apagar a conta no auth.
@@ -176,7 +205,14 @@ delete from auth.users where id = 'b1000000-0000-0000-0000-000000000003';
 
 set local role authenticated;
 select pg_temp.como('b1000000-0000-0000-0000-000000000001', 'aal2');
-select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003', 'pedido do cliente');
+select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003');
+-- Nova tentativa (ex.: a primeira falhou depois de apagar no Auth): não duplica.
+select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-000000000003');
+-- Conta que nunca foi autorizada não vira registro de exclusão.
+do $$ begin
+  perform pg_temp.falha($q$select public.admin_registrar_exclusao_usuario('b1000000-0000-0000-0000-0000000000ee')$q$,
+    'registrou exclusão de conta qualquer');
+end $$;
 
 reset role;
 do $$ begin
@@ -190,8 +226,9 @@ do $$ begin
   if not exists (select 1 from public.assessment_resultados where assessment_id = 'b3000000-0000-0000-0000-000000000003') then
     raise exception 'FALHA: resultado do Self da empresa saiu com a conta';
   end if;
-  if not exists (select 1 from public.audit_log where acao = 'usuario_excluido' and alvo = 'b1000000-0000-0000-0000-000000000003') then
-    raise exception 'FALHA: exclusão de usuário sem auditoria';
+  if (select count(*) from public.audit_log where acao = 'usuario_excluido' and alvo = 'b1000000-0000-0000-0000-000000000003'
+      and dados ->> 'motivo' = 'pedido do cliente') <> 1 then
+    raise exception 'FALHA: exclusão de usuário sem auditoria (ou duplicada)';
   end if;
   -- Assessment pessoal continua exigindo autor.
   begin

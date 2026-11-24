@@ -18,7 +18,11 @@
 -- 3. Excluir usuário (admin_autorizar_exclusao_usuario +
 --    admin_registrar_exclusao_usuario): só super-admin com MFA, digitando o
 --    e-mail da pessoa. Quem apaga a conta é o servidor (Auth Admin API), entre
---    as duas chamadas; a segunda só registra se a conta de fato sumiu.
+--    as duas chamadas; a segunda só registra se a conta de fato sumiu e se a
+--    primeira autorizou (dá para repetir se falhar depois de apagar no Auth).
+--
+-- 4. empresa_resumo_deep: contagens do Deep para a área da empresa (o
+--    cliente não lê deep_assessments, só relatórios publicados).
 
 -- -------------------------------------------- 1. Self da empresa fica
 
@@ -282,11 +286,11 @@ $$;
 -- ------------------------------------------------ 3. excluir usuário
 
 /*
-  Passo 1: confere tudo e devolve o id da conta que o servidor vai apagar
-  no Auth. Não apaga nada. Recusa a própria conta, super-admin e e-mail
-  digitado diferente do da conta.
+  Passo 1: confere tudo, registra a autorização na auditoria (com o motivo)
+  e devolve o id da conta que o servidor vai apagar no Auth. Não apaga nada.
+  Recusa a própria conta, super-admin e e-mail digitado diferente do da conta.
 */
-create function public.admin_autorizar_exclusao_usuario(p_user uuid, p_email text)
+create function public.admin_autorizar_exclusao_usuario(p_user uuid, p_email text, p_motivo text)
 returns uuid
 language plpgsql
 security definer
@@ -294,8 +298,12 @@ set search_path = ''
 as $$
 declare
   v_email text;
+  v_motivo text := btrim(coalesce(p_motivo, ''));
 begin
   perform public.exigir_super_admin();
+  if char_length(v_motivo) < 5 or char_length(v_motivo) > 300 then
+    raise exception 'informe o motivo (de 5 a 300 caracteres)' using errcode = 'check_violation';
+  end if;
   if p_user = auth.uid() then
     raise exception 'não é permitido excluir a própria conta pela tela' using errcode = 'insufficient_privilege';
   end if;
@@ -309,29 +317,80 @@ begin
   if lower(btrim(coalesce(p_email, ''))) <> lower(coalesce(v_email, '')) then
     raise exception 'o e-mail digitado não confere com o da conta' using errcode = 'check_violation';
   end if;
+  insert into public.audit_log (ator, acao, tabela, alvo, dados)
+  values (auth.uid(), 'usuario_exclusao_autorizada', 'profiles', p_user::text, jsonb_build_object('motivo', v_motivo));
   return p_user;
 end;
 $$;
 
 /*
-  Passo 2: registra a exclusão na auditoria, só se a conta de fato não
-  existe mais. Não guarda nome nem e-mail (LGPD); só o id e o motivo.
+  Passo 2: registra a exclusão, só se a conta de fato não existe mais e a
+  exclusão foi autorizada antes (passo 1). Pode ser chamado de novo se a
+  primeira tentativa falhar depois de a conta já ter sido apagada no Auth:
+  não registra duas vezes. Não guarda nome nem e-mail (LGPD).
 */
-create function public.admin_registrar_exclusao_usuario(p_user uuid, p_motivo text)
+create function public.admin_registrar_exclusao_usuario(p_user uuid)
 returns void
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_motivo text := left(btrim(coalesce(p_motivo, '')), 300);
+  v_motivo text;
 begin
   perform public.exigir_super_admin();
   if exists (select 1 from auth.users where id = p_user) then
     raise exception 'a conta ainda existe; a exclusão não foi feita' using errcode = 'check_violation';
   end if;
+  select a.dados ->> 'motivo' into v_motivo
+  from public.audit_log a
+  where a.acao = 'usuario_exclusao_autorizada' and a.alvo = p_user::text
+  order by a.id desc
+  limit 1;
+  if not found then
+    raise exception 'usuário não encontrado' using errcode = 'no_data_found';
+  end if;
+  if exists (select 1 from public.audit_log a where a.acao = 'usuario_excluido' and a.alvo = p_user::text) then
+    return;
+  end if;
   insert into public.audit_log (ator, acao, tabela, alvo, dados)
   values (auth.uid(), 'usuario_excluido', 'profiles', p_user::text, jsonb_build_object('motivo', v_motivo));
+end;
+$$;
+
+-- ------------------------------------------- 4. resumo do Deep na área
+
+/*
+  Resumo do Deep de uma empresa para a área da empresa. O cliente (ADM) não
+  lê deep_assessments, só os relatórios publicados; por isso a contagem vem
+  daqui. Quem conduz vê tudo; quem só lê relatórios vê só os publicados.
+  Sem nenhuma das duas permissões: nulo (a tela não mostra o bloco).
+*/
+create function public.empresa_resumo_deep(p_org uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  conduz boolean := public.tem_permissao('deep.conduzir', p_org);
+  le boolean := public.tem_permissao('deep.relatorio_ver', p_org);
+begin
+  if not conduz and not le then
+    return null;
+  end if;
+  return jsonb_build_object(
+    'publicados', (select count(*) from public.deep_relatorios r
+                   join public.deep_assessments d on d.id = r.deep_id
+                   where d.org_id = p_org and r.publicado_em is not null),
+    'ultimo_publicado_em', (select max(r.publicado_em) from public.deep_relatorios r
+                            join public.deep_assessments d on d.id = r.deep_id
+                            where d.org_id = p_org),
+    'reunioes', case when conduz then (select count(*) from public.deep_sessoes s
+                                       join public.deep_assessments d on d.id = s.deep_id
+                                       where d.org_id = p_org) end
+  );
 end;
 $$;
 
@@ -340,8 +399,9 @@ declare f text;
 begin
   foreach f in array array[
     'admin_excluir_empresa(uuid, text, text)',
-    'admin_autorizar_exclusao_usuario(uuid, text)',
-    'admin_registrar_exclusao_usuario(uuid, text)'
+    'admin_autorizar_exclusao_usuario(uuid, text, text)',
+    'admin_registrar_exclusao_usuario(uuid)',
+    'empresa_resumo_deep(uuid)'
   ] loop
     execute format('revoke execute on function public.%s from public, anon', f);
     execute format('grant execute on function public.%s to authenticated', f);

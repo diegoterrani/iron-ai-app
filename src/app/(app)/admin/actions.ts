@@ -260,10 +260,13 @@ export async function excluirEmpresa(_prev: AcaoState, form: FormData): Promise<
 
 /**
  * Exclui a conta de uma pessoa (sem pedido LGPD; decisão do super-admin):
- * 1. o banco confere o e-mail digitado e recusa super-admin e a própria conta;
+ * 1. o banco confere o e-mail digitado, recusa super-admin e a própria conta
+ *    e registra a autorização com o motivo;
  * 2. a chave secreta apaga a conta no Auth (o Self pessoal sai junto; o Self
  *    da empresa fica com a empresa, sem autor);
- * 3. o banco confere que a conta sumiu e registra na auditoria.
+ * 3. o banco confere que a conta sumiu e registra a exclusão.
+ * Se o passo 3 falhar depois de a conta já ter sumido, repetir o pedido vai
+ * direto ao passo 3 (o banco só aceita se houve autorização antes).
  */
 export async function excluirUsuario(_prev: AcaoState, form: FormData): Promise<AcaoState> {
   const { estado } = await executar(
@@ -271,7 +274,13 @@ export async function excluirUsuario(_prev: AcaoState, form: FormData): Promise<
     exclusaoUsuarioSchema,
     form,
     async (rpc, d, trace) => {
-      const autorizacao = await rpc("admin_autorizar_exclusao_usuario", { p_user: d.userId, p_email: d.confirmacao });
+      const autorizacao = await rpc("admin_autorizar_exclusao_usuario", {
+        p_user: d.userId,
+        p_email: d.confirmacao,
+        p_motivo: d.motivo,
+      });
+      // Conta já apagada no Auth numa tentativa anterior: só falta registrar.
+      if (autorizacao.error?.code === "P0002") return rpc("admin_registrar_exclusao_usuario", { p_user: d.userId });
       if (autorizacao.error || typeof autorizacao.data !== "string") {
         return autorizacao.error ? autorizacao : { data: null, error: { code: "P0002", message: "usuário não encontrado" } };
       }
@@ -280,7 +289,7 @@ export async function excluirUsuario(_prev: AcaoState, form: FormData): Promise<
         log("error", "admin.excluir_usuario_auth_falhou", { trace, code: error.code });
         return { data: null, error: { code: "P0002", message: "a conta não foi apagada no login; tente de novo" } };
       }
-      return rpc("admin_registrar_exclusao_usuario", { p_user: d.userId, p_motivo: d.motivo });
+      return rpc("admin_registrar_exclusao_usuario", { p_user: d.userId });
     },
     "Conta excluída.",
     ADMIN,
