@@ -143,11 +143,11 @@ export default async function PainelPage() {
           </li>
         )}
 
-        {gestor && (
+        {(gestor || idsEmpresas.length > 0 || admin) && (
           <li>
-            <Link href="/empresa">
-              <strong>Minha empresa</strong>
-              Pessoas, papéis e convites.
+            <Link href="/empresas">
+              <strong>{idsEmpresas.length > 1 || admin ? "Empresas" : "Minha empresa"}</strong>
+              Cadastro, pessoas, Self, Deep e resumo da empresa.
             </Link>
           </li>
         )}

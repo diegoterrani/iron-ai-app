@@ -39,7 +39,7 @@ export default async function ResponderPage({ params, searchParams }: PageProps<
     .eq("id", id)
     .maybeSingle<{
       id: string;
-      user_id: string;
+      user_id: string | null;
       org_id: string | null;
       status: string;
       respostas: RespostasGravadas | null;

@@ -10,6 +10,7 @@ import {
   concederDireitoEmpresa,
   definirAssentos,
   desvincularEmpresa,
+  excluirEmpresa,
   revogarDireitoEmpresa,
   vincularEmpresa,
 } from "../../actions";
@@ -183,6 +184,32 @@ export default async function EmpresaPage({ params }: PageProps<"/admin/empresas
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="secao secao-perigo" aria-labelledby="sec-excluir">
+        <h2 id="sec-excluir">Excluir empresa</h2>
+        <p className="field-hint">
+          Apaga a empresa e tudo o que é dela: Self da empresa (respostas, resultados, conversas e escuta), Deep (reuniões,
+          falas, respostas, evidências e relatórios), vínculos, convites e acessos. Não dá para desfazer. As contas das
+          pessoas continuam; a auditoria guarda o registro da exclusão.
+        </p>
+        <AcaoForm
+          action={excluirEmpresa}
+          campos={{ orgId: empresa.id }}
+          rotulo="Excluir empresa"
+          rotuloEnviando="Excluindo…"
+          variante="perigo"
+          className="acao-form acao-form-coluna"
+        >
+          <div className="field">
+            <label htmlFor="excluir-confirmacao">Para confirmar, digite o nome da empresa ({empresa.nome})</label>
+            <input id="excluir-confirmacao" name="confirmacao" type="text" autoComplete="off" required maxLength={200} />
+          </div>
+          <div className="field">
+            <label htmlFor="excluir-motivo">Motivo (vai para a auditoria)</label>
+            <input id="excluir-motivo" name="motivo" type="text" autoComplete="off" required minLength={5} maxLength={300} />
+          </div>
+        </AcaoForm>
       </section>
     </main>
   );

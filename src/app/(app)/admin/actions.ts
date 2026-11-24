@@ -8,7 +8,9 @@ import { log } from "@/lib/log";
 import { createAdminAuth } from "@/lib/supabase/admin";
 import {
   assentosSchema,
+  exclusaoEmpresaSchema,
   exclusaoSchema,
+  exclusaoUsuarioSchema,
   desvinculoSchema,
   direitoEmpresaSchema,
   direitoSchema,
@@ -235,5 +237,54 @@ export async function concluirExclusao(_prev: AcaoState, form: FormData): Promis
     "Conta excluída e pedido concluído.",
     ADMIN,
   );
+  return estado;
+}
+
+/**
+ * Exclui a empresa e tudo o que é dela (Deep, Self da empresa, vínculos,
+ * acessos e convites) numa transação do banco. As contas continuam.
+ * Depois do sucesso volta para a lista, porque a ficha deixou de existir.
+ */
+export async function excluirEmpresa(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.excluir_empresa",
+    exclusaoEmpresaSchema,
+    form,
+    (rpc, d) => rpc("admin_excluir_empresa", { p_org: d.orgId, p_confirmacao: d.confirmacao, p_motivo: d.motivo }),
+    "Empresa excluída.",
+    ADMIN,
+  );
+  if (estado.ok) redirect("/admin/empresas?excluida=1");
+  return estado;
+}
+
+/**
+ * Exclui a conta de uma pessoa (sem pedido LGPD; decisão do super-admin):
+ * 1. o banco confere o e-mail digitado e recusa super-admin e a própria conta;
+ * 2. a chave secreta apaga a conta no Auth (o Self pessoal sai junto; o Self
+ *    da empresa fica com a empresa, sem autor);
+ * 3. o banco confere que a conta sumiu e registra na auditoria.
+ */
+export async function excluirUsuario(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "admin.excluir_usuario",
+    exclusaoUsuarioSchema,
+    form,
+    async (rpc, d, trace) => {
+      const autorizacao = await rpc("admin_autorizar_exclusao_usuario", { p_user: d.userId, p_email: d.confirmacao });
+      if (autorizacao.error || typeof autorizacao.data !== "string") {
+        return autorizacao.error ? autorizacao : { data: null, error: { code: "P0002", message: "usuário não encontrado" } };
+      }
+      const { error } = await createAdminAuth().deleteUser(autorizacao.data);
+      if (error && error.code !== "user_not_found") {
+        log("error", "admin.excluir_usuario_auth_falhou", { trace, code: error.code });
+        return { data: null, error: { code: "P0002", message: "a conta não foi apagada no login; tente de novo" } };
+      }
+      return rpc("admin_registrar_exclusao_usuario", { p_user: d.userId, p_motivo: d.motivo });
+    },
+    "Conta excluída.",
+    ADMIN,
+  );
+  if (estado.ok) redirect("/admin/usuarios?excluido=1");
   return estado;
 }

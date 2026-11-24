@@ -16,6 +16,7 @@ import {
   revogarDireito,
   revogarPapel,
   transferirAssessment,
+  excluirUsuario,
 } from "../../actions";
 import { formatarDataHora } from "../../formato";
 
@@ -371,6 +372,34 @@ export default async function UsuarioPage({ params }: PageProps<"/admin/usuarios
               </div>
             </AcaoForm>
           )}
+        </section>
+      )}
+
+      {!souEu && !papeis.includes("super_admin") && (
+        <section className="secao secao-perigo" aria-labelledby="sec-excluir">
+          <h2 id="sec-excluir">Excluir conta</h2>
+          <p className="field-hint">
+            Apaga a conta e o login desta pessoa, o Self pessoal dela e as conversas com o agente. Não dá para desfazer.
+            O Self das empresas em que ela trabalhou continua com a empresa, sem autor. Para só tirar a pessoa de uma
+            empresa, use &quot;Remover&quot; em Empresas.
+          </p>
+          <AcaoForm
+            action={excluirUsuario}
+            campos={{ userId: ficha.id }}
+            rotulo="Excluir conta"
+            rotuloEnviando="Excluindo…"
+            variante="perigo"
+            className="acao-form acao-form-coluna"
+          >
+            <div className="field">
+              <label htmlFor="excluir-confirmacao">Para confirmar, digite o e-mail da conta ({ficha.email})</label>
+              <input id="excluir-confirmacao" name="confirmacao" type="email" autoComplete="off" required maxLength={254} />
+            </div>
+            <div className="field">
+              <label htmlFor="excluir-motivo">Motivo (vai para a auditoria)</label>
+              <input id="excluir-motivo" name="motivo" type="text" autoComplete="off" required minLength={5} maxLength={300} />
+            </div>
+          </AcaoForm>
         </section>
       )}
 

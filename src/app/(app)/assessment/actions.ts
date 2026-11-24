@@ -67,7 +67,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
  */
 async function podeEditar(
   supabase: Supabase,
-  linha: { user_id: string; org_id: string | null },
+  linha: { user_id: string | null; org_id: string | null },
   userId: string,
 ): Promise<boolean> {
   if (linha.org_id === null) return linha.user_id === userId;
@@ -191,7 +191,7 @@ export async function concluirSelf(_prev: AcaoState, form: FormData): Promise<Ac
     .select("user_id, org_id, setor, status, respostas, empresa")
     .eq("id", id)
     .maybeSingle<{
-      user_id: string;
+      user_id: string | null;
       org_id: string | null;
       setor: string;
       status: string;
@@ -385,7 +385,7 @@ export async function conversarSelf(id: string, entrada: EntradaConversa): Promi
     .select("user_id, org_id, setor, status, respostas, empresa, atualizado_em")
     .eq("id", id)
     .maybeSingle<{
-      user_id: string;
+      user_id: string | null;
       org_id: string | null;
       setor: string;
       status: string;

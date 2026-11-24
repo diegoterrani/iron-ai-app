@@ -28,7 +28,8 @@ function linkPagina(status: Status | null, busca: string, pagina: number): strin
 
 export default async function UsuariosPage({ searchParams }: PageProps<"/admin/usuarios">) {
   const eu = await exigirSuperAdmin();
-  const filtro = lerFiltroUsuarios(await searchParams);
+  const params = await searchParams;
+  const filtro = lerFiltroUsuarios(params);
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("admin_listar_usuarios", {
     p_status: filtro.status,
@@ -46,6 +47,11 @@ export default async function UsuariosPage({ searchParams }: PageProps<"/admin/u
     <main>
       <p className="eyebrow">Backoffice</p>
       <h1 className="title">Usuários</h1>
+      {params.excluido === "1" && (
+        <p className="notice" role="status">
+          Conta excluída. O registro ficou na auditoria.
+        </p>
+      )}
 
       <form className="filtro" method="get" role="search">
         <div className="field">
