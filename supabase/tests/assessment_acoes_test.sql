@@ -25,7 +25,10 @@ insert into public.assessments (id, user_id, org_id, setor, status, concluido_em
   -- da empresa, concluído (iniciado pelo RW)
   ('c3000000-0000-0000-0000-000000000003', 'c1000000-0000-0000-0000-000000000004', 'c2000000-0000-0000-0000-000000000001', 'food_service', 'concluido', now(), null, '{}'),
   -- Beto: pessoal concluído
-  ('c3000000-0000-0000-0000-000000000004', 'c1000000-0000-0000-0000-000000000003', null, 'food_service', 'concluido', now(), null, '{}');
+  ('c3000000-0000-0000-0000-000000000004', 'c1000000-0000-0000-0000-000000000003', null, 'food_service', 'concluido', now(), null, '{}'),
+  -- Beto: rascunho pessoal ligado ao cadastro dele
+  ('c3000000-0000-0000-0000-000000000005', 'c1000000-0000-0000-0000-000000000003', null, 'food_service', 'rascunho', null,
+   'c4000000-0000-0000-0000-000000000002', '{"nome":"Buffet do Beto"}');
 insert into public.assessment_resultados (assessment_id, motor_versao, modelo_versao, pacote_versao, hash_respostas, resultado) values
   ('c3000000-0000-0000-0000-000000000001', '0.7.0', '0.7.0', 'food_service 0.5.0', '0123456789abcdef', '{}'),
   ('c3000000-0000-0000-0000-000000000003', '0.7.0', '0.7.0', 'food_service 0.5.0', '0123456789abcdef', '{}');
@@ -87,6 +90,15 @@ select public.excluir_empresa_cadastro('c4000000-0000-0000-0000-000000000002');
 
 reset role;
 do $$ begin
+  -- O rascunho ligado ao cadastro excluído perde a cópia; concluir não recria o cadastro.
+  if (select empresa from public.assessments where id = 'c3000000-0000-0000-0000-000000000005') <> '{}'::jsonb then
+    raise exception 'FALHA: rascunho manteve a cópia da empresa excluída';
+  end if;
+  update public.assessments set status = 'concluido', concluido_em = now() where id = 'c3000000-0000-0000-0000-000000000005';
+  if exists (select 1 from public.empresas_cadastro where nome = 'Buffet do Beto') then
+    raise exception 'FALHA: concluir o rascunho recriou o cadastro excluído';
+  end if;
+  delete from public.assessments where id = 'c3000000-0000-0000-0000-000000000005';
   if exists (select 1 from public.assessments where id::text like 'c3000000-%') then
     raise exception 'FALHA: sobrou assessment';
   end if;

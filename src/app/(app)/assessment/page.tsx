@@ -282,7 +282,7 @@ export default async function AssessmentPage() {
       {cadastros.length > 0 && (
         <section className="as-cadastros" aria-labelledby="as-cadastros">
           <h2 id="as-cadastros">Empresas que você cadastrou</h2>
-          <p className="as-meta">Usadas para preencher o Self. Excluir o cadastro não apaga os assessments já feitos com ele.</p>
+          <p className="as-meta">Usadas para preencher o Self. Excluir o cadastro não apaga os resultados já feitos com ele; um rascunho que o usava pede a empresa de novo.</p>
           <ul>
             {cadastros.map((c) => (
               <li key={c.id}>

@@ -11,8 +11,10 @@
 --    (self_assessment_id vira nulo). Auditado como assessment_excluido.
 --
 -- 2. excluir_empresa_cadastro: apaga um cadastro de empresa do Self (quem
---    cadastrou ou super-admin com MFA). Os assessments perdem só o vínculo e
---    mantêm a cópia dos dados (como já acontece quando a conta é excluída).
+--    cadastrou ou super-admin com MFA). Os concluídos perdem só o vínculo e
+--    mantêm a cópia dos dados (como já acontece quando a conta é excluída);
+--    um rascunho ligado a ele perde também a cópia, para que concluir não
+--    recrie o cadastro excluído.
 
 create function public.excluir_assessment(p_assessment uuid)
 returns void
@@ -60,6 +62,12 @@ begin
   ) then
     raise exception 'empresa não encontrada' using errcode = 'no_data_found';
   end if;
+
+  -- Rascunho pessoal ligado a este cadastro perde também a cópia da empresa:
+  -- senão, ao concluir, empresa_sincronizar_na_conclusao recriaria o cadastro
+  -- que a pessoa acabou de excluir. Concluídos guardam a cópia (histórico).
+  update public.assessments set empresa = '{}'::jsonb
+  where empresa_id = v_linha.id and status = 'rascunho' and org_id is null;
 
   delete from public.empresas_cadastro where id = v_linha.id;
 
