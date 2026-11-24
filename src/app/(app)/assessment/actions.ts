@@ -41,7 +41,12 @@ import {
 } from "@/lib/assessment/v06/self";
 import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import type { Respostas06 } from "@/lib/assessment/v06/tipos";
-import { descarteRascunhoSchema, mensagemErroBanco } from "@/lib/validation/admin";
+import {
+  descarteRascunhoSchema,
+  exclusaoAssessmentSchema,
+  exclusaoCadastroEmpresaSchema,
+  mensagemErroBanco,
+} from "@/lib/validation/admin";
 
 /**
  * Self assessment: iniciar, salvar rascunho e concluir.
@@ -104,6 +109,39 @@ export async function descartarRascunho(_prev: AcaoState, form: FormData): Promi
     form,
     (rpc, d) => rpc("descartar_rascunho", { p_assessment: d.assessmentId }),
     "Rascunho descartado.",
+    { autorizar: async () => Boolean((await getSessao())?.perfil), revalidar: "/assessment" },
+  );
+  return estado;
+}
+
+/**
+ * Excluir um Self (rascunho ou concluído) com resultado e conversas. O banco
+ * decide quem pode (excluir_assessment): o dono do pessoal, o ADM-Cliente no
+ * da empresa ou o super-admin com MFA; e registra na auditoria.
+ */
+export async function excluirAssessment(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "self.excluir",
+    exclusaoAssessmentSchema,
+    form,
+    (rpc, d) => rpc("excluir_assessment", { p_assessment: d.assessmentId }),
+    "Assessment excluído.",
+    { autorizar: async () => Boolean((await getSessao())?.perfil), revalidar: "/assessment" },
+  );
+  return estado;
+}
+
+/**
+ * Excluir um cadastro de empresa do Self (só quem cadastrou, ou super-admin
+ * com MFA). Os assessments perdem só o vínculo e guardam a cópia dos dados.
+ */
+export async function excluirCadastroEmpresa(_prev: AcaoState, form: FormData): Promise<AcaoState> {
+  const { estado } = await executar(
+    "self.excluir_cadastro_empresa",
+    exclusaoCadastroEmpresaSchema,
+    form,
+    (rpc, d) => rpc("excluir_empresa_cadastro", { p_empresa: d.empresaId }),
+    "Cadastro de empresa excluído.",
     { autorizar: async () => Boolean((await getSessao())?.perfil), revalidar: "/assessment" },
   );
   return estado;

@@ -155,3 +155,18 @@ todas. A lista de pessoas aparece para o ADM-Cliente (com e-mail) e para o
 super-admin. Empresa fora do alcance dá 404. As contagens do Deep vêm de
 `empresa_resumo_deep(empresa)`: o ADM-Cliente vê só relatórios publicados (não
 lê `deep_assessments`); quem conduz vê também as reuniões.
+
+## Ações do Self na tela (24/11/2026)
+
+- **Continuar**: abre o rascunho. **Parar** não é uma ação: tudo é salvo a cada
+  resposta; o link de voltar diz "Parar e voltar (fica salvo)".
+- **Cancelar assessment**: descarta o rascunho (`descartar_rascunho`, já existente).
+- **Excluir** um Self (rascunho ou concluído), com resultado, conversas e escuta em
+  cascata: `excluir_assessment(assessment)`. Pessoal: só o dono com conta ativa.
+  Da empresa: só o ADM-Cliente. Super-admin com MFA: qualquer um. Um Deep que usava
+  o Self perde só o vínculo. Auditado como `assessment_excluido`.
+- **Excluir cadastro de empresa do Self**: `excluir_empresa_cadastro(empresa)`, só
+  quem cadastrou (ou super-admin com MFA). Os assessments perdem só o vínculo e
+  mantêm a cópia dos dados. Auditado como `cadastro_empresa_excluido` (só o nome).
+- "Não existe" e "não é seu" dão a mesma resposta, para não confirmar ids.
+- Testes: `supabase/tests/assessment_acoes_test.sql`.
