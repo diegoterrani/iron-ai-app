@@ -224,11 +224,13 @@ O áudio do Self virou um fluxo único: tela dividida (perguntas | captação), 
 
 Em 24/11/2026, a pedido do Terrani, a revisão antes do envio saiu: "Pergunta respondida" consolida e já envia à conversa, o assistente registra, confirma o que entendeu e faz a próxima pergunta. A resposta enviada fica à vista no painel e a correção é feita pela conversa (gera nova versão da resposta). A revisão manual só aparece quando o envio falha.
 
+Também em 24/11/2026: a captação do Self deixou de separar consultor e cliente. A tela não pede mais "Sou eu" nem "videochamada"; junta tudo o que foi dito depois da pergunta, e o consolidador tira a resposta pelo conteúdo, venha de quem vier. Leitura da pergunta e das opções não conta como resposta; valor dito em tom de pergunta só vale se alguém confirmar. No Self, a separação de falantes do Nova-3 continua chegando do Worker, mas a tela não usa.
+
 | Risco | Controle | Teste |
 | --- | --- | --- |
 | Guardar transcrição sem necessidade | A fala captada fica só no navegador. O servidor recebe a fala de uma pergunta para consolidar e não grava; só o texto que o consultor envia entra na conversa (com a retenção dela). A escuta não grava mais blocos | revisão |
 | Resposta inventada ou fala do consultor virar resposta | O consolidador só escreve o que o cliente disse ou confirmou; a saída passa por ferramenta obrigatória e limites no código; nada entra no Self sem o clique do consultor em "Pergunta respondida"; o assistente da conversa valida o registro, pede confirmação quando o valor é ambíguo e a resposta enviada fica visível para correção | `tests/unit/self-escuta.test.ts` |
-| Dado sensível na consolidação | Máscara na entrada (fala e pergunta) e de novo na saída do modelo; marcadores do app neutralizados; papel de quem fala só de uma lista fechada | `tests/unit/self-escuta.test.ts` (mutação) |
+| Dado sensível na consolidação | Máscara na entrada (fala e pergunta) e de novo na saída do modelo; marcadores do app neutralizados; desde 24/11/2026 o consolidador não recebe quem falou (só os trechos, na ordem) | `tests/unit/self-escuta.test.ts` (mutação) |
 | Consolidar sem o áudio ligado | O servidor confere no banco o modo e o consentimento antes de chamar o modelo | revisão |
 
 A escuta ainda não entra na exportação LGPD (`meus_dados`). Fica como pendência: consentimentos e itens a confirmar da própria pessoa.
