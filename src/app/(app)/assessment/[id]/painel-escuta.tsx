@@ -5,7 +5,6 @@ import type { Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { TEXTO_CONSENTIMENTO } from "@/lib/escuta/config";
 import { textoParaEnviar } from "@/lib/escuta/consolidacao";
 import { ConexaoEscuta, suportaEscuta, type CanalAudio } from "@/lib/escuta/navegador";
-import type { Papeis } from "@/lib/escuta/papeis";
 import {
   consentirEscuta,
   consolidarRespostaEscuta,
@@ -58,8 +57,8 @@ function resumoDaPergunta(texto: string | null): string | null {
   return limpo.length > 220 ? `…${limpo.slice(-220)}` : limpo;
 }
 
+/** Um trecho de fala captado (sem dizer quem falou). */
 interface Linha {
-  quem: string;
   texto: string;
 }
 
@@ -90,8 +89,6 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
   const [canais, setCanais] = useState<CanalAudio[]>([]);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [parcial, setParcial] = useState("");
-  const [papeis, setPapeis] = useState<Papeis>({ chamada: false, vozConsultor: null });
-  const [aguardandoSouEu, setAguardandoSouEu] = useState(false);
   const [fase, setFase] = useState<Fase>("captando");
   const [rascunho, setRascunho] = useState("");
   const [observacao, setObservacao] = useState<string | null>(null);
@@ -99,16 +96,9 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
   const [suporte] = useState(suportaEscuta);
 
   const conexao = useRef<ConexaoEscuta | null>(null);
-  const papeisRef = useRef(papeis);
-  const souEuRef = useRef(false);
   const renovacao = useRef<number | null>(null);
   const parando = useRef(false);
   const fimDaLista = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    papeisRef.current = papeis;
-    souEuRef.current = aguardandoSouEu;
-  }, [papeis, aguardandoSouEu]);
 
   useEffect(() => {
     void (async () => {
@@ -139,15 +129,6 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
 
   // ------------------------------------------------------------ conexão
 
-  const quemFala = (canal: CanalAudio, falante?: number): string => {
-    const p = papeisRef.current;
-    if (canal === "aba") return "Cliente";
-    if (p.chamada) return "Consultor";
-    if (falante === undefined) return "Sala";
-    if (p.vozConsultor === null) return `Sala (voz ${falante + 1})`;
-    return falante === p.vozConsultor ? "Consultor" : `Cliente (voz ${falante + 1})`;
-  };
-
   const renovarDepois = (exp: number) => {
     if (renovacao.current) window.clearTimeout(renovacao.current);
     renovacao.current = window.setTimeout(async () => {
@@ -174,20 +155,12 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
     parando.current = false;
     const c = new ConexaoEscuta(t.endereco, t.protocolo, t.token, {
       aoAbrir: () => setConectada(true),
-      aoParcial: (canal, texto, falante) => setParcial(`${quemFala(canal, falante)}: ${texto}`),
-      aoFinal: (canal, texto, falante) => {
+      // Quem fala não importa (decisão de 24/11/2026): a captação junta tudo o
+      // que foi dito sobre a pergunta e o consolidador tira a resposta do conteúdo.
+      aoParcial: (_canal, texto) => setParcial(texto),
+      aoFinal: (_canal, texto) => {
         setParcial("");
-        if (souEuRef.current && canal === "microfone" && falante !== undefined) {
-          setPapeis((p) => ({ ...p, vozConsultor: falante }));
-          setAguardandoSouEu(false);
-        }
-        const quem = quemFala(canal, falante);
-        setLinhas((l) => {
-          // Fala seguida da mesma pessoa vira uma linha só.
-          const ultima = l.at(-1);
-          if (ultima && ultima.quem === quem) return [...l.slice(0, -1), { quem, texto: `${ultima.texto} ${texto}` }];
-          return [...l, { quem, texto }].slice(-MAX_FALAS);
-        });
+        setLinhas((l) => [...l, { texto }].slice(-MAX_FALAS));
       },
       aoErro: (codigo) => {
         if (codigo === "stt_reconectando") return;
@@ -270,7 +243,6 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
     setParcial("");
     setFase("captando");
     setRascunho("");
-    setPapeis({ chamada: false, vozConsultor: null });
     ativar(false, "fechado");
   };
 
@@ -289,8 +261,9 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
 
   /** "Pergunta respondida": a fala desta pergunta vira a resposta consolidada. */
   const consolidar = async () => {
-    const corte = parcial.indexOf(":");
-    const falas = parcial ? [...linhas, { quem: parcial.slice(0, corte), texto: parcial.slice(corte + 1).trim() }] : linhas;
+    const trechos = parcial.trim() ? [...linhas, { texto: parcial.trim() }] : linhas;
+    // Sem papel de quem fala: tudo vai como fala da sala, na ordem em que foi dito.
+    const falas = trechos.map((l) => ({ quem: "Sala", texto: l.texto }));
     if (falas.length === 0) return setAviso("Nada foi captado ainda para esta pergunta.");
     setAviso(null);
     setFase("consolidando");
@@ -436,27 +409,9 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
       </div>
 
       <div className="escuta-linha">
-        <label className="escuta-check">
-          <input type="checkbox" checked={papeis.chamada} onChange={(e) => setPapeis((p) => ({ ...p, chamada: e.target.checked }))} />
-          Reunião por videochamada (meu microfone só capta a minha voz)
-        </label>
         {suporte.aba && !canais.includes("aba") && (
           <button type="button" className="btn btn-inline btn-secondary" disabled={!conectada} onClick={() => void adicionarAba()}>
             Adicionar áudio da chamada
-          </button>
-        )}
-        {!papeis.chamada && (
-          <button
-            type="button"
-            className="btn btn-inline btn-secondary"
-            disabled={!conectada || aguardandoSouEu}
-            onClick={() => setAguardandoSouEu(true)}
-          >
-            {aguardandoSouEu
-              ? "Fale algo agora…"
-              : papeis.vozConsultor === null
-                ? "Sou eu (marcar minha voz)"
-                : `Sua voz: voz ${papeis.vozConsultor + 1} (marcar de novo)`}
           </button>
         )}
       </div>
@@ -470,9 +425,7 @@ export function PainelEscuta({ assessmentId, perguntaAtual, aoMudarAtivo, enviar
       <div className="escuta-ao-vivo" aria-live="off">
         {linhas.length === 0 && !parcial && <p className="field-hint">A fala desta pergunta aparece aqui.</p>}
         {linhas.map((l, i) => (
-          <p key={i}>
-            <span className="escuta-quem">{l.quem}:</span> {l.texto}
-          </p>
+          <p key={i}>{l.texto}</p>
         ))}
         {parcial && <p className="escuta-parcial">{parcial}</p>}
         <div ref={fimDaLista} />
