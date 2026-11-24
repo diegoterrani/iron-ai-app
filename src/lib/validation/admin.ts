@@ -142,6 +142,18 @@ export const descarteRascunhoSchema = z.object({
   confirmar: z.literal("on", { error: "Marque a confirmação para descartar." }),
 });
 
+/** Exclusão de um Self (rascunho ou concluído) pela tela do Self: exige marcar a confirmação. */
+export const exclusaoAssessmentSchema = z.object({
+  assessmentId: id,
+  confirmar: z.literal("on", { error: "Marque a confirmação para excluir." }),
+});
+
+/** Exclusão de um cadastro de empresa do Self (quem cadastrou): exige marcar a confirmação. */
+export const exclusaoCadastroEmpresaSchema = z.object({
+  empresaId: id,
+  confirmar: z.literal("on", { error: "Marque a confirmação para excluir." }),
+});
+
 export const staffSchema = z.object({
   orgId: id,
   userId: id,

@@ -2841,20 +2841,68 @@ a {
   padding: 0;
 }
 
+/* Cada resultado: link à esquerda, "Excluir" recolhido à direita. */
+.as-historico li,
+.as-cadastros li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.as-historico li:last-child,
+.as-cadastros li:last-child {
+  border-bottom: 0;
+}
+
 .as-historico a {
+  flex: 1 1 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-1);
   min-height: 40px;
   color: var(--text);
   text-decoration: none;
   font-weight: 600;
   font-size: 14px;
-  border-bottom: 1px solid var(--line);
 }
 
-.as-historico li:last-child a {
-  border-bottom: 0;
+.as-cadastros li > span {
+  flex: 1 1 auto;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.as-excluir[open] {
+  padding-bottom: var(--space-1);
+}
+
+.as-dica {
+  margin: 0;
+  font-size: 13px;
+  color: var(--subtle);
+}
+
+.as-cadastros {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-2);
+}
+
+.as-cadastros h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.as-cadastros ul {
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0;
 }
 
 .as-historico a:hover {

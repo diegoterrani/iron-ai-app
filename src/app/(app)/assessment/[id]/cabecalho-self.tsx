@@ -18,7 +18,8 @@ export function CabecalhoSelf({ assessmentId, titulo, detalhe, modo }: Props) {
     <header className="as-trabalho-topo">
       <div className="as-trabalho-titulo">
         <Link href="/assessment" className="as-voltar">
-          <span aria-hidden="true">←</span> Self assessment
+          {/* Respondendo: tudo é salvo a cada resposta, então sair é "parar". */}
+          <span aria-hidden="true">←</span> {modo ? "Parar e voltar (fica salvo)" : "Self assessment"}
         </Link>
         <h1>{titulo}</h1>
         {detalhe && <p className="as-meta">{detalhe}</p>}

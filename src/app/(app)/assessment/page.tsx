@@ -6,7 +6,7 @@ import type { EmpresaSelf } from "@/lib/assessment/questionario";
 import { ROTULO_PAPEL } from "@/lib/validation/admin";
 import { createClient } from "@/lib/supabase/server";
 import { CONTATO_URL, DURACAO_SELF } from "@/lib/ui/textos";
-import { descartarRascunho, iniciarSelf } from "./actions";
+import { descartarRascunho, excluirAssessment, excluirCadastroEmpresa, iniciarSelf } from "./actions";
 import { passosDoRascunho } from "./progresso";
 
 export const metadata: Metadata = { title: "Self assessment" };
@@ -30,12 +30,15 @@ const EDITA = new Set(["adm_cliente", "rw_cliente"]);
 /** Papéis globais da IRON que podem responder pela empresa que atendem (com MFA). */
 const STAFF = new Set(["super_admin", "equipe_iron"]);
 
-/** Descartar fica recolhido: não disputa atenção com "Continuar" e pede confirmação. */
-function Descartar({ id, texto }: { id: string; texto: string }) {
+/**
+ * Cancelar (descartar o rascunho) fica recolhido: não disputa atenção com
+ * "Continuar" e pede confirmação. Quem decide se pode é o banco.
+ */
+function Cancelar({ id, texto }: { id: string; texto: string }) {
   return (
     <details className="mais-opcoes">
-      <summary>Mais opções</summary>
-      <AcaoForm action={descartarRascunho} campos={{ assessmentId: id }} rotulo="Descartar rascunho" rotuloEnviando="Descartando…" variante="perigo">
+      <summary>Cancelar assessment</summary>
+      <AcaoForm action={descartarRascunho} campos={{ assessmentId: id }} rotulo="Cancelar e apagar o rascunho" rotuloEnviando="Cancelando…" variante="perigo">
         <label className="check">
           <input type="checkbox" name="confirmar" required />
           <span>{texto}</span>
@@ -66,8 +69,28 @@ function EstadoRascunho({ l }: { l: Linha }) {
   );
 }
 
-/** Concluídos: só o link para o resultado, do mais recente para o mais antigo. */
-function Historico({ linhas }: { linhas: Linha[] }) {
+/** Parar não é uma ação: tudo é salvo a cada resposta, basta sair e voltar. */
+function DicaParar() {
+  return <p className="as-dica">Para parar, é só sair: as respostas ficam salvas e você continua daqui quando quiser.</p>;
+}
+
+/** Excluir um resultado: recolhido, com confirmação; o banco decide e audita. */
+function ExcluirResultado({ id }: { id: string }) {
+  return (
+    <details className="mais-opcoes as-excluir">
+      <summary>Excluir</summary>
+      <AcaoForm action={excluirAssessment} campos={{ assessmentId: id }} rotulo="Excluir este assessment" rotuloEnviando="Excluindo…" variante="perigo">
+        <label className="check">
+          <input type="checkbox" name="confirmar" required />
+          <span>Apagar o resultado, o relatório e a conversa deste assessment (não dá para desfazer)</span>
+        </label>
+      </AcaoForm>
+    </details>
+  );
+}
+
+/** Concluídos: link para o resultado (do mais recente para o mais antigo) e, para quem pode, excluir. */
+function Historico({ linhas, podeExcluir }: { linhas: Linha[]; podeExcluir: boolean }) {
   const concluidos = linhas.filter((l) => l.status === "concluido");
   if (concluidos.length === 0) return null;
   return (
@@ -77,9 +100,13 @@ function Historico({ linhas }: { linhas: Linha[] }) {
         {concluidos.map((l) => (
           <li key={l.id}>
             <Link href={`/assessment/${l.id}/resultado`}>
-              <span>Food service · {data.format(new Date(l.concluido_em ?? l.criado_em))}</span>
+              <span>
+                Food service · {data.format(new Date(l.concluido_em ?? l.criado_em))}
+                {l.empresa?.nome ? ` · ${l.empresa.nome}` : ""}
+              </span>
               <span aria-hidden="true">→</span>
             </Link>
+            {podeExcluir && <ExcluirResultado id={l.id} />}
           </li>
         ))}
       </ul>
@@ -150,10 +177,11 @@ async function CartaoEmpresa({ orgId, nome, papel, atende }: { orgId: string; no
             </Link>
           )
         )}
-        {rascunho && adm && <Descartar id={rascunho.id} texto="Apagar as respostas da empresa neste rascunho (não dá para desfazer)" />}
+        {rascunho && adm && <Cancelar id={rascunho.id} texto="Apagar as respostas da empresa neste rascunho (não dá para desfazer)" />}
       </div>
+      {rascunho && edita && <DicaParar />}
 
-      <Historico linhas={linhas} />
+      <Historico linhas={linhas} podeExcluir={adm} />
     </article>
   );
 }
@@ -168,13 +196,16 @@ export default async function AssessmentPage() {
   const idsEmpresas = [...new Set([...vinculos.map((v) => v.orgId), ...atendidas])];
 
   const supabase = await createClient();
-  const [direitoRes, lista, empresasRes] = await Promise.all([
+  const [direitoRes, lista, empresasRes, cadastrosRes] = await Promise.all([
     supabase.rpc("tem_direito", { p_produto: "self_assessment" }),
     supabase.from("assessments").select(CAMPOS).eq("user_id", perfil.id).is("org_id", null).order("criado_em", { ascending: false }).limit(20),
     idsEmpresas.length > 0
       ? supabase.from("organizations").select("id, nome").in("id", idsEmpresas).order("nome")
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    // Empresas que a própria pessoa cadastrou no Self (a equipe IRON vê as de todos pela RLS; aqui só as suas).
+    supabase.from("empresas_cadastro").select("id, nome").eq("criado_por", perfil.id).order("nome").limit(50),
   ]);
+  const cadastros = (cadastrosRes.data ?? []) as { id: string; nome: string }[];
   const temDireito = direitoRes.data === true;
   const linhas = (lista.data ?? []) as Linha[];
   const rascunho = linhas.find((l) => l.status === "rascunho");
@@ -240,12 +271,42 @@ export default async function AssessmentPage() {
                   </p>
                 )
               )}
-              {rascunho && <Descartar id={rascunho.id} texto="Apagar as respostas deste rascunho (não dá para desfazer)" />}
+              {rascunho && <Cancelar id={rascunho.id} texto="Apagar as respostas deste rascunho (não dá para desfazer)" />}
             </div>
-            <Historico linhas={linhas} />
+            {rascunho && temDireito && <DicaParar />}
+            <Historico linhas={linhas} podeExcluir />
           </article>
         )}
       </div>
+
+      {cadastros.length > 0 && (
+        <section className="as-cadastros" aria-labelledby="as-cadastros">
+          <h2 id="as-cadastros">Empresas que você cadastrou</h2>
+          <p className="as-meta">Usadas para preencher o Self. Excluir o cadastro não apaga os resultados já feitos com ele; um rascunho que o usava pede a empresa de novo.</p>
+          <ul>
+            {cadastros.map((c) => (
+              <li key={c.id}>
+                <span>{c.nome}</span>
+                <details className="mais-opcoes as-excluir">
+                  <summary>Excluir</summary>
+                  <AcaoForm
+                    action={excluirCadastroEmpresa}
+                    campos={{ empresaId: c.id }}
+                    rotulo="Excluir este cadastro"
+                    rotuloEnviando="Excluindo…"
+                    variante="perigo"
+                  >
+                    <label className="check">
+                      <input type="checkbox" name="confirmar" required />
+                      <span>Apagar o cadastro de {c.nome} (não dá para desfazer)</span>
+                    </label>
+                  </AcaoForm>
+                </details>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <p className="as-nota">
         Não informe dados pessoais de clientes ou funcionários. O assessment pessoal fica visível só para você; o da empresa, para as pessoas que

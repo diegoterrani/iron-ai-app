@@ -26,6 +26,7 @@ const ETAPA_ASSESSMENT: Record<string, string> = {
   assessment_concluido: "Self assessment concluído",
   assessment_descartado: "Rascunho do Self assessment descartado",
   assessment_editado: "Self assessment da empresa editado",
+  assessment_excluido: "Self assessment excluído (com resultado e conversas)",
 };
 
 function papel(valor: unknown): string {
@@ -84,6 +85,11 @@ export function resumoAuditoria(linha: Pick<LinhaAuditoria, "acao" | "tabela" | 
         return motivo ? `Self assessment transferido para a empresa: ${motivo}` : "Self assessment transferido para a empresa";
       }
       return ETAPA_ASSESSMENT[linha.acao] ?? "Self assessment atualizado";
+    case "empresas_cadastro":
+      if (linha.acao === "cadastro_empresa_excluido") {
+        return `Cadastro de empresa do Self excluído: ${texto((linha.dados as Record<string, unknown> | null)?.nome)}`;
+      }
+      return `Cadastro de empresa ${ACAO[linha.acao] ?? linha.acao}`;
     default:
       return `${ACAO[linha.acao] ?? linha.acao} em ${linha.tabela}`;
   }
