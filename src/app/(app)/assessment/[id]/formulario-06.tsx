@@ -4,6 +4,7 @@ import { useActionState, useCallback, useEffect, useRef, useState } from "react"
 import type { AcaoState } from "@/lib/acao/tipos";
 import { UFS } from "@/lib/assessment/questionario";
 import { pendencias06, progresso06, somaDivisao, type Empresa06, type Questionario06, type Rascunho06 } from "@/lib/assessment/v06/questionario";
+import { NAO_SEI, ROTULO_NAO_SEI, rotuloOpcao } from "@/lib/assessment/v06/tipos";
 import { formatarCnpj } from "@/lib/validation/cnpj";
 import { concluirSelf, salvarRascunho } from "../actions";
 import { IndicadorProgresso06 } from "./progresso-06";
@@ -259,6 +260,15 @@ export function Formulario06({ assessmentId, questionario: q, inicial, inicialEm
                     <span>{l.nome}</span>
                   </label>
                 ))}
+                <label className="opcao">
+                  <input
+                    type="checkbox"
+                    checked={marcadas.has(NAO_SEI)}
+                    // Sem a informação, nada fica de fora da conta (igual a "Nada específico").
+                    onChange={(e) => set("linhas_vermelhas", e.target.checked ? [NAO_SEI] : [])}
+                  />
+                  <span>{ROTULO_NAO_SEI}</span>
+                </label>
               </div>
             </fieldset>
             <Campo id="lv-outro" rotulo="Outro (opcional)" valor={r.linhas_vermelhas_outro} aoMudar={(v) => set("linhas_vermelhas_outro", v)} max={200} />
@@ -267,7 +277,7 @@ export function Formulario06({ assessmentId, questionario: q, inicial, inicialEm
         {atual.id === "retrato" && (
     <section className="as-etapa-corpo" aria-labelledby="f-retrato">
             <h2 id="f-retrato" ref={titulo} tabIndex={-1}>Retrato econômico</h2>
-            <p className="field-hint">Ordem de grandeza basta. &quot;Não sei&quot; vale: vira um ponto medido no Deep.</p>
+            <p className="field-hint">Ordem de grandeza basta. &quot;{ROTULO_NAO_SEI}&quot; vale: vira um ponto medido no Deep.</p>
             <div className="pergunta">
               {usarFaixa ? (
                 <Escolha nome="receita_faixa" legenda="Faturamento anual (faixa, R$)" opcoes={q.opcoes.receita} valor={r.receita_faixa} aoMudar={(v) => atualizar((a) => ({ ...a, receita_faixa: v, receita_valor: undefined }))} />
@@ -463,7 +473,7 @@ interface EscolhaProps {
   rotulo?: (o: string) => string;
 }
 
-function Escolha({ nome, legenda, opcoes, valor, aoMudar, rotulo = (o) => o }: EscolhaProps) {
+function Escolha({ nome, legenda, opcoes, valor, aoMudar, rotulo = rotuloOpcao }: EscolhaProps) {
   return (
     <fieldset className="pergunta">
       <legend className="pergunta-titulo">{legenda}</legend>

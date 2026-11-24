@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { chamarAnthropic, detalheErroApi } from "@/lib/assessment/agente/conversa";
+import { chamarAnthropic, chamarAnthropicComPrazo, detalheErroApi, ErroPrazoLLM } from "@/lib/assessment/agente/conversa";
 import {
   ErroEscutaSelf,
   aplicarConfirmado,
@@ -398,6 +398,9 @@ export async function guardarFalaReuniao(id: string, blocos: unknown): Promise<R
   }
 }
 
+/** Prazo total da compilação: cabe no maxDuration de 300 s da página, com folga para gravar. */
+const PRAZO_COMPILACAO_MS = 270_000;
+
 /**
  * Fim da reunião: uma leitura da reunião inteira preenche o Self pelo
  * contexto. Pode ser repetida; cada vez lê tudo desde o início.
@@ -415,8 +418,9 @@ export async function compilarReuniao(
     const r = await compilarReuniaoSelf({
       assessmentId: id,
       pessoa: ctx.pessoa,
-      // A leitura da reunião inteira pensa mais: mais tempo e uma só repetição.
-      chamar: chamarAnthropic(llmEnv().ANTHROPIC_API_KEY, { timeoutMs: 240_000, tentativas: 1 }),
+      // A leitura da reunião inteira faz várias chamadas em sequência: um prazo
+      // total que cabe no maxDuration da página (300 s), sem retentativa.
+      chamar: chamarAnthropicComPrazo(llmEnv().ANTHROPIC_API_KEY, PRAZO_COMPILACAO_MS),
       rascunho: acessoRascunho(ctx.supabase, id),
       blocos: { ler: () => lerBlocosDaReuniao(ctx.supabase, id, ctx.pessoa.userId) },
     });
@@ -448,6 +452,10 @@ export async function compilarReuniao(
       if (err.codigo === "modo") return { ok: false, erro: "O áudio da reunião está desligado ou o consentimento venceu. Ligue o áudio de novo." };
       if (err.etapa === "conflito") return { ok: false, erro: "Alguém salvou o assessment durante a leitura. Compile de novo." };
       return { ok: false, erro: `Não foi possível ler a reunião. A fala continua guardada; tente de novo. (código ${trace})` };
+    }
+    if (err instanceof ErroPrazoLLM) {
+      log("warn", "self.reuniao.prazo", { trace, ator: ctx.pessoa.userId, ms: Date.now() - inicio });
+      return { ok: false, erro: `A leitura passou do tempo máximo. A fala continua guardada; tente compilar de novo. (código ${trace})` };
     }
     log("error", "self.reuniao.llm_erro", { trace, ator: ctx.pessoa.userId, ...detalheErroApi(err) });
     return { ok: false, erro: `O assistente não respondeu agora. A fala continua guardada; tente de novo. (código ${trace})` };

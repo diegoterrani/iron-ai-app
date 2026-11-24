@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Questionario06, Rascunho06 } from "@/lib/assessment/v06/questionario";
 import { contagemDaReuniao, perguntasDaReuniao, type PerguntaReuniao } from "@/lib/assessment/v06/reuniao";
 import { TEXTO_CONSENTIMENTO } from "@/lib/escuta/config";
+import { gerarRelatorioComOQueTem } from "../actions";
 import { ConexaoEscuta, suportaEscuta, type CanalAudio } from "@/lib/escuta/navegador";
 import {
   compilarReuniao,
@@ -75,6 +76,7 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
   const [aEnviar, setAEnviar] = useState(0);
   const [trabalhando, setTrabalhando] = useState(false);
   const [compilando, setCompilando] = useState(false);
+  const [gerando, setGerando] = useState(false);
   const [resultado, setResultado] = useState<{ gravados: number; propostas: number; cortado: boolean } | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -132,6 +134,8 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
 
   const aoFinal = useCallback(
     (canal: CanalAudio, texto: string) => {
+      // Depois de pausar ou encerrar, fala que ainda chegue do socket não entra.
+      if (parando.current) return;
       const c = CANAL[canal];
       setParcial("");
       setLinhas((l) => [...l, texto].slice(-MAX_LINHAS_TELA));
@@ -334,6 +338,9 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
     setAviso(null);
     desconectar();
     fecharTrecho();
+    // Sai de "ativo" antes do envio final: o envio periódico para e nada entra
+    // na fila depois desta foto da reunião.
+    setEtapa("fechado");
     setCompilando(true);
     const guardou = await enviarFila();
     if (!guardou) {
@@ -348,6 +355,17 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
     setEstado(r.estado);
     if (r.respostas) setRespostas(r.respostas);
     setResultado({ gravados: r.gravados, propostas: r.propostas, cortado: r.cortado });
+  };
+
+  /** Pula a revisão: o que ficou em aberto e tem "não sei" entra como hipótese. Sucesso leva ao resultado. */
+  const gerarRelatorio = async () => {
+    setErro(null);
+    setGerando(true);
+    const r = await gerarRelatorioComOQueTem(assessmentId).catch(() => null);
+    // Com sucesso o servidor redireciona e esta tela some; só chega aqui com aviso.
+    setGerando(false);
+    if (!r) return setErro("Sem conexão com o servidor. Tente de novo.");
+    if (r.message) setErro(r.message);
   };
 
   const resolver = async (item: string, decisao: "confirmar" | "descartar") => {
@@ -541,9 +559,22 @@ export function ReuniaoSelf({ assessmentId, questionario: q, inicial }: Props) {
 
         {(resultado || contagem.respondidas > 0) && etapa !== "ativo" && !compilando && (
           <div className="escuta-linha">
-            <Link className="btn btn-inline" href={`/assessment/${assessmentId}?modo=formulario`} aria-disabled={pendentesConfirmar.length > 0}>
-              Revisar e gerar o relatório
-            </Link>
+            {pendentesConfirmar.length > 0 ? (
+              <p className="field-hint">Confirme ou descarte os itens acima para gerar o relatório.</p>
+            ) : (
+              <>
+                <button type="button" className="btn btn-inline" disabled={gerando || trabalhando} onClick={() => void gerarRelatorio()}>
+                  {gerando ? "Gerando o relatório…" : "Gerar relatório com o que temos"}
+                </button>
+                <Link className="btn btn-inline btn-secondary" href={`/assessment/${assessmentId}?modo=formulario`}>
+                  Revisar antes
+                </Link>
+                <p className="field-hint">
+                  O que ficou em aberto entra como &quot;Não possui essa informação&quot; e aparece no relatório como hipótese.
+                  Faturamento, pessoas, divisão da receita, o problema de 6 semanas e o cadastro precisam estar preenchidos.
+                </p>
+              </>
+            )}
           </div>
         )}
 

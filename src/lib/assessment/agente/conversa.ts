@@ -206,6 +206,32 @@ export function chamarAnthropic(apiKey: string, opcoes: { timeoutMs?: number; te
   return (params) => cliente.beta.messages.create(params);
 }
 
+/**
+ * Cliente com prazo total para um turno inteiro (várias chamadas em sequência):
+ * cada chamada recebe só o tempo que sobra até o prazo, sem retentativa do SDK.
+ * Serve para caber no maxDuration da função em vez de ela morrer no meio.
+ */
+export function chamarAnthropicComPrazo(apiKey: string, prazoMs: number, agora: () => number = Date.now): ChamarLLM {
+  const cliente = new Anthropic({ apiKey, maxRetries: 0 });
+  const limite = agora() + prazoMs;
+  return (params) => {
+    const restante = limite - agora();
+    if (restante < 5_000) return Promise.reject(new ErroPrazoLLM());
+    // Chamada que estoura o que sobrava do prazo também é prazo, não falha da API.
+    return cliente.beta.messages.create(params, { timeout: restante }).catch((err: unknown) => {
+      throw limite - agora() < 5_000 ? new ErroPrazoLLM() : err;
+    });
+  };
+}
+
+/** O turno não coube no prazo total. */
+export class ErroPrazoLLM extends Error {
+  constructor() {
+    super("prazo do turno esgotado");
+    this.name = "ErroPrazoLLM";
+  }
+}
+
 /** Marca da mensagem ditada (escuta do Self, pergunta a pergunta): não aparece na tela. */
 export const PREFIXO_VOZ = "[Fala transcrita]";
 
