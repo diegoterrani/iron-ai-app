@@ -217,7 +217,10 @@ export function chamarAnthropicComPrazo(apiKey: string, prazoMs: number, agora: 
   return (params) => {
     const restante = limite - agora();
     if (restante < 5_000) return Promise.reject(new ErroPrazoLLM());
-    return cliente.beta.messages.create(params, { timeout: restante });
+    // Chamada que estoura o que sobrava do prazo também é prazo, não falha da API.
+    return cliente.beta.messages.create(params, { timeout: restante }).catch((err: unknown) => {
+      throw limite - agora() < 5_000 ? new ErroPrazoLLM() : err;
+    });
   };
 }
 
